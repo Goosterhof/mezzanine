@@ -1,0 +1,6 @@
+/* The Workbench's auxiliary stylesheet.
+ *
+ * 99% of the styling lives in UnoCSS shortcuts (uno.config.ts). This file
+ * holds the fragments that don't fit the utility model — primarily the pty
+ * output rendering refinements and any future scoped helpers that span
+ * multiple components without earning a shortcut. */

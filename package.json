@@ -1,0 +1,50 @@
+{
+  "name": "workbench",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The Workbench — the Mad Scientist's daily-driver Tauri v2 cockpit. Six pty-wrapped claude sessions, Mission Control, and a Drydock for PR review — all on one bench.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "typecheck": "vue-tsc --noEmit",
+    "lint": "eslint src --ext .ts,.vue",
+    "format:check": "prettier --check \"src/**/*.{ts,vue,css}\"",
+    "format": "prettier --write \"src/**/*.{ts,vue,css}\"",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "vue": "^3.5.13",
+    "pinia": "^2.3.0",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-shell": "^2",
+    "@tauri-apps/plugin-store": "^2",
+    "@tauri-apps/plugin-http": "^2",
+    "@tauri-apps/plugin-log": "^2",
+    "@tauri-apps/plugin-dialog": "^2",
+    "@tauri-apps/plugin-fs": "^2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/test-utils": "^2.4.6",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.3",
+    "vitest": "^2.1.8",
+    "vue-tsc": "^2.1.10",
+    "@tauri-apps/cli": "^2",
+    "unocss": "^0.65.0",
+    "@unocss/preset-uno": "^0.65.0",
+    "@unocss/preset-attributify": "^0.65.0",
+    "@unocss/preset-icons": "^0.65.0",
+    "eslint": "^9.16.0",
+    "eslint-plugin-vue": "^9.32.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "vue-eslint-parser": "^9.4.3",
+    "prettier": "^3.4.2",
+    "jsdom": "^25.0.1"
+  }
+}
