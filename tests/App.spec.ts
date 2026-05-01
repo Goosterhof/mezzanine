@@ -27,7 +27,7 @@ describe('App', () => {
     it('clicking an experiment in the rail focuses it on the canvas', async () => {
         const wrapper = mount(App);
         const railButtons = wrapper.findAll('aside button');
-        await railButtons[2].trigger('click');
+        await railButtons[2]!.trigger('click');
         expect(wrapper.text()).toContain('The Crucible');
         expect(wrapper.text()).toContain('Vise tightening… booting The Crucible.');
     });
