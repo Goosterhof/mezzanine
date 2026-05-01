@@ -198,7 +198,7 @@ npm run tauri dev    # Tauri development mode (Windows / WSL2 dev)
 npm run build        # vue-tsc + Vite production build
 npm run typecheck    # vue-tsc --noEmit
 npm run lint         # ESLint flat config
-npm run format:check # Prettier dry-run
+npm run format:check # oxfmt dry-run (war-room canonical config — `.oxfmtrc.json`)
 npm run test         # Vitest
 npm run test:coverage # Vitest with v8 coverage (90% thresholds)
 

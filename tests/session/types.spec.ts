@@ -1,34 +1,35 @@
-import { describe, it, expect } from "vitest";
-import { EXPERIMENTS } from "../../src/session/types";
+import {describe, it, expect} from 'vitest';
 
-describe("EXPERIMENTS table", () => {
-  it("lists the six experiments in left-rail order", () => {
-    expect(EXPERIMENTS.map((e) => e.id)).toEqual([
-      "gatekeeper",
-      "war-table",
-      "crucible",
-      "parlour",
-      "smokestacks",
-      "horadrim",
-    ]);
-  });
+import {EXPERIMENTS} from '../../src/session/types';
 
-  it("gives every experiment a label, codename, and WSL path", () => {
-    for (const exp of EXPERIMENTS) {
-      expect(exp.label).toMatch(/^The /);
-      expect(exp.codename).toBeTruthy();
-      expect(exp.wslRelativePath).toMatch(/^experiments\/zmuuzn-/);
-    }
-  });
+describe('EXPERIMENTS table', () => {
+    it('lists the six experiments in left-rail order', () => {
+        expect(EXPERIMENTS.map((e) => e.id)).toEqual([
+            'gatekeeper',
+            'war-table',
+            'crucible',
+            'parlour',
+            'smokestacks',
+            'horadrim',
+        ]);
+    });
 
-  it("uses the experiment id as its codename", () => {
-    for (const exp of EXPERIMENTS) {
-      expect(exp.codename).toBe(exp.id);
-    }
-  });
+    it('gives every experiment a label, codename, and WSL path', () => {
+        for (const exp of EXPERIMENTS) {
+            expect(exp.label).toMatch(/^The /);
+            expect(exp.codename).toBeTruthy();
+            expect(exp.wslRelativePath).toMatch(/^experiments\/zmuuzn-/);
+        }
+    });
 
-  it("has unique experiment ids", () => {
-    const ids = EXPERIMENTS.map((e) => e.id);
-    expect(new Set(ids).size).toBe(ids.length);
-  });
+    it('uses the experiment id as its codename', () => {
+        for (const exp of EXPERIMENTS) {
+            expect(exp.codename).toBe(exp.id);
+        }
+    });
+
+    it('has unique experiment ids', () => {
+        const ids = EXPERIMENTS.map((e) => e.id);
+        expect(new Set(ids).size).toBe(ids.length);
+    });
 });
