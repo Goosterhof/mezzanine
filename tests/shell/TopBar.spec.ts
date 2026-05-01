@@ -19,18 +19,18 @@ describe('TopBar', () => {
         const wrapper = mount(TopBar);
         const buttons = wrapper.findAll('button');
         expect(buttons).toHaveLength(3);
-        expect(buttons.map((b) => b.text())).toEqual(['MC', 'DD', 'DS']);
+        expect(buttons.map((b) => b.text())).toStrictEqual(['MC', 'DD', 'DS']);
     });
 
     it('clicking a button opens the corresponding panel', async () => {
         const wrapper = mount(TopBar);
-        await wrapper.findAll('button')[0].trigger('click');
+        await wrapper.findAll('button')[0]!.trigger('click');
         expect(useShell().openPanel.value).toBe('mission-control');
     });
 
     it("clicking the open panel's button closes it", async () => {
         const wrapper = mount(TopBar);
-        const drydockButton = wrapper.findAll('button')[1];
+        const drydockButton = wrapper.findAll('button')[1]!;
         await drydockButton.trigger('click');
         await drydockButton.trigger('click');
         expect(useShell().openPanel.value).toBeNull();
@@ -38,7 +38,7 @@ describe('TopBar', () => {
 
     it("highlights the open panel's button with the brass border", async () => {
         const wrapper = mount(TopBar);
-        const dossierButton = wrapper.findAll('button')[2];
+        const dossierButton = wrapper.findAll('button')[2]!;
         expect(dossierButton.classes()).not.toContain('border-wb-brass');
         await dossierButton.trigger('click');
         expect(dossierButton.classes()).toContain('border-wb-brass');
@@ -47,17 +47,17 @@ describe('TopBar', () => {
     it('only one button is highlighted at a time', async () => {
         const wrapper = mount(TopBar);
         const buttons = wrapper.findAll('button');
-        await buttons[0].trigger('click');
-        await buttons[2].trigger('click');
-        expect(buttons[0].classes()).not.toContain('border-wb-brass');
-        expect(buttons[2].classes()).toContain('border-wb-brass');
+        await buttons[0]!.trigger('click');
+        await buttons[2]!.trigger('click');
+        expect(buttons[0]!.classes()).not.toContain('border-wb-brass');
+        expect(buttons[2]!.classes()).toContain('border-wb-brass');
     });
 
     it('buttons expose a title attribute matching the panel label', () => {
         const wrapper = mount(TopBar);
         const buttons = wrapper.findAll('button');
-        expect(buttons[0].attributes('title')).toBe('Mission Control');
-        expect(buttons[1].attributes('title')).toBe('Drydock');
-        expect(buttons[2].attributes('title')).toBe('Dossier');
+        expect(buttons[0]!.attributes('title')).toBe('Mission Control');
+        expect(buttons[1]!.attributes('title')).toBe('Drydock');
+        expect(buttons[2]!.attributes('title')).toBe('Dossier');
     });
 });

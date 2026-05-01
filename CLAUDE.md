@@ -131,7 +131,7 @@ workbench/
 │   └── command/ ............... CommandBar spec
 ├── uno.config.ts ............. Bench palette: wb-surface, wb-rail, wb-canvas, wb-pulse-*
 ├── vite.config.ts ............ Vue + UnoCSS plugins, port 1430
-├── eslint.config.js .......... Flat config — Vue + TS recommended
+├── .oxlintrc.json ............ War-room canonical oxlint config (correctness:error, type-aware)
 ├── vitest.config.ts .......... jsdom + v8 coverage with 90% thresholds
 └── tsconfig.json ............. Strict, no path aliases — slices import relatively
 ```
@@ -197,7 +197,7 @@ npm run dev          # Vite dev server on http://localhost:1430
 npm run tauri dev    # Tauri development mode (Windows / WSL2 dev)
 npm run build        # vue-tsc + Vite production build
 npm run typecheck    # vue-tsc --noEmit
-npm run lint         # ESLint flat config
+npm run lint         # oxlint (war-room canonical config — `.oxlintrc.json`, type-aware)
 npm run format:check # oxfmt dry-run (war-room canonical config — `.oxfmtrc.json`)
 npm run test         # Vitest
 npm run test:coverage # Vitest with v8 coverage (90% thresholds)

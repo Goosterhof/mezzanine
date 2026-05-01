@@ -15,7 +15,7 @@ describe('SessionCanvas', () => {
         expect(wrapper.text()).toContain('Tools racked. Click an experiment to start a session.');
     });
 
-    it('renders the active experiment header when one is focused', async () => {
+    it('renders the active experiment header when one is focused', () => {
         const sessions = useSessions();
         sessions.focus('crucible');
         const wrapper = mount(SessionCanvas);

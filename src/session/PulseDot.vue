@@ -3,10 +3,10 @@ import {computed} from 'vue';
 
 import type {SessionState} from './types';
 
-const props = defineProps<{state: SessionState}>();
+const {state} = defineProps<{state: SessionState}>();
 
 const dotStyle = computed<string>(() => {
-    switch (props.state) {
+    switch (state) {
         case 'idle':
             return 'bg-wb-pulse-idle';
         case 'awaiting':

@@ -18,9 +18,9 @@ describe('useSessions', () => {
     it('starts with empty buffers, empty recency, and no active experiment', () => {
         const {buffers, recency, activeExperiment} = useSessions();
         for (const exp of EXPERIMENTS) {
-            expect(buffers.value[exp.id]).toEqual([]);
+            expect(buffers.value[exp.id]).toStrictEqual([]);
         }
-        expect(recency.value).toEqual([]);
+        expect(recency.value).toStrictEqual([]);
         expect(activeExperiment.value).toBeNull();
     });
 
@@ -35,8 +35,8 @@ describe('useSessions', () => {
         const {buffers, appendOutput} = useSessions();
         appendOutput('crucible', 'first');
         appendOutput('crucible', 'second');
-        expect(buffers.value.crucible).toEqual(['first', 'second']);
-        expect(buffers.value.gatekeeper).toEqual([]);
+        expect(buffers.value.crucible).toStrictEqual(['first', 'second']);
+        expect(buffers.value.gatekeeper).toStrictEqual([]);
     });
 
     it('appendOutput trims the buffer to the last 200 lines', () => {
@@ -53,7 +53,7 @@ describe('useSessions', () => {
         const {recency, touch} = useSessions();
         touch('crucible');
         touch('gatekeeper');
-        expect(recency.value).toEqual(['crucible', 'gatekeeper']);
+        expect(recency.value).toStrictEqual(['crucible', 'gatekeeper']);
     });
 
     it('touch moves an already-touched experiment to the end', () => {
@@ -61,7 +61,7 @@ describe('useSessions', () => {
         touch('crucible');
         touch('gatekeeper');
         touch('crucible');
-        expect(recency.value).toEqual(['gatekeeper', 'crucible']);
+        expect(recency.value).toStrictEqual(['gatekeeper', 'crucible']);
     });
 
     it('focus sets the active experiment', () => {
@@ -82,8 +82,8 @@ describe('useSessions', () => {
         sessions.reset();
 
         expect(sessions.states.value.crucible).toBe('idle');
-        expect(sessions.buffers.value.crucible).toEqual([]);
-        expect(sessions.recency.value).toEqual([]);
+        expect(sessions.buffers.value.crucible).toStrictEqual([]);
+        expect(sessions.recency.value).toStrictEqual([]);
         expect(sessions.activeExperiment.value).toBeNull();
     });
 

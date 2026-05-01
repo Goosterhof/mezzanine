@@ -4,7 +4,7 @@ import {EXPERIMENTS} from '../../src/session/types';
 
 describe('EXPERIMENTS table', () => {
     it('lists the six experiments in left-rail order', () => {
-        expect(EXPERIMENTS.map((e) => e.id)).toEqual([
+        expect(EXPERIMENTS.map((e) => e.id)).toStrictEqual([
             'gatekeeper',
             'war-table',
             'crucible',

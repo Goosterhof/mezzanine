@@ -29,13 +29,13 @@ describe('ExperimentRail', () => {
 
     it('clicking an experiment button focuses that experiment', async () => {
         const wrapper = mount(ExperimentRail);
-        await wrapper.findAll('button')[2].trigger('click');
+        await wrapper.findAll('button')[2]!.trigger('click');
         expect(useSessions().activeExperiment.value).toBe('crucible');
     });
 
     it('highlights the active experiment with wb-tab-active', async () => {
         const wrapper = mount(ExperimentRail);
-        const crucibleButton = wrapper.findAll('button')[2];
+        const crucibleButton = wrapper.findAll('button')[2]!;
         expect(crucibleButton.classes()).not.toContain('wb-tab-active');
         await crucibleButton.trigger('click');
         expect(crucibleButton.classes()).toContain('wb-tab-active');
@@ -44,13 +44,13 @@ describe('ExperimentRail', () => {
     it('only one experiment is active at a time', async () => {
         const wrapper = mount(ExperimentRail);
         const buttons = wrapper.findAll('button');
-        await buttons[0].trigger('click');
-        await buttons[3].trigger('click');
-        expect(buttons[0].classes()).not.toContain('wb-tab-active');
-        expect(buttons[3].classes()).toContain('wb-tab-active');
+        await buttons[0]!.trigger('click');
+        await buttons[3]!.trigger('click');
+        expect(buttons[0]!.classes()).not.toContain('wb-tab-active');
+        expect(buttons[3]!.classes()).toContain('wb-tab-active');
     });
 
-    it('the vise counter reflects recency length', async () => {
+    it('the vise counter reflects recency length', () => {
         const sessions = useSessions();
         sessions.touch('crucible');
         sessions.touch('parlour');
