@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { useUiStore } from "@/stores/ui";
+import { useShell, type PanelId } from "./useShell";
 
-const ui = useUiStore();
+const shell = useShell();
 
-const buttons = [
-  { id: "mission-control" as const, label: "Mission Control", glyph: "MC" },
-  { id: "drydock" as const, label: "Drydock", glyph: "DD" },
-  { id: "dossier" as const, label: "Dossier", glyph: "DS" },
+const buttons: Array<{ id: PanelId; label: string; glyph: string }> = [
+  { id: "mission-control", label: "Mission Control", glyph: "MC" },
+  { id: "drydock", label: "Drydock", glyph: "DD" },
+  { id: "dossier", label: "Dossier", glyph: "DS" },
 ];
 </script>
 
@@ -24,9 +24,9 @@ const buttons = [
         :key="btn.id"
         type="button"
         class="wb-button"
-        :class="{ 'border-wb-brass text-wb-brass': ui.openPanel === btn.id }"
+        :class="{ 'border-wb-brass text-wb-brass': shell.openPanel.value === btn.id }"
         :title="btn.label"
-        @click="ui.togglePanel(btn.id)"
+        @click="shell.togglePanel(btn.id)"
       >
         {{ btn.glyph }}
       </button>
