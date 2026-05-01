@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { useSessionsStore } from "@/stores/sessions";
-import { useUiStore } from "@/stores/ui";
-import { EXPERIMENTS } from "@/types/workbench";
+import { useSessions } from "./useSessions";
+import { EXPERIMENTS } from "./types";
 
-const sessions = useSessionsStore();
-const ui = useUiStore();
+const sessions = useSessions();
 
 const activeMeta = computed(() =>
-  ui.activeExperiment ? (EXPERIMENTS.find((e) => e.id === ui.activeExperiment) ?? null) : null,
+  sessions.activeExperiment.value
+    ? (EXPERIMENTS.find((e) => e.id === sessions.activeExperiment.value) ?? null)
+    : null,
 );
 
-const lines = computed(() => (ui.activeExperiment ? sessions.buffers[ui.activeExperiment] : []));
+const lines = computed(() =>
+  sessions.activeExperiment.value ? sessions.buffers.value[sessions.activeExperiment.value] : [],
+);
 </script>
 
 <template>

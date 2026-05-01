@@ -1,13 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 
-// The command bar is the always-on instrument tray. The investor's keyboard
-// never leaves this input field unless an inline editor takes focus
-// (Compose Dispatch in Phase 2A is the only such case in MVP).
-//
-// `@<experiment>` prefix routing happens here in Phase 1C — until then the
-// input is wired but inert.
-
 const input = ref("");
 const fieldRef = ref<HTMLInputElement | null>(null);
 

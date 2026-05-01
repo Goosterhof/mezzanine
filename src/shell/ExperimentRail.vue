@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { EXPERIMENTS } from "@/types/workbench";
-import { useSessionsStore } from "@/stores/sessions";
-import { useUiStore } from "@/stores/ui";
-import PulseDot from "@/components/PulseDot.vue";
+import { EXPERIMENTS } from "../session/types";
+import { useSessions } from "../session/useSessions";
+import PulseDot from "../session/PulseDot.vue";
 
-const sessions = useSessionsStore();
-const ui = useUiStore();
+const sessions = useSessions();
 </script>
 
 <template>
@@ -20,17 +18,17 @@ const ui = useUiStore();
         :key="exp.id"
         type="button"
         class="wb-tab w-full text-left"
-        :class="{ 'wb-tab-active': ui.activeExperiment === exp.id }"
-        @click="ui.focus(exp.id)"
+        :class="{ 'wb-tab-active': sessions.activeExperiment.value === exp.id }"
+        @click="sessions.focus(exp.id)"
       >
-        <PulseDot :state="sessions.states[exp.id]" />
+        <PulseDot :state="sessions.states.value[exp.id]" />
         <span class="font-display text-sm">{{ exp.label }}</span>
       </button>
     </nav>
     <div class="px-4 py-3 border-t border-wb-edge-soft">
       <div class="wb-stamp-label">Vise</div>
       <div class="text-wb-text-mute text-xs mt-1 font-mono">
-        {{ sessions.recency.length }} / 3 warm
+        {{ sessions.recency.value.length }} / 3 warm
       </div>
     </div>
   </aside>

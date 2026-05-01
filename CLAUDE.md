@@ -70,7 +70,9 @@ pass through; terminal width queries return the right answer.
 
 - **Core:** Tauri v2 (Rust 2021 edition, rust-version 1.77+)
 - **UI:** Vue 3.5 + TypeScript 5.6 + Vite 6 + UnoCSS 0.65 (attributify)
-- **State:** Pinia for Vue stores; `parking_lot::RwLock` in Rust
+- **State:** module-singleton composables (`useSessions`, `useShell`) — plain
+  Vue refs scoped at module level, no Pinia. The gadget's state surface is
+  small and tree-shakeable; `parking_lot::RwLock` handles the Rust side.
 - **Pty:** the `portable-pty` Rust crate (the lab's first use of it; the
   Horadric Cube uses `tauri-plugin-shell` for one-shot subprocesses, not
   interactive pty sessions)
@@ -109,25 +111,60 @@ workbench/
 │                                Phase 4 swaps for vise/calliper iconography
 ├── src/
 │   ├── App.vue ............... Top-level shell — TopBar + Rail + Canvas + CommandBar
-│   ├── main.ts ............... createApp + Pinia + UnoCSS
-│   ├── components/
+│   ├── main.ts ............... createApp + UnoCSS
+│   ├── shell/                 Frame: top bar, left rail, panel chrome
 │   │   ├── TopBar.vue ........ Mission Control / Drydock / Dossier panel toggles
 │   │   ├── ExperimentRail.vue  Left rail — 6 tabs with pulse dots
+│   │   └── useShell.ts ....... openPanel + togglePanel/closePanel singleton
+│   ├── session/               Pty session domain (state, buffers, recency)
 │   │   ├── SessionCanvas.vue . Center pty output pane (last 200 lines)
-│   │   ├── CommandBar.vue .... Always-focused bottom input + @<exp> routing
-│   │   └── PulseDot.vue ...... 5-state animated indicator
-│   ├── stores/
-│   │   ├── sessions.ts ....... Pinia mirror of Rust PtyManager + ring buffers
-│   │   └── ui.ts ............. Active experiment, open panel, focus state
-│   ├── types/
-│   │   └── workbench.ts ...... ExperimentId / SessionState / EXPERIMENTS table
+│   │   ├── PulseDot.vue ...... 5-state animated indicator
+│   │   ├── useSessions.ts .... Singleton state, ring buffers, recency, focus
+│   │   └── types.ts .......... ExperimentId / SessionState / EXPERIMENTS table
+│   ├── command/               Always-on input tray
+│   │   └── CommandBar.vue .... Always-focused bottom input + @<exp> routing
 │   └── assets/workbench.css .. Auxiliary CSS (almost empty — UnoCSS does the work)
+├── tests/                      Mirrors src/ slices — all *.spec.ts live here
+│   ├── App.spec.ts ............ Composition smoke test (rail click → canvas focus)
+│   ├── shell/ ................. TopBar / ExperimentRail / useShell specs
+│   ├── session/ ............... SessionCanvas / PulseDot / useSessions / types specs
+│   └── command/ ............... CommandBar spec
 ├── uno.config.ts ............. Bench palette: wb-surface, wb-rail, wb-canvas, wb-pulse-*
-├── vite.config.ts ............ Vue + UnoCSS plugins, @ alias, port 1430
+├── vite.config.ts ............ Vue + UnoCSS plugins, port 1430
 ├── eslint.config.js .......... Flat config — Vue + TS recommended
-├── vitest.config.ts .......... jsdom environment for component tests
-└── tsconfig.json ............. Strict, @/* path mapping
+├── vitest.config.ts .......... jsdom + v8 coverage with 90% thresholds
+└── tsconfig.json ............. Strict, no path aliases — slices import relatively
 ```
+
+### The Frontend Foundation (war-room standards)
+
+The Vue side is laid out as **vertical slices** in the spirit of war-room
+ADR-0014: each slice owns its components, composables, and types together
+under `src/{slice}/`. Slices import from each other relatively
+(`../session/types`), not through a `@/` alias — the slice boundary is
+the source of truth, not a global root.
+
+Tests mirror that layout under `tests/{slice}/*.spec.ts` (matching the
+lab's gadget convention of a top-level `tests/` directory). Test files
+reach back into source via `../../src/{slice}/{name}` — explicit, no
+magic alias.
+
+State lives in **module-singleton composables**, not Pinia:
+
+- `session/useSessions.ts` — pty state, 200-line ring buffers per
+  experiment, LRU recency, active-experiment focus.
+- `shell/useShell.ts` — which top-bar panel (if any) is open.
+
+Each composable exports a `reset()` that tests call in `beforeEach` to
+isolate from other tests. The singleton state survives across `useX()`
+calls within a single mount, which is the property the rail and canvas
+both depend on. No Pinia, no provide/inject ceremony, no factory layer
+that nothing else asks for.
+
+**Test coverage** runs at v8 with 90% line/branch/function/statement
+thresholds (`npm run test:coverage`). Phase 1A scaffold sits at 100%
+lines, 95% branches across 53 tests — every component, composable,
+and the App composition itself.
 
 ## Phase Roadmap
 
@@ -163,6 +200,7 @@ npm run typecheck    # vue-tsc --noEmit
 npm run lint         # ESLint flat config
 npm run format:check # Prettier dry-run
 npm run test         # Vitest
+npm run test:coverage # Vitest with v8 coverage (90% thresholds)
 
 # Rust side
 cargo build --manifest-path src-tauri/Cargo.toml

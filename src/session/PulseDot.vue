@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { SessionState } from "@/types/workbench";
+import type { SessionState } from "./types";
 
 const props = defineProps<{ state: SessionState }>();
 
-const dotStyle = computed(() => {
+const dotStyle = computed<string>(() => {
   switch (props.state) {
     case "idle":
       return "bg-wb-pulse-idle";
@@ -17,7 +17,6 @@ const dotStyle = computed(() => {
     case "crashed":
       return "bg-wb-pulse-crashed";
   }
-  return "bg-wb-pulse-idle";
 });
 </script>
 

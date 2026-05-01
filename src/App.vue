@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import ExperimentRail from "@/components/ExperimentRail.vue";
-import SessionCanvas from "@/components/SessionCanvas.vue";
-import CommandBar from "@/components/CommandBar.vue";
-import TopBar from "@/components/TopBar.vue";
+import TopBar from "./shell/TopBar.vue";
+import ExperimentRail from "./shell/ExperimentRail.vue";
+import SessionCanvas from "./session/SessionCanvas.vue";
+import CommandBar from "./command/CommandBar.vue";
 </script>
 
 <template>
