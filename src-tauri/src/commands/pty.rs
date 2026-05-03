@@ -36,10 +36,11 @@ pub fn spawn_session<R: Runtime>(
         guard.clone().ok_or(WorkbenchError::ConfigCorrupt)?
     };
     let distro = state.distro.read().clone();
+    let chronicle = state.chronicle.clone();
     state
         .pty_manager
         .write()
-        .spawn_or_resume(experiment, &lab_root, distro, app)
+        .spawn_or_resume(experiment, &lab_root, distro, chronicle, app)
 }
 
 #[tauri::command]

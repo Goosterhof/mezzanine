@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import {onMounted} from 'vue';
 
+import HistoryPane from './chronicle/HistoryPane.vue';
+import PrivacyDisclosure from './chronicle/PrivacyDisclosure.vue';
+import {useDisclosure} from './chronicle/useDisclosure';
 import CommandBar from './command/CommandBar.vue';
 import MissionControl from './mission/MissionControl.vue';
 import SessionCanvas from './session/SessionCanvas.vue';
@@ -10,6 +13,7 @@ import TopBar from './shell/TopBar.vue';
 
 onMounted(() => {
     void useBackend().subscribe();
+    void useDisclosure().loadStatus();
 });
 </script>
 
@@ -18,11 +22,13 @@ onMounted(() => {
         <TopBar />
         <div class="flex flex-1 min-h-0">
             <ExperimentRail />
-            <main class="flex-1 flex flex-col min-w-0">
+            <main class="relative flex-1 flex flex-col min-w-0">
                 <SessionCanvas />
                 <CommandBar />
+                <HistoryPane />
             </main>
         </div>
         <MissionControl />
+        <PrivacyDisclosure />
     </div>
 </template>

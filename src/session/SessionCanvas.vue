@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import {computed} from 'vue';
 
+import {useHistory} from '../chronicle/useHistory';
 import {EXPERIMENTS} from './types';
 import {useSessions} from './useSessions';
 
 const sessions = useSessions();
+const history = useHistory();
 
 const activeMeta = computed(() =>
     sessions.activeExperiment.value
@@ -15,6 +17,13 @@ const activeMeta = computed(() =>
 const lines = computed(() =>
     sessions.activeExperiment.value ? sessions.buffers.value[sessions.activeExperiment.value] : [],
 );
+
+async function openHistory(): Promise<void> {
+    if (sessions.activeExperiment.value === null) {
+        return;
+    }
+    await history.show(sessions.activeExperiment.value);
+}
 </script>
 
 <template>
@@ -29,7 +38,10 @@ const lines = computed(() =>
                     {{ activeMeta.label }}
                 </h2>
             </div>
-            <div class="text-wb-text-faint font-mono text-xs">{{ activeMeta.wslRelativePath }}</div>
+            <div class="flex items-center gap-3">
+                <span class="text-wb-text-faint font-mono text-xs">{{ activeMeta.wslRelativePath }}</span>
+                <button type="button" class="wb-button" data-canvas-history @click="openHistory">History</button>
+            </div>
         </header>
 
         <div v-if="!activeMeta" class="flex-1 flex items-center justify-center">

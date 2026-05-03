@@ -1,30 +1,19 @@
 // The Chronicle — append-only JSONL transcript writer.
 //
 // Every pty I/O pair is appended to a local file at
-// `%USERPROFILE%\.zmuuzn-cockpit\transcripts\<experiment>\<YYYY-MM-DD>-<session-id>.jsonl`
-// (Windows) or `~/.zmuuzn-cockpit/transcripts/...` (Linux dev). One JSONL
+// `<home>/.zmuuzn-cockpit/transcripts/<experiment>/<YYYY-MM-DD>-<session-id>.jsonl`
+// (Linux) or the same path under `%USERPROFILE%` on Windows. One JSONL
 // line per turn: `{ts, direction: "in"|"out", payload}`. New file per
-// calendar day per experiment. Local-only — never synced, never committed.
+// calendar day per experiment — sessions that span midnight write to two
+// files with the same session-id suffix. Local-only — never synced, never
+// committed; defensive `.gitignore` entries in the lab root and each
+// experiment guard against accidental commits if the path ever drifts.
 //
-// Phase 1A: stub only. Phase 2B implements the writer and wires it into
-// PtyManager so every read/write goes through the chronicle before
-// reaching the frontend. Until then, the type shapes live here as
-// forward-deployed scaffolding.
-#![allow(dead_code)]
+// The writer is held as `Arc<ChronicleWriter>` in `AppState`; the pty
+// manager clones the Arc into each `LivePtySession`, which records "in"
+// on every command-bar write and "out" on every reader chunk.
 
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+pub mod reader;
+pub mod writer;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum TurnDirection {
-    In,
-    Out,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChronicleTurn {
-    pub ts: DateTime<Utc>,
-    pub direction: TurnDirection,
-    pub payload: String,
-}
+pub use writer::{ChronicleWriter, TurnDirection};

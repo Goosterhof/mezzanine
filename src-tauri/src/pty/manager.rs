@@ -8,6 +8,7 @@
 // spawned — its frontend ring buffer survives, but the subprocess does
 // not.
 
+use crate::chronicle::ChronicleWriter;
 use crate::error::WorkbenchError;
 use crate::pty::live::LivePtySession;
 use crate::pty::session::{ExperimentId, SessionState};
@@ -39,6 +40,7 @@ impl PtyManager {
         experiment: ExperimentId,
         lab_root: &Path,
         distro: Option<String>,
+        chronicle: Arc<ChronicleWriter>,
         app: AppHandle<R>,
     ) -> Result<SessionState, WorkbenchError> {
         if self.sessions.contains_key(&experiment) {
@@ -53,7 +55,7 @@ impl PtyManager {
             self.kill(victim)?;
         }
         let spec = SessionSpec::for_experiment(lab_root, experiment, distro);
-        let live = LivePtySession::spawn(&spec, experiment, app)?;
+        let live = LivePtySession::spawn(&spec, experiment, chronicle, app)?;
         self.sessions.insert(experiment, Arc::new(live));
         self.bump_recency(experiment);
         Ok(SessionState::Awaiting)

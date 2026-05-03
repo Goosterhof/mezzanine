@@ -6,5 +6,6 @@
 // dispatch, signals, wounds; write a new dispatch finding). GitHub /
 // artifact commands land in Phase 3.
 
+pub mod chronicle;
 pub mod files;
 pub mod pty;

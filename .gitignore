@@ -31,7 +31,8 @@ src-tauri/Cargo.lock
 # Tauri runtime caches
 src-tauri/.cache
 
-# Chronicle transcripts safeguard — should never land in this repo, but if
-# someone runs the gadget against a clone with PWD inside the submodule, we
-# refuse to track them.
+# Chronicle transcripts safeguard — canonical path is ~/.zmuuzn-cockpit/
+# (outside any repo); these entries fire if the chronicle base ever drifts
+# inside the gadget's working tree.
+.zmuuzn-cockpit/
 .zmuuzn-cockpit-transcripts/
