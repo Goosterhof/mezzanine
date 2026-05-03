@@ -19,6 +19,7 @@
 mod chronicle;
 mod commands;
 mod error;
+mod lab;
 mod pty;
 mod state;
 
@@ -54,6 +55,11 @@ pub fn run() {
             commands::pty::spawn_session,
             commands::pty::write_to_session,
             commands::pty::kill_session,
+            commands::files::read_vital_signs,
+            commands::files::read_war_room_dispatch,
+            commands::files::read_inheritance_signals,
+            commands::files::read_wounds_at_threshold,
+            commands::files::write_war_room_dispatch,
         ])
         .run(tauri::generate_context!())
         .expect("the Workbench refused to open");

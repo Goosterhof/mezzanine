@@ -101,9 +101,16 @@ workbench/
 │   │   │   └── manager.rs .... PtyManager — registry, LRU policy (Phase 1C)
 │   │   ├── chronicle/
 │   │   │   └── mod.rs ........ ChronicleTurn type (Phase 2B writes the file)
+│   │   ├── lab/                 Lab-artifact parsers (Phase 2A)
+│   │   │   ├── mod.rs ........ Module root
+│   │   │   ├── vital_signs.rs  CLAUDE.md ASCII-box parser
+│   │   │   ├── dispatch.rs ... war-room-dispatch.md parser + insert_finding
+│   │   │   ├── signals.rs .... laboratory-pulse.md Pending Signals parser
+│   │   │   └── wounds.rs ..... `.claude/memory/wounds/` listing by mtime
 │   │   └── commands/
 │   │       ├── mod.rs ........ Command surface registry
-│   │       └── pty.rs ........ list_sessions / session_state (Phase 1A reads)
+│   │       ├── pty.rs ........ Pty IPC surface (Phases 1A + 1C)
+│   │       └── files.rs ...... Mission Control reads + dispatch write (Phase 2A)
 │   ├── Cargo.toml ............ Pinned to tauri 2, plugins-2, portable-pty 0.8
 │   ├── tauri.conf.json ....... productName, window 1440x900, identifier
 │   ├── capabilities/default.json  Window + plugin permissions
@@ -123,12 +130,22 @@ workbench/
 │   │   └── types.ts .......... ExperimentId / SessionState / EXPERIMENTS table
 │   ├── command/               Always-on input tray
 │   │   └── CommandBar.vue .... Always-focused bottom input + @<exp> routing
+│   ├── mission/               Mission Control panel slice (Phase 2A)
+│   │   ├── MissionControl.vue  Slide-in panel, refresh-on-open, Escape closes
+│   │   ├── VitalSigns.vue ... Five-stat grid + last-chaos line
+│   │   ├── WarRoomDispatch.vue Active-findings list + Compose button
+│   │   ├── MinionsDue.vue ... Pending-signals list
+│   │   ├── WoundsAtThreshold   Wound directory listing (most-recent N)
+│   │   ├── ComposeDispatch.vue Templated editor; writes back on save
+│   │   ├── useMissionControl.ts Singleton state + parallel refresh
+│   │   └── types.ts .......... Mirrors `src-tauri/src/lab/*` serde structs
 │   └── assets/workbench.css .. Auxiliary CSS (almost empty — UnoCSS does the work)
 ├── tests/                      Mirrors src/ slices — all *.spec.ts live here
 │   ├── App.spec.ts ............ Composition smoke test (rail click → canvas focus)
 │   ├── shell/ ................. TopBar / ExperimentRail / useShell specs
 │   ├── session/ ............... SessionCanvas / PulseDot / useSessions / types specs
-│   └── command/ ............... CommandBar spec
+│   ├── command/ ............... CommandBar spec
+│   └── mission/ ............... MissionControl + 4 sections + ComposeDispatch + useMissionControl specs
 ├── uno.config.ts ............. Bench palette: wb-surface, wb-rail, wb-canvas, wb-pulse-*
 ├── vite.config.ts ............ Vue + UnoCSS plugins, port 1430
 ├── .oxlintrc.json ............ War-room canonical oxlint config (correctness:error, type-aware)
@@ -176,7 +193,7 @@ Status pointer for Claude when reopening this lab journal:
 | 1A | Tauri scaffold + Apprentice retirement + Sentinel CI | ✅ Closed 2026-04-30 |
 | 1B | The Floor — window, rail, command bar wired to mock data | ✅ Closed 2026-05-03 (Windows boot smoke-test deferred to first investor `tauri dev`) |
 | 1C | Pty integration — `portable-pty` + `wsl.exe` substrate spike + live sessions | ⏳ Substrate spike + live-session manager + spawn/write/kill commands + frontend wiring + LRU eviction (3-warm cap) + `@<exp>` prefix routing + working/awaiting debounce all landed 2026-05-03 (Unix substrate verified, Windows substrate compiles & is staged for investor). Remaining: end-to-end smoke test on Windows (`tauri dev` + click a bench → claude renders in canvas). |
-| 2A | Mission Control panel (Vital Signs + dispatch + minion-due + wounds) | Pending Phase 1 |
+| 2A | Mission Control panel (Vital Signs + dispatch + minion-due + wounds) | ✅ Closed 2026-05-03 — slide-in panel reads CLAUDE.md vital-signs box, `documents/war-room-dispatch.md`, `documents/laboratory-pulse.md` Pending Signals, and `.claude/memory/wounds/`; Compose Dispatch templated editor splices `### N. Title` blocks ahead of `## Resolved`. 23 new vitest specs (77→100), 18 new Rust tests (15→33), all five containment protocols green |
 | 2B | The Chronicle — JSONL transcript writer + History pane | Pending 2A |
 | 3A | The Drydock — PR review with three artifact-derived enrichment fields | Pending Phase 2 |
 | 3B | Experiment Dossier — read-only context panel | Pending 3A |

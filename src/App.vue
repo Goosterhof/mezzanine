@@ -2,6 +2,7 @@
 import {onMounted} from 'vue';
 
 import CommandBar from './command/CommandBar.vue';
+import MissionControl from './mission/MissionControl.vue';
 import SessionCanvas from './session/SessionCanvas.vue';
 import {useBackend} from './session/useBackend';
 import ExperimentRail from './shell/ExperimentRail.vue';
@@ -13,7 +14,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="flex flex-col h-full bg-wb-surface text-wb-text font-body">
+    <div class="relative flex flex-col h-full bg-wb-surface text-wb-text font-body">
         <TopBar />
         <div class="flex flex-1 min-h-0">
             <ExperimentRail />
@@ -22,5 +23,6 @@ onMounted(() => {
                 <CommandBar />
             </main>
         </div>
+        <MissionControl />
     </div>
 </template>
