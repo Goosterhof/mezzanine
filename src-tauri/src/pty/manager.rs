@@ -1,10 +1,12 @@
 // PtyManager — the Workbench's session registry.
 //
-// One bench, six potential sessions, three warm slots (Phase 1C does not
-// yet enforce the LRU eviction — that lands in the next sub-step). The
-// manager owns the live sessions and their recency vector; it spawns
-// through the substrate, writes through the session's mutexed writer,
-// and kills via the shared child Arc.
+// One bench, six potential sessions, three warm slots. The manager owns
+// the live sessions and their recency vector; it spawns through the
+// substrate, writes through the session's mutexed writer, and kills via
+// the shared child Arc. When a fourth experiment is requested, the
+// least-recently-focused session is evicted before the new one is
+// spawned — its frontend ring buffer survives, but the subprocess does
+// not.
 
 use crate::error::WorkbenchError;
 use crate::pty::live::LivePtySession;
@@ -16,11 +18,8 @@ use std::sync::Arc;
 use tauri::{AppHandle, Runtime};
 
 /// Maximum warm pty sessions held simultaneously. The fourth tab click
-/// will evict the least-recently-viewed session — the LRU policy lands
-/// in the manager's next iteration. Phase 1C currently allows the map
-/// to grow up to six (one per experiment); the manager will gain its
-/// eviction muscle before the rail's @-routing.
-#[allow(dead_code)]
+/// evicts the least-recently-viewed session — the subprocess is killed
+/// (frontend's ring buffer for that experiment is preserved separately).
 pub const MAX_WARM_SESSIONS: usize = 3;
 
 #[derive(Default)]
@@ -34,6 +33,7 @@ pub struct PtyManager {
 impl PtyManager {
     /// Spawn a session for `experiment` if none exists; otherwise bump
     /// recency. Returns the new (or existing) state for the experiment.
+    /// If the registry is at capacity, the LRU session is evicted first.
     pub fn spawn_or_resume<R: Runtime>(
         &mut self,
         experiment: ExperimentId,
@@ -45,11 +45,29 @@ impl PtyManager {
             self.bump_recency(experiment);
             return Ok(SessionState::Awaiting);
         }
+        if let Some(victim) = Self::pick_lru_victim(self.sessions.len(), &self.recency) {
+            log::info!(
+                "Workbench: evicting LRU session — {} bumped off the bench to make room",
+                victim.label(),
+            );
+            self.kill(victim)?;
+        }
         let spec = SessionSpec::for_experiment(lab_root, experiment, distro);
         let live = LivePtySession::spawn(&spec, experiment, app)?;
         self.sessions.insert(experiment, Arc::new(live));
         self.bump_recency(experiment);
         Ok(SessionState::Awaiting)
+    }
+
+    /// If `sessions_count` would exceed the warm-session cap on the
+    /// next spawn, return the experiment to evict. LRU is the back of
+    /// the recency vec (front = most-recent). Pure function — extracted
+    /// so the tests can exercise the policy without spawning a pty.
+    fn pick_lru_victim(sessions_count: usize, recency: &[ExperimentId]) -> Option<ExperimentId> {
+        if sessions_count < MAX_WARM_SESSIONS {
+            return None;
+        }
+        recency.last().copied()
     }
 
     /// Write bytes to the named session's stdin. Returns SessionNotFound
@@ -163,5 +181,34 @@ mod tests {
         for (_, state) in snap {
             assert_eq!(state, SessionState::Idle);
         }
+    }
+
+    // ---- LRU eviction policy ---------------------------------------------
+
+    #[test]
+    fn pick_lru_victim_returns_none_below_capacity() {
+        let recency = vec![ExperimentId::Crucible, ExperimentId::Gatekeeper];
+        assert_eq!(PtyManager::pick_lru_victim(2, &recency), None);
+    }
+
+    #[test]
+    fn pick_lru_victim_returns_back_of_recency_at_capacity() {
+        // recency[0] is most-recent, recency.last() is the LRU.
+        let recency = vec![
+            ExperimentId::WarTable,   // most recent
+            ExperimentId::Crucible,   //
+            ExperimentId::Gatekeeper, // LRU
+        ];
+        assert_eq!(
+            PtyManager::pick_lru_victim(3, &recency),
+            Some(ExperimentId::Gatekeeper),
+        );
+    }
+
+    #[test]
+    fn pick_lru_victim_returns_none_when_recency_is_empty() {
+        // Defensive: should never happen in production (sessions and
+        // recency stay in lockstep), but the function should not panic.
+        assert_eq!(PtyManager::pick_lru_victim(MAX_WARM_SESSIONS, &[]), None);
     }
 }

@@ -1,6 +1,6 @@
 import {invoke} from '@tauri-apps/api/core';
 import {listen} from '@tauri-apps/api/event';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {useBackend} from '../../src/session/useBackend';
 import {useSessions} from '../../src/session/useSessions';
@@ -34,6 +34,15 @@ describe('useBackend', () => {
         mockedInvoke.mockResolvedValue(undefined);
         mockedListen.mockReset();
         mockedListen.mockResolvedValue(() => {});
+    });
+
+    afterEach(() => {
+        // Roll forward any debounce timers and tear down the fake clock if a
+        // test set one up — otherwise leftover timers leak between specs.
+        if (vi.isFakeTimers()) {
+            vi.runAllTimers();
+            vi.useRealTimers();
+        }
     });
 
     describe('subscribe', () => {
@@ -95,6 +104,55 @@ describe('useBackend', () => {
             await useBackend().killSession('crucible');
             expect(mockedInvoke).toHaveBeenCalledWith('kill_session', {experiment: 'crucible'});
             expect(sessions.states.value.crucible).toBe('idle');
+        });
+    });
+
+    describe('working ↔ awaiting debounce', () => {
+        it('settles back to awaiting after the quiet window with no further chunks', async () => {
+            vi.useFakeTimers();
+            const captured = captureListenHandlers();
+            await useBackend().subscribe();
+            const sessions = useSessions();
+
+            captured.output!({payload: {experiment: 'crucible', chunk: 'forge\n'}});
+            expect(sessions.states.value.crucible).toBe('working');
+
+            vi.advanceTimersByTime(1500);
+            expect(sessions.states.value.crucible).toBe('awaiting');
+        });
+
+        it('resets the timer on every new chunk so streaming output stays working', async () => {
+            vi.useFakeTimers();
+            const captured = captureListenHandlers();
+            await useBackend().subscribe();
+            const sessions = useSessions();
+
+            captured.output!({payload: {experiment: 'crucible', chunk: 'first\n'}});
+            vi.advanceTimersByTime(1000);
+            captured.output!({payload: {experiment: 'crucible', chunk: 'second\n'}});
+            vi.advanceTimersByTime(1000);
+            // 2000ms total elapsed but the second chunk reset the clock at
+            // 1000 — only 1000ms of quiet so the bench is still working.
+            expect(sessions.states.value.crucible).toBe('working');
+
+            vi.advanceTimersByTime(500);
+            expect(sessions.states.value.crucible).toBe('awaiting');
+        });
+
+        it('does not override a state that pty-exit already set', async () => {
+            vi.useFakeTimers();
+            const captured = captureListenHandlers();
+            await useBackend().subscribe();
+            const sessions = useSessions();
+
+            captured.output!({payload: {experiment: 'crucible', chunk: 'last gasp\n'}});
+            captured.exit!({payload: {experiment: 'crucible', exit_code: 137}});
+            expect(sessions.states.value.crucible).toBe('crashed');
+
+            vi.advanceTimersByTime(2000);
+            // Debounce timer was cleared on exit; even if it fired, the
+            // working-only guard would skip the override.
+            expect(sessions.states.value.crucible).toBe('crashed');
         });
     });
 });

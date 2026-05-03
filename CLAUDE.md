@@ -175,7 +175,7 @@ Status pointer for Claude when reopening this lab journal:
 |-------|-------|--------|
 | 1A | Tauri scaffold + Apprentice retirement + Sentinel CI | ✅ Closed 2026-04-30 |
 | 1B | The Floor — window, rail, command bar wired to mock data | ✅ Closed 2026-05-03 (Windows boot smoke-test deferred to first investor `tauri dev`) |
-| 1C | Pty integration — `portable-pty` + `wsl.exe` substrate spike + live sessions | ⏳ Substrate spike + live-session manager + spawn/write/kill commands + frontend wiring landed 2026-05-03 (Unix substrate verified, Windows substrate compiles & is staged for investor). Remaining: LRU eviction at the 4th tab click, `@<exp>` prefix routing in the command bar, working/awaiting debounce on the pulse dot, and end-to-end smoke test on Windows. |
+| 1C | Pty integration — `portable-pty` + `wsl.exe` substrate spike + live sessions | ⏳ Substrate spike + live-session manager + spawn/write/kill commands + frontend wiring + LRU eviction (3-warm cap) + `@<exp>` prefix routing + working/awaiting debounce all landed 2026-05-03 (Unix substrate verified, Windows substrate compiles & is staged for investor). Remaining: end-to-end smoke test on Windows (`tauri dev` + click a bench → claude renders in canvas). |
 | 2A | Mission Control panel (Vital Signs + dispatch + minion-due + wounds) | Pending Phase 1 |
 | 2B | The Chronicle — JSONL transcript writer + History pane | Pending 2A |
 | 3A | The Drydock — PR review with three artifact-derived enrichment fields | Pending Phase 2 |

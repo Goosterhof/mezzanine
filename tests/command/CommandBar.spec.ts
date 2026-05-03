@@ -85,4 +85,58 @@ describe('CommandBar', () => {
             expect(mockedInvoke).not.toHaveBeenCalled();
         });
     });
+
+    describe('@<exp> prefix routing', () => {
+        it('routes to the named bench regardless of the active one', async () => {
+            useSessions().focus('gatekeeper');
+            const wrapper = mount(CommandBar);
+            const input = wrapper.find('input');
+            await input.setValue('@crucible run phpstan');
+            await input.trigger('keydown.enter');
+            await Promise.resolve();
+            expect(mockedInvoke).toHaveBeenCalledWith('write_to_session', {
+                experiment: 'crucible',
+                input: 'run phpstan\n',
+            });
+        });
+
+        it('strips the prefix from the payload', async () => {
+            useSessions().focus('gatekeeper');
+            const wrapper = mount(CommandBar);
+            const input = wrapper.find('input');
+            await input.setValue('@war-table check OCR confidence');
+            await input.trigger('keydown.enter');
+            await Promise.resolve();
+            expect(mockedInvoke).toHaveBeenCalledWith('write_to_session', {
+                experiment: 'war-table',
+                input: 'check OCR confidence\n',
+            });
+        });
+
+        it('falls through to the active bench when the prefix names an unknown experiment', async () => {
+            useSessions().focus('gatekeeper');
+            const wrapper = mount(CommandBar);
+            const input = wrapper.find('input');
+            await input.setValue('@unknown-bench foo');
+            await input.trigger('keydown.enter');
+            await Promise.resolve();
+            expect(mockedInvoke).toHaveBeenCalledWith('write_to_session', {
+                experiment: 'gatekeeper',
+                input: '@unknown-bench foo\n',
+            });
+        });
+
+        it('treats a bare prefix without a payload as plain text', async () => {
+            useSessions().focus('gatekeeper');
+            const wrapper = mount(CommandBar);
+            const input = wrapper.find('input');
+            await input.setValue('@crucible');
+            await input.trigger('keydown.enter');
+            await Promise.resolve();
+            expect(mockedInvoke).toHaveBeenCalledWith('write_to_session', {
+                experiment: 'gatekeeper',
+                input: '@crucible\n',
+            });
+        });
+    });
 });

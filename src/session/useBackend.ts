@@ -6,6 +6,12 @@
 // the wire-level traffic into `useSessions` mutations and to give
 // components a typed surface for invoking commands without importing
 // `@tauri-apps/api/core` directly.
+//
+// The pulse dot's working ↔ awaiting transition lives here too: every
+// pty-output chunk arms a per-experiment debounce timer; if no further
+// chunk arrives within `WORKING_QUIET_MS`, the bench is considered to
+// have settled back to awaiting. pty-exit and explicit kill bypass the
+// timer entirely.
 
 import {invoke} from '@tauri-apps/api/core';
 import {listen, type UnlistenFn} from '@tauri-apps/api/event';
@@ -25,9 +31,20 @@ interface ExitPayload {
     exit_code: number;
 }
 
+const WORKING_QUIET_MS = 1500;
+
 let subscribed = false;
 let unlistenOutput: UnlistenFn | null = null;
 let unlistenExit: UnlistenFn | null = null;
+const quietTimers = new Map<ExperimentId, ReturnType<typeof setTimeout>>();
+
+function clearQuietTimer(id: ExperimentId): void {
+    const existing = quietTimers.get(id);
+    if (existing !== undefined) {
+        clearTimeout(existing);
+        quietTimers.delete(id);
+    }
+}
 
 export function useBackend() {
     const sessions = useSessions();
@@ -42,11 +59,24 @@ export function useBackend() {
                 return {output: unlistenOutput, exit: unlistenExit};
             }
             unlistenOutput = await listen<OutputPayload>('pty-output', (event) => {
-                sessions.appendChunk(event.payload.experiment, event.payload.chunk);
-                sessions.setState(event.payload.experiment, 'working');
+                const id = event.payload.experiment;
+                sessions.appendChunk(id, event.payload.chunk);
+                sessions.setState(id, 'working');
+                clearQuietTimer(id);
+                quietTimers.set(
+                    id,
+                    setTimeout(() => {
+                        if (sessions.states.value[id] === 'working') {
+                            sessions.setState(id, 'awaiting');
+                        }
+                        quietTimers.delete(id);
+                    }, WORKING_QUIET_MS),
+                );
             });
             unlistenExit = await listen<ExitPayload>('pty-exit', (event) => {
-                sessions.setState(event.payload.experiment, event.payload.exit_code === 0 ? 'idle' : 'crashed');
+                const id = event.payload.experiment;
+                clearQuietTimer(id);
+                sessions.setState(id, event.payload.exit_code === 0 ? 'idle' : 'crashed');
             });
             subscribed = true;
             return {output: unlistenOutput, exit: unlistenExit};
@@ -64,6 +94,7 @@ export function useBackend() {
 
         async killSession(id: ExperimentId): Promise<void> {
             await invoke('kill_session', {experiment: id});
+            clearQuietTimer(id);
             sessions.setState(id, 'idle');
         },
 
@@ -72,6 +103,10 @@ export function useBackend() {
             subscribed = false;
             unlistenOutput = null;
             unlistenExit = null;
+            for (const timer of quietTimers.values()) {
+                clearTimeout(timer);
+            }
+            quietTimers.clear();
         },
     };
 }

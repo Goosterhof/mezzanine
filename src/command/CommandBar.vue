@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {ref, onMounted} from 'vue';
 
+import {EXPERIMENTS, type ExperimentId} from '../session/types';
 import {useBackend} from '../session/useBackend';
 import {useSessions} from '../session/useSessions';
 
@@ -14,17 +15,40 @@ onMounted(() => {
     fieldRef.value?.focus();
 });
 
+const PREFIX_PATTERN = /^@(\S+)\s+([\s\S]+)$/;
+const KNOWN_IDS = new Set<ExperimentId>(EXPERIMENTS.map((exp) => exp.id));
+
+interface ParsedDispatch {
+    /** Resolved target if the prefix named a known experiment; null otherwise. */
+    target: ExperimentId | null;
+    /** What to actually write — the prefix is stripped on a match. */
+    payload: string;
+}
+
+function parsePrefix(text: string): ParsedDispatch {
+    const match = PREFIX_PATTERN.exec(text);
+    if (!match) {
+        return {target: null, payload: text};
+    }
+    const candidate = match[1] as ExperimentId;
+    if (!KNOWN_IDS.has(candidate)) {
+        return {target: null, payload: text};
+    }
+    return {target: candidate, payload: match[2] ?? ''};
+}
+
 async function dispatch(): Promise<void> {
     const text = input.value;
     if (text.length === 0) {
         return;
     }
-    const target = sessions.activeExperiment.value;
+    const parsed = parsePrefix(text);
+    const target = parsed.target ?? sessions.activeExperiment.value;
     if (!target) {
         return;
     }
     input.value = '';
-    await backend.writeInput(target, `${text}\n`);
+    await backend.writeInput(target, `${parsed.payload}\n`);
 }
 </script>
 
