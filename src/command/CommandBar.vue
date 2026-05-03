@@ -1,12 +1,31 @@
 <script setup lang="ts">
 import {ref, onMounted} from 'vue';
 
+import {useBackend} from '../session/useBackend';
+import {useSessions} from '../session/useSessions';
+
 const input = ref('');
 const fieldRef = ref<HTMLInputElement | null>(null);
+
+const sessions = useSessions();
+const backend = useBackend();
 
 onMounted(() => {
     fieldRef.value?.focus();
 });
+
+async function dispatch(): Promise<void> {
+    const text = input.value;
+    if (text.length === 0) {
+        return;
+    }
+    const target = sessions.activeExperiment.value;
+    if (!target) {
+        return;
+    }
+    input.value = '';
+    await backend.writeInput(target, `${text}\n`);
+}
 </script>
 
 <template>
@@ -20,6 +39,7 @@ onMounted(() => {
             placeholder="Direct the laboratory…"
             autocomplete="off"
             spellcheck="false"
+            @keydown.enter.prevent="dispatch"
         />
         <span class="wb-stamp-label ml-4">@&lt;exp&gt; routes by name</span>
     </footer>

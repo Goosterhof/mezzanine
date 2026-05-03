@@ -9,6 +9,8 @@
 // start of Phase 1C with a substrate-validation spike before any UI work
 // depends on live sessions.
 
+pub mod live;
 pub mod manager;
+pub mod output;
 pub mod session;
 pub mod substrate;

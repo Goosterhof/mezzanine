@@ -1,13 +1,18 @@
+import {invoke} from '@tauri-apps/api/core';
 import {mount} from '@vue/test-utils';
-import {describe, it, expect, beforeEach} from 'vitest';
+import {describe, it, expect, beforeEach, vi} from 'vitest';
 
 import {EXPERIMENTS} from '../../src/session/types';
 import {useSessions} from '../../src/session/useSessions';
 import ExperimentRail from '../../src/shell/ExperimentRail.vue';
 
+const mockedInvoke = vi.mocked(invoke);
+
 describe('ExperimentRail', () => {
     beforeEach(() => {
         useSessions().reset();
+        mockedInvoke.mockReset();
+        mockedInvoke.mockResolvedValue(undefined);
     });
 
     it('renders one tab per experiment', () => {
@@ -56,5 +61,13 @@ describe('ExperimentRail', () => {
         sessions.touch('parlour');
         const wrapper = mount(ExperimentRail);
         expect(wrapper.text()).toContain('2 / 3 warm');
+    });
+
+    it('clicking a tab invokes spawn_session with the experiment id', async () => {
+        const wrapper = mount(ExperimentRail);
+        await wrapper.findAll('button')[2]!.trigger('click');
+        // Allow any pending promises (the async spawn invocation) to resolve.
+        await Promise.resolve();
+        expect(mockedInvoke).toHaveBeenCalledWith('spawn_session', {experiment: 'crucible'});
     });
 });

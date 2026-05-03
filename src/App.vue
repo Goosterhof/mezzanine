@@ -1,8 +1,15 @@
 <script setup lang="ts">
+import {onMounted} from 'vue';
+
 import CommandBar from './command/CommandBar.vue';
 import SessionCanvas from './session/SessionCanvas.vue';
+import {useBackend} from './session/useBackend';
 import ExperimentRail from './shell/ExperimentRail.vue';
 import TopBar from './shell/TopBar.vue';
+
+onMounted(() => {
+    void useBackend().subscribe();
+});
 </script>
 
 <template>

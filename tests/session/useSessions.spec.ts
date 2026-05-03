@@ -91,4 +91,47 @@ describe('useSessions', () => {
         useSessions().focus('smokestacks');
         expect(useSessions().activeExperiment.value).toBe('smokestacks');
     });
+
+    describe('appendChunk', () => {
+        it('splits a chunk on newlines and pushes complete lines', () => {
+            const {buffers, appendChunk} = useSessions();
+            appendChunk('crucible', 'first\nsecond\nthird\n');
+            expect(buffers.value.crucible).toStrictEqual(['first', 'second', 'third']);
+        });
+
+        it('holds a partial trailing line until the next chunk completes it', () => {
+            const {buffers, appendChunk} = useSessions();
+            appendChunk('crucible', 'first\nseco');
+            expect(buffers.value.crucible).toStrictEqual(['first']);
+            appendChunk('crucible', 'nd\nthird\n');
+            expect(buffers.value.crucible).toStrictEqual(['first', 'second', 'third']);
+        });
+
+        it('normalizes CRLF into a single newline and treats stray CR as cursor-reset', () => {
+            // `\r` alone is a cursor-reset in terminal streams (used by progress
+            // bars), not a newline. The bench strips lone CRs and only treats
+            // LF / CRLF as line terminators.
+            const {buffers, appendChunk} = useSessions();
+            appendChunk('crucible', 'one\r\ntwo\rredraw\n');
+            expect(buffers.value.crucible).toStrictEqual(['one', 'tworedraw']);
+        });
+
+        it('chunked input that crosses the ring buffer cap respects the 200-line cap', () => {
+            const {buffers, appendChunk} = useSessions();
+            const lines: string[] = [];
+            for (let i = 0; i < 250; i += 1) {
+                lines.push(`line ${i}`);
+            }
+            appendChunk('crucible', `${lines.join('\n')}\n`);
+            expect(buffers.value.crucible).toHaveLength(200);
+            expect(buffers.value.crucible[0]).toBe('line 50');
+            expect(buffers.value.crucible[199]).toBe('line 249');
+        });
+
+        it('leaves siblings untouched', () => {
+            const {buffers, appendChunk} = useSessions();
+            appendChunk('crucible', 'only crucible\n');
+            expect(buffers.value.gatekeeper).toStrictEqual([]);
+        });
+    });
 });

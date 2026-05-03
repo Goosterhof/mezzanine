@@ -17,12 +17,6 @@
 // Sentinel CI's Ubuntu runner). Test for criterion 1 runs on Windows
 // (the investor's `cargo test` on Windows). Each axis is covered exactly
 // once — no wishful cross-platform validation.
-//
-// The substrate's public surface is consumed only by `#[cfg(test)]` for
-// the duration of the spike. The next sub-step of Phase 1C grows
-// `pty/manager.rs` into a consumer, at which point this module-level
-// allow can be retired.
-#![allow(dead_code)]
 
 use crate::pty::session::ExperimentId;
 use portable_pty::CommandBuilder;
@@ -40,10 +34,6 @@ pub struct SessionSpec {
     pub binary: String,
     pub args: Vec<String>,
     pub distro: Option<String>,
-    /// Human-readable label for logs and errors — e.g. "The Crucible".
-    /// Populated automatically by [`SessionSpec::for_experiment`]; tests
-    /// that build a spec by hand can leave this empty.
-    pub label: String,
 }
 
 impl SessionSpec {
@@ -51,7 +41,8 @@ impl SessionSpec {
     ///
     /// `lab_root` is the WSL2-side absolute path to the laboratory root
     /// (`/home/goosterhof/code/zmuuzn`). `experiment` selects which
-    /// subdirectory to enter and what label to record.
+    /// subdirectory to enter; the label is logged at spawn time by the
+    /// caller (`LivePtySession`).
     pub fn for_experiment(
         lab_root: &Path,
         experiment: ExperimentId,
@@ -62,7 +53,6 @@ impl SessionSpec {
             binary: "claude".to_string(),
             args: Vec::new(),
             distro,
-            label: experiment.label().to_string(),
         }
     }
 }
@@ -202,7 +192,6 @@ mod tests {
             binary: "echo".to_string(),
             args: vec!["hello".to_string()],
             distro: None,
-            label: String::new(),
         };
         assert_eq!(
             inner_shell_command(&spec),
@@ -222,7 +211,6 @@ mod tests {
             PathBuf::from("/home/scientist/code/zmuuzn/experiments/zmuuzn-strava"),
         );
         assert_eq!(spec.binary, "claude");
-        assert_eq!(spec.label, "The Crucible");
     }
 
     // ---- Windows substrate criterion 1 ------------------------------------
@@ -266,7 +254,6 @@ mod tests {
             binary: "uname".to_string(),
             args: vec!["-s".to_string()],
             distro: None,
-            label: String::new(),
         };
         let output = run_command_capture(spec, &["Linux"]);
         assert!(
@@ -285,7 +272,6 @@ mod tests {
             binary: "printf".to_string(),
             args: vec![r"\033[31mred\033[0m".to_string()],
             distro: None,
-            label: String::new(),
         };
         let output = run_command_capture(spec, &["red"]);
         assert!(
@@ -309,7 +295,6 @@ mod tests {
             binary: "stty".to_string(),
             args: vec!["size".to_string()],
             distro: None,
-            label: String::new(),
         };
         let output = run_command_capture(spec, &["24 80"]);
         assert!(
@@ -327,7 +312,6 @@ mod tests {
             binary: "pwd".to_string(),
             args: Vec::new(),
             distro: None,
-            label: String::new(),
         };
         let output = run_command_capture(spec, &["/tmp"]);
         assert!(

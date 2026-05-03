@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import PulseDot from '../session/PulseDot.vue';
-import {EXPERIMENTS} from '../session/types';
+import {EXPERIMENTS, type ExperimentId} from '../session/types';
+import {useBackend} from '../session/useBackend';
 import {useSessions} from '../session/useSessions';
 
 const sessions = useSessions();
+const backend = useBackend();
+
+async function focusBench(id: ExperimentId): Promise<void> {
+    sessions.focus(id);
+    await backend.spawnSession(id);
+}
 </script>
 
 <template>
@@ -19,7 +26,7 @@ const sessions = useSessions();
                 type="button"
                 class="wb-tab w-full text-left"
                 :class="{'wb-tab-active': sessions.activeExperiment.value === exp.id}"
-                @click="sessions.focus(exp.id)"
+                @click="focusBench(exp.id)"
             >
                 <PulseDot :state="sessions.states.value[exp.id]" />
                 <span class="font-display text-sm">{{ exp.label }}</span>
