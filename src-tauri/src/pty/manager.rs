@@ -10,6 +10,10 @@ use std::collections::HashMap;
 /// Maximum warm pty sessions held simultaneously. The fourth tab click
 /// evicts the least-recently-viewed session — its output ring buffer
 /// survives, but the subprocess is killed.
+///
+/// Currently unused — the constant lands ahead of the LRU eviction logic
+/// it will guard. Phase 1C's manager upgrade reaches for it.
+#[allow(dead_code)]
 pub const MAX_WARM_SESSIONS: usize = 3;
 
 #[derive(Default)]

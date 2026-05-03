@@ -10,7 +10,9 @@ use crate::state::AppState;
 use tauri::State;
 
 #[tauri::command]
-pub fn list_sessions(state: State<'_, AppState>) -> WorkbenchResult<Vec<(ExperimentId, SessionState)>> {
+pub fn list_sessions(
+    state: State<'_, AppState>,
+) -> WorkbenchResult<Vec<(ExperimentId, SessionState)>> {
     Ok(state.pty_manager.read().snapshot())
 }
 

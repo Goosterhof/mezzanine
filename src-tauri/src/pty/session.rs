@@ -63,10 +63,11 @@ impl ExperimentId {
 ///
 /// Five states cover every meaningful condition; the pulse module on the
 /// frontend renders each one with its own animation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SessionState {
     /// No pty live — never started or evicted by LRU.
+    #[default]
     Idle,
     /// Pty alive, claude awaiting investor input.
     Awaiting,
@@ -76,10 +77,4 @@ pub enum SessionState {
     CompletedUnseen,
     /// Pty exited non-zero or the bridge collapsed.
     Crashed,
-}
-
-impl Default for SessionState {
-    fn default() -> Self {
-        Self::Idle
-    }
 }

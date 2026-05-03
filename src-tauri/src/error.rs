@@ -7,6 +7,10 @@
 use serde::Serialize;
 use thiserror::Error;
 
+// Several variants are forward-deployed for Phase 1C–2B consumers (the
+// pty manager, chronicle writer, lab-file reads, first-run wizard). Until
+// those modules grow, the variants live here unconstructed.
+#[allow(dead_code)]
 #[derive(Debug, Error)]
 pub enum WorkbenchError {
     #[error("the vise refused to grip — pty spawn failed: {0}")]

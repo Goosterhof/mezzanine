@@ -8,7 +8,9 @@
 //
 // Phase 1A: stub only. Phase 2B implements the writer and wires it into
 // PtyManager so every read/write goes through the chronicle before
-// reaching the frontend.
+// reaching the frontend. Until then, the type shapes live here as
+// forward-deployed scaffolding.
+#![allow(dead_code)]
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

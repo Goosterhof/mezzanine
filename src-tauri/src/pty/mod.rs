@@ -11,5 +11,4 @@
 
 pub mod manager;
 pub mod session;
-
-pub use session::{ExperimentId, SessionState};
+pub mod substrate;
