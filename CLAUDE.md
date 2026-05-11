@@ -84,8 +84,9 @@ pass through; terminal width queries return the right answer.
 - **Async:** `tokio` for the read/write pumps
 - **Persistence:** `tauri-plugin-store` for first-run wizard config
   (lab root path, claude binary path, transcript acknowledgment)
-- **HTTP:** `tauri-plugin-http` (allowlisted to GitHub API hosts when
-  Phase 3A's Drydock lands; not yet allowlisted in Phase 1A)
+- **HTTP:** `tauri-plugin-http` (registered in `Cargo.toml`,
+  `http:default` permission granted in `capabilities/default.json` —
+  landed with Phase 3A's Drydock for GitHub API access)
 - **Logging:** `tauri-plugin-log` to stdout + log dir
 - **Chronicle:** plain `std::fs` + `chrono` for JSONL transcript writes —
   no extra crate needed for append-only newline-delimited JSON
