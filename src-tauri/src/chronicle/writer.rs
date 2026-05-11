@@ -161,9 +161,11 @@ pub(crate) fn transcript_path(
     date: NaiveDate,
     session_id: Uuid,
 ) -> PathBuf {
-    base_dir
-        .join(experiment_dir(experiment))
-        .join(format!("{}-{}.jsonl", date.format("%Y-%m-%d"), session_id))
+    base_dir.join(experiment_dir(experiment)).join(format!(
+        "{}-{}.jsonl",
+        date.format("%Y-%m-%d"),
+        session_id
+    ))
 }
 
 pub(crate) fn experiment_dir(experiment: ExperimentId) -> &'static str {
@@ -272,7 +274,11 @@ mod tests {
             .unwrap()
             .map(|e| e.unwrap().file_name().to_string_lossy().to_string())
             .collect();
-        assert_eq!(entries.len(), 2, "two chronicle files expected — one per session");
+        assert_eq!(
+            entries.len(),
+            2,
+            "two chronicle files expected — one per session"
+        );
         let _ = std::fs::remove_dir_all(&base);
     }
 

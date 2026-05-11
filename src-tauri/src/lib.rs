@@ -19,12 +19,22 @@
 //   * `chronicle/reader.rs` — last-N-days replay for the History pane
 //   * `commands/chronicle.rs` — read_chronicle_history + disclosure ack
 //
+// Phase 3A wires the Drydock:
+//   * `drydock/repo_registry.rs` — canonical list of 12 lab repos
+//   * `drydock/bridge.rs`        — non-pty subprocess via WSL2 bridge
+//   * `drydock/minion_touch.rs`  — parse git log for minion-stamped commits
+//   * `drydock/chaos_detonations.rs` — scan chaos-reports for filename hits
+//   * `drydock/active_log.rs`    — find IN PROGRESS/PLANNING log by scope
+//   * `commands/github.rs`       — `gh` enumeration + review actions
+//   * `commands/artifacts.rs`    — the three enrichment readers
+//
 // Phase 4A's first-run wizard will replace the env-var fallback for
 // lab_root + distro with prompted config; for now the laboratory's
 // canonical path is the seed.
 
 mod chronicle;
 mod commands;
+mod drydock;
 mod error;
 mod lab;
 mod pty;
@@ -82,6 +92,15 @@ pub fn run() {
             commands::chronicle::read_chronicle_history,
             commands::chronicle::read_chronicle_disclosure,
             commands::chronicle::write_chronicle_disclosure_ack,
+            commands::github::gh_auth_status,
+            commands::github::list_open_prs,
+            commands::github::pull_request_files,
+            commands::github::approve_pr,
+            commands::github::comment_pr,
+            commands::github::request_changes_pr,
+            commands::artifacts::find_minion_touch,
+            commands::artifacts::find_chaos_detonations,
+            commands::artifacts::find_active_experiment_log,
         ])
         .run(tauri::generate_context!())
         .expect("the Workbench refused to open");

@@ -102,11 +102,7 @@ describe('useBackend', () => {
 
         it('exposes resizeSession that invokes resize_session with cols and rows', async () => {
             await useBackend().resizeSession('crucible', 132, 40);
-            expect(mockedInvoke).toHaveBeenCalledWith('resize_session', {
-                experiment: 'crucible',
-                cols: 132,
-                rows: 40,
-            });
+            expect(mockedInvoke).toHaveBeenCalledWith('resize_session', {experiment: 'crucible', cols: 132, rows: 40});
         });
 
         it('routes pty-exit payloads into idle on success and crashed on non-zero', async () => {

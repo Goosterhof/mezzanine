@@ -154,7 +154,10 @@ pub fn insert_finding(content: &str, finding: &NewDispatchFinding) -> String {
         return out;
     };
     let insert_at = active_end.unwrap_or(lines.len());
-    let mut out_lines: Vec<String> = lines[..insert_at].iter().map(|s| (*s).to_string()).collect();
+    let mut out_lines: Vec<String> = lines[..insert_at]
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect();
     // Walk back over trailing horizontal rules / blank lines so the new
     // block lands flush against the last finding rather than after the
     // separator that precedes the next section.
@@ -252,7 +255,9 @@ Identical helpers duplicated across five actions.
         assert!(block.starts_with("### 7. Pulse drift\n\n"));
         assert!(block.contains("**Severity:** High\n"));
         assert!(block.contains("**Location:** documents/laboratory-pulse.md\n"));
-        assert!(block.trim_end().ends_with("Pulse hasn't been updated in three sessions."));
+        assert!(block
+            .trim_end()
+            .ends_with("Pulse hasn't been updated in three sessions."));
     }
 
     #[test]

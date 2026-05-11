@@ -114,11 +114,20 @@ workbench/
 │   │   │   ├── dispatch.rs ... war-room-dispatch.md parser + insert_finding
 │   │   │   ├── signals.rs .... laboratory-pulse.md Pending Signals parser
 │   │   │   └── wounds.rs ..... `.claude/memory/wounds/` listing by mtime
+│   │   ├── drydock/             Phase 3A Drydock parsers + bridge
+│   │   │   ├── mod.rs ........ Module root, re-exports
+│   │   │   ├── repo_registry.rs Canonical list of 12 lab repos
+│   │   │   ├── bridge.rs ..... Non-pty subprocess via WSL2 bridge
+│   │   │   ├── minion_touch.rs Parse git log for minion-stamped commits
+│   │   │   ├── chaos_detonations.rs Scan chaos-reports for filename hits
+│   │   │   └── active_log.rs . Find IN PROGRESS / PLANNING log by scope
 │   │   └── commands/
 │   │       ├── mod.rs ........ Command surface registry
 │   │       ├── pty.rs ........ Pty IPC surface (Phases 1A + 1C)
 │   │       ├── files.rs ...... Mission Control reads + dispatch write (Phase 2A)
-│   │       └── chronicle.rs .. History read + disclosure ack (Phase 2B)
+│   │       ├── chronicle.rs .. History read + disclosure ack (Phase 2B)
+│   │       ├── github.rs ..... `gh` enumeration + review actions (Phase 3A)
+│   │       └── artifacts.rs .. The three enrichment readers (Phase 3A)
 │   ├── Cargo.toml ............ Pinned to tauri 2, plugins-2, portable-pty 0.8
 │   ├── tauri.conf.json ....... productName, window 1440x900, identifier
 │   ├── capabilities/default.json  Window + plugin permissions
@@ -154,6 +163,13 @@ workbench/
 │   │   ├── useHistory.ts ..... Singleton state + read_chronicle_history
 │   │   ├── useDisclosure.ts .. Boot-time ack check + acknowledge() flow
 │   │   └── types.ts .......... ChronicleTurn / TurnDirection
+│   ├── drydock/               Drydock slice (Phase 3A)
+│   │   ├── DrydockPanel.vue .. Slide-in panel, refresh on open, Escape closes
+│   │   ├── PrCard.vue ........ Per-PR collapsible card, header + expanded body
+│   │   ├── FileDiff.vue ...... Per-file enrichment (minion / chaos / active-log)
+│   │   ├── ReviewActions.vue . Approve / Comment / Request Changes with body
+│   │   ├── useDrydock.ts ..... Singleton state + IPC + per-PR file/enrichment cache
+│   │   └── types.ts .......... DrydockPullRequest, FileEnrichment, ReviewVerdict, …
 │   └── assets/workbench.css .. Auxiliary CSS (almost empty — UnoCSS does the work)
 ├── tests/                      Mirrors src/ slices — all *.spec.ts live here
 │   ├── App.spec.ts ............ Composition smoke test (rail click → canvas focus)
@@ -161,7 +177,8 @@ workbench/
 │   ├── session/ ............... SessionCanvas / PulseDot / useSessions / types specs
 │   ├── command/ ............... CommandBar spec
 │   ├── mission/ ............... MissionControl + 4 sections + ComposeDispatch + useMissionControl specs
-│   └── chronicle/ ............. HistoryPane + PrivacyDisclosure + useHistory + useDisclosure specs
+│   ├── chronicle/ ............. HistoryPane + PrivacyDisclosure + useHistory + useDisclosure specs
+│   └── drydock/ ............... DrydockPanel + PrCard + FileDiff + ReviewActions + useDrydock specs
 ├── uno.config.ts ............. Bench palette: wb-surface, wb-rail, wb-canvas, wb-pulse-*
 ├── vite.config.ts ............ Vue + UnoCSS plugins, port 1430
 ├── .oxlintrc.json ............ War-room canonical oxlint config (correctness:error, type-aware)
@@ -217,7 +234,7 @@ Status pointer for Claude when reopening this lab journal:
 | 1C | Pty integration — `portable-pty` + `wsl.exe` substrate spike + live sessions | ✅ Closed 2026-05-03 (Linux); ratified on Windows 2026-05-11 — substrate path-separator bug fixed (PathBuf::join → POSIX string join, regression test added), xterm.js + FitAddon now host the pty stream, `resize_session` plumbs cols/rows. Substrate criteria 2–4 directly verified by live `claude` boot, not just compile-time |
 | 2A | Mission Control panel (Vital Signs + dispatch + minion-due + wounds) | ✅ Closed 2026-05-03 — slide-in panel reads CLAUDE.md vital-signs box, `documents/war-room-dispatch.md`, `documents/laboratory-pulse.md` Pending Signals, and `.claude/memory/wounds/`; Compose Dispatch templated editor splices `### N. Title` blocks ahead of `## Resolved`. 23 new vitest specs (77→100), 18 new Rust tests (15→33), all five containment protocols green |
 | 2B | The Chronicle — JSONL transcript writer + History pane | ✅ Closed 2026-05-03 — `chronicle::writer` appends `{ts, direction, payload}` per pty turn, rotates files at local midnight, paused at boot until the investor acks `PrivacyDisclosure`. `chronicle::reader::history(dir, exp, days)` replays last N days; tolerates malformed lines. New `src/chronicle/` slice with HistoryPane (overlays SessionCanvas) and PrivacyDisclosure (one-time blocking modal — stands in for the Phase 4A wizard's privacy-ack subset). 12 new Rust tests (33→45), 17 new vitest specs (100→117), all five containment protocols green |
-| 3A | The Drydock — PR review with three artifact-derived enrichment fields | Pending Phase 2 |
+| 3A | The Drydock — PR review with three artifact-derived enrichment fields | ✅ Closed 2026-05-11 — `drydock/` module (12-repo registry + non-pty WSL2 bridge + three pure parsers for last-minion-touch / chaos-detonation / active-experiment-log). New `commands/github.rs` (`gh_auth_status`, `list_open_prs` enumerating 12 lab repos, `pull_request_files`, `approve_pr` / `comment_pr` / `request_changes_pr` via `gh pr review --body-file -`). New `commands/artifacts.rs` (three readers feeding the parsers from disk). New `src/drydock/` slice: DrydockPanel slide-in, PrCard with collapsed/expanded states, FileDiff with three enrichment fields per file, ReviewActions (Approve / Comment / Request Changes). 44 new Rust tests (45→89), 27 new vitest specs (117→144), all five containment protocols green |
 | 3B | Experiment Dossier — read-only context panel | Pending 3A |
 | 4A | First-run wizard | Pending Phase 3 |
 | 4B | Retirement verification (Apprentice retirement was enacted in Phase 1A) | Pending 4A |

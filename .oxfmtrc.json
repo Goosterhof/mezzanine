@@ -47,7 +47,5 @@
         ]
     },
 
-    "experimentalSortPackageJson": {
-        "sortScripts": true
-    }
+    "experimentalSortPackageJson": {"sortScripts": true}
 }

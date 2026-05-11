@@ -56,7 +56,7 @@ pub fn list(wounds_dir: &Path) -> WoundsResult {
             },
         ));
     }
-    found.sort_by(|a, b| b.0.cmp(&a.0));
+    found.sort_by_key(|entry| std::cmp::Reverse(entry.0));
     Ok(found.into_iter().map(|(_, s)| s).take(MAX_WOUNDS).collect())
 }
 

@@ -75,7 +75,10 @@ pub fn parse(content: &str) -> Vec<MinionSignal> {
 
 fn split_table_row(line: &str) -> Vec<String> {
     let stripped = line.trim().trim_start_matches('|').trim_end_matches('|');
-    stripped.split('|').map(|cell| cell.trim().to_string()).collect()
+    stripped
+        .split('|')
+        .map(|cell| cell.trim().to_string())
+        .collect()
 }
 
 fn is_struck_through(cell: &str) -> bool {

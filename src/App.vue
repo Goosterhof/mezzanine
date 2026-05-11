@@ -5,6 +5,7 @@ import HistoryPane from './chronicle/HistoryPane.vue';
 import PrivacyDisclosure from './chronicle/PrivacyDisclosure.vue';
 import {useDisclosure} from './chronicle/useDisclosure';
 import CommandBar from './command/CommandBar.vue';
+import DrydockPanel from './drydock/DrydockPanel.vue';
 import MissionControl from './mission/MissionControl.vue';
 import SessionCanvas from './session/SessionCanvas.vue';
 import {useBackend} from './session/useBackend';
@@ -29,6 +30,7 @@ onMounted(() => {
             </main>
         </div>
         <MissionControl />
+        <DrydockPanel />
         <PrivacyDisclosure />
     </div>
 </template>

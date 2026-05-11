@@ -2,8 +2,8 @@
 import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 
 import {useHistory} from '../chronicle/useHistory';
-import {useBackend} from './useBackend';
 import {EXPERIMENTS, type ExperimentId} from './types';
+import {useBackend} from './useBackend';
 import {useSessions} from './useSessions';
 import {useTerminals, type TerminalSlot} from './useTerminals';
 

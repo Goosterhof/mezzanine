@@ -1,60 +1,47 @@
 {
-  "$schema": "https://schema.tauri.app/config/2",
-  "productName": "The Workbench",
-  "version": "0.1.0",
-  "identifier": "nl.zmuuzn.workbench",
-  "build": {
-    "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1430",
-    "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist"
-  },
-  "app": {
-    "withGlobalTauri": false,
-    "windows": [
-      {
-        "label": "main",
-        "title": "The Workbench",
-        "width": 1440,
-        "height": 900,
-        "minWidth": 1080,
-        "minHeight": 720,
-        "resizable": true,
-        "fullscreen": false,
-        "decorations": true,
-        "transparent": false,
-        "visible": true,
-        "skipTaskbar": false,
-        "center": true,
-        "url": "index.html"
-      }
-    ],
-    "security": {
-      "csp": null
+    "$schema": "https://schema.tauri.app/config/2",
+    "productName": "The Workbench",
+    "version": "0.1.0",
+    "identifier": "nl.zmuuzn.workbench",
+    "build": {
+        "beforeDevCommand": "npm run dev",
+        "devUrl": "http://localhost:1430",
+        "beforeBuildCommand": "npm run build",
+        "frontendDist": "../dist"
+    },
+    "app": {
+        "withGlobalTauri": false,
+        "windows": [
+            {
+                "label": "main",
+                "title": "The Workbench",
+                "width": 1440,
+                "height": 900,
+                "minWidth": 1080,
+                "minHeight": 720,
+                "resizable": true,
+                "fullscreen": false,
+                "decorations": true,
+                "transparent": false,
+                "visible": true,
+                "skipTaskbar": false,
+                "center": true,
+                "url": "index.html"
+            }
+        ],
+        "security": {"csp": null}
+    },
+    "bundle": {
+        "active": true,
+        "targets": ["msi", "nsis"],
+        "publisher": "Zmuuzn Laboratory",
+        "category": "DeveloperTool",
+        "shortDescription": "Daily-driver cockpit for directing claude across the laboratory's experiments",
+        "longDescription": "The Workbench wraps the claude CLI in six persistent pty sessions — one per experiment — and surfaces Mission Control, the Drydock (PR review), and the Experiment Dossier as slide-in panels. The Mad Scientist directs the laboratory from one bench instead of bouncing between terminals.",
+        "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+        "windows": {
+            "wix": {"language": "en-US"},
+            "nsis": {"displayLanguageSelector": false, "installerIcon": "icons/icon.ico"}
+        }
     }
-  },
-  "bundle": {
-    "active": true,
-    "targets": ["msi", "nsis"],
-    "publisher": "Zmuuzn Laboratory",
-    "category": "DeveloperTool",
-    "shortDescription": "Daily-driver cockpit for directing claude across the laboratory's experiments",
-    "longDescription": "The Workbench wraps the claude CLI in six persistent pty sessions — one per experiment — and surfaces Mission Control, the Drydock (PR review), and the Experiment Dossier as slide-in panels. The Mad Scientist directs the laboratory from one bench instead of bouncing between terminals.",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ],
-    "windows": {
-      "wix": {
-        "language": "en-US"
-      },
-      "nsis": {
-        "displayLanguageSelector": false,
-        "installerIcon": "icons/icon.ico"
-      }
-    }
-  }
 }

@@ -133,9 +133,9 @@ impl LivePtySession {
     /// the chronicle errors, the write still happens (chronicle failures
     /// must never block the bench).
     pub fn write(&self, bytes: &[u8]) -> WorkbenchResult<()> {
-        if let Err(err) = self
-            .chronicle
-            .record(self.experiment, TurnDirection::In, &decode_chunk(bytes))
+        if let Err(err) =
+            self.chronicle
+                .record(self.experiment, TurnDirection::In, &decode_chunk(bytes))
         {
             log::warn!(
                 "Workbench: chronicle 'in' record dropped for {} — {err}",

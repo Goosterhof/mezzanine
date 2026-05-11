@@ -143,15 +143,17 @@ mod tests {
         std::fs::create_dir_all(&exp_dir).unwrap();
         let today = Local::now().date_naive().format("%Y-%m-%d").to_string();
         let path = exp_dir.join(format!("{today}-{}.jsonl", Uuid::new_v4()));
-        let body = format!(
-            "{{\"ts\":\"2026-05-04T00:00:00Z\",\"direction\":\"in\",\"payload\":\"good\"}}\n\
-            {{not valid json\n\
-            {{\"ts\":\"2026-05-04T00:00:01Z\",\"direction\":\"out\",\"payload\":\"also good\"}}\n",
-        );
+        let body = "{\"ts\":\"2026-05-04T00:00:00Z\",\"direction\":\"in\",\"payload\":\"good\"}\n\
+            {not valid json\n\
+            {\"ts\":\"2026-05-04T00:00:01Z\",\"direction\":\"out\",\"payload\":\"also good\"}\n";
         std::fs::write(&path, body).unwrap();
 
         let turns = history(&base, ExperimentId::Parlour, 7).unwrap();
-        assert_eq!(turns.len(), 2, "malformed line must be skipped, not abort the read");
+        assert_eq!(
+            turns.len(),
+            2,
+            "malformed line must be skipped, not abort the read"
+        );
         let _ = std::fs::remove_dir_all(&base);
     }
 
@@ -162,7 +164,11 @@ mod tests {
         std::fs::create_dir_all(&exp_dir).unwrap();
         // A file from 30 days ago — should be excluded with a 7-day window.
         let stale_date = Local::now().date_naive() - Duration::days(30);
-        let stale = exp_dir.join(format!("{}-{}.jsonl", stale_date.format("%Y-%m-%d"), Uuid::new_v4()));
+        let stale = exp_dir.join(format!(
+            "{}-{}.jsonl",
+            stale_date.format("%Y-%m-%d"),
+            Uuid::new_v4()
+        ));
         std::fs::write(
             &stale,
             "{\"ts\":\"2026-04-01T00:00:00Z\",\"direction\":\"in\",\"payload\":\"old\"}\n",

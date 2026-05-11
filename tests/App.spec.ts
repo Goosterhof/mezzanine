@@ -22,14 +22,7 @@ vi.mock('../src/session/useTerminals', () => {
         lastSize: null,
         dataDisposable: {dispose: () => {}},
     };
-    return {
-        useTerminals: () => ({
-            get: () => stubSlot,
-            has: () => true,
-            setDataHandler: () => {},
-            reset: () => {},
-        }),
-    };
+    return {useTerminals: () => ({get: () => stubSlot, has: () => true, setDataHandler: () => {}, reset: () => {}})};
 });
 
 describe('App', () => {

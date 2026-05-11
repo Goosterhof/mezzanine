@@ -12,7 +12,7 @@
 import {FitAddon} from '@xterm/addon-fit';
 import {Terminal, type IDisposable} from '@xterm/xterm';
 
-import {type ExperimentId} from './types';
+import type {ExperimentId} from './types';
 
 export interface TerminalSlot {
     terminal: Terminal;
