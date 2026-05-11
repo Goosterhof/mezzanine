@@ -48,8 +48,21 @@ impl SessionSpec {
         experiment: ExperimentId,
         distro: Option<String>,
     ) -> Self {
+        // PathBuf::join uses the host separator — on Windows that injects a
+        // backslash between lab_root and the WSL-relative path, and bash
+        // inside `wsl.exe` then sees `cd /home/.../zmuuzn\experiments/...`,
+        // interprets `\e` as an escape, and fails. The working_dir is a
+        // WSL2-side POSIX path on every host, so join it as a string.
+        let lab_root_str = lab_root
+            .to_str()
+            .expect("substrate: lab_root must be valid UTF-8");
+        let working_dir = format!(
+            "{}/{}",
+            lab_root_str.trim_end_matches('/'),
+            experiment.wsl_relative_path(),
+        );
         Self {
-            working_dir: lab_root.join(experiment.wsl_relative_path()),
+            working_dir: PathBuf::from(working_dir),
             binary: "claude".to_string(),
             args: Vec::new(),
             distro,
@@ -206,11 +219,27 @@ mod tests {
             ExperimentId::Crucible,
             None,
         );
+        // Assert the string form, not PathBuf component equality — the
+        // latter is separator-blind on Windows and would mask a regression
+        // where PathBuf::join slips a backslash in.
         assert_eq!(
-            spec.working_dir,
-            PathBuf::from("/home/scientist/code/zmuuzn/experiments/zmuuzn-strava"),
+            spec.working_dir.to_str().unwrap(),
+            "/home/scientist/code/zmuuzn/experiments/zmuuzn-strava",
         );
         assert_eq!(spec.binary, "claude");
+    }
+
+    #[test]
+    fn for_experiment_trims_trailing_slash_on_lab_root() {
+        let spec = SessionSpec::for_experiment(
+            Path::new("/home/scientist/code/zmuuzn/"),
+            ExperimentId::Crucible,
+            None,
+        );
+        assert_eq!(
+            spec.working_dir.to_str().unwrap(),
+            "/home/scientist/code/zmuuzn/experiments/zmuuzn-strava",
+        );
     }
 
     // ---- Windows substrate criterion 1 ------------------------------------
