@@ -11,7 +11,7 @@
 // and the public types differ; copying twenty lines is cheaper than a
 // generic wrapper.
 
-use crate::error::{WorkbenchError, WorkbenchResult};
+use crate::error::{MezzanineError, MezzanineResult};
 use std::path::Path;
 use std::process::{Command, Output};
 
@@ -25,12 +25,12 @@ pub fn run_in_lab(
     bin: &str,
     args: &[&str],
     distro: Option<&str>,
-) -> WorkbenchResult<String> {
+) -> MezzanineResult<String> {
     let inner = inner_shell_command(working_dir, bin, args);
     let mut cmd = bridged_command(&inner, distro);
     let output = cmd
         .output()
-        .map_err(|e| WorkbenchError::WslBridge(format!("subprocess failed: {e}")))?;
+        .map_err(|e| MezzanineError::WslBridge(format!("subprocess failed: {e}")))?;
     extract_stdout(output, bin)
 }
 
@@ -44,7 +44,7 @@ pub fn run_in_lab_with_stdin(
     args: &[&str],
     stdin_payload: &str,
     distro: Option<&str>,
-) -> WorkbenchResult<String> {
+) -> MezzanineResult<String> {
     use std::io::Write;
     use std::process::Stdio;
 
@@ -55,15 +55,15 @@ pub fn run_in_lab_with_stdin(
         .stderr(Stdio::piped());
     let mut child = cmd
         .spawn()
-        .map_err(|e| WorkbenchError::WslBridge(format!("subprocess failed: {e}")))?;
+        .map_err(|e| MezzanineError::WslBridge(format!("subprocess failed: {e}")))?;
     if let Some(mut stdin) = child.stdin.take() {
         stdin
             .write_all(stdin_payload.as_bytes())
-            .map_err(WorkbenchError::Io)?;
+            .map_err(MezzanineError::Io)?;
     }
     let output = child
         .wait_with_output()
-        .map_err(|e| WorkbenchError::WslBridge(format!("subprocess wait failed: {e}")))?;
+        .map_err(|e| MezzanineError::WslBridge(format!("subprocess wait failed: {e}")))?;
     extract_stdout(output, bin)
 }
 
@@ -104,13 +104,13 @@ fn shell_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', r"'\''"))
 }
 
-fn extract_stdout(output: Output, bin: &str) -> WorkbenchResult<String> {
+fn extract_stdout(output: Output, bin: &str) -> MezzanineResult<String> {
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
     } else {
         let code = output.status.code().unwrap_or(-1);
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        Err(WorkbenchError::WslBridge(format!(
+        Err(MezzanineError::WslBridge(format!(
             "{bin} exited {code}: {stderr}"
         )))
     }

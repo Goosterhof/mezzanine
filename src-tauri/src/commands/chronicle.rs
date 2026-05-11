@@ -13,7 +13,7 @@
 use crate::chronicle::reader::{history, DEFAULT_HISTORY_DAYS};
 use crate::chronicle::writer::ChronicleTurn;
 use crate::chronicle::ChronicleWriter;
-use crate::error::{WorkbenchError, WorkbenchResult};
+use crate::error::{MezzanineError, MezzanineResult};
 use crate::pty::session::ExperimentId;
 use crate::state::AppState;
 use std::path::Path;
@@ -26,22 +26,22 @@ pub fn read_chronicle_history(
     state: State<'_, AppState>,
     experiment: ExperimentId,
     days: Option<i64>,
-) -> WorkbenchResult<Vec<ChronicleTurn>> {
+) -> MezzanineResult<Vec<ChronicleTurn>> {
     let days_back = days.unwrap_or(DEFAULT_HISTORY_DAYS).max(0);
     history(state.chronicle.base_dir(), experiment, days_back)
 }
 
 #[tauri::command]
-pub fn read_chronicle_disclosure(state: State<'_, AppState>) -> WorkbenchResult<Option<String>> {
+pub fn read_chronicle_disclosure(state: State<'_, AppState>) -> MezzanineResult<Option<String>> {
     Ok(disclosure_status_value(&state.chronicle))
 }
 
 #[tauri::command]
-pub fn write_chronicle_disclosure_ack(state: State<'_, AppState>) -> WorkbenchResult<String> {
+pub fn write_chronicle_disclosure_ack(state: State<'_, AppState>) -> MezzanineResult<String> {
     let stamp = chrono::Utc::now().to_rfc3339();
     let base = state.chronicle.base_dir();
-    std::fs::create_dir_all(base).map_err(WorkbenchError::Io)?;
-    std::fs::write(disclosure_path(base), &stamp).map_err(WorkbenchError::Io)?;
+    std::fs::create_dir_all(base).map_err(MezzanineError::Io)?;
+    std::fs::write(disclosure_path(base), &stamp).map_err(MezzanineError::Io)?;
     state.chronicle.set_paused(false);
     Ok(stamp)
 }

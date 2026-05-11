@@ -9,7 +9,7 @@
 // single corrupted entry doesn't blank the pane.
 
 use crate::chronicle::writer::{experiment_dir, ChronicleTurn};
-use crate::error::{WorkbenchError, WorkbenchResult};
+use crate::error::{MezzanineError, MezzanineResult};
 use crate::pty::session::ExperimentId;
 use chrono::{Duration, Local, NaiveDate};
 use std::path::Path;
@@ -23,7 +23,7 @@ pub fn history(
     base_dir: &Path,
     experiment: ExperimentId,
     days_back: i64,
-) -> WorkbenchResult<Vec<ChronicleTurn>> {
+) -> MezzanineResult<Vec<ChronicleTurn>> {
     let exp_dir = base_dir.join(experiment_dir(experiment));
     if !exp_dir.exists() {
         return Ok(Vec::new());
@@ -32,9 +32,9 @@ pub fn history(
     let earliest = today - Duration::days(days_back.max(0));
 
     let mut files: Vec<(NaiveDate, std::path::PathBuf)> = Vec::new();
-    for entry in std::fs::read_dir(&exp_dir).map_err(WorkbenchError::Io)? {
-        let entry = entry.map_err(WorkbenchError::Io)?;
-        let metadata = entry.metadata().map_err(WorkbenchError::Io)?;
+    for entry in std::fs::read_dir(&exp_dir).map_err(MezzanineError::Io)? {
+        let entry = entry.map_err(MezzanineError::Io)?;
+        let metadata = entry.metadata().map_err(MezzanineError::Io)?;
         if !metadata.is_file() {
             continue;
         }
@@ -51,7 +51,7 @@ pub fn history(
 
     let mut turns: Vec<ChronicleTurn> = Vec::new();
     for (_, path) in files {
-        let body = std::fs::read_to_string(&path).map_err(WorkbenchError::Io)?;
+        let body = std::fs::read_to_string(&path).map_err(MezzanineError::Io)?;
         for (line_no, line) in body.lines().enumerate() {
             if line.trim().is_empty() {
                 continue;

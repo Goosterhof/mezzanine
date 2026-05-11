@@ -16,7 +16,7 @@
 // returns EOF, and the thread exits cleanly.
 
 use crate::chronicle::{ChronicleWriter, TurnDirection};
-use crate::error::{WorkbenchError, WorkbenchResult};
+use crate::error::{MezzanineError, MezzanineResult};
 use crate::pty::output::{ExitPayload, OutputPayload};
 use crate::pty::session::ExperimentId;
 use crate::pty::substrate::{build_command, SessionSpec};
@@ -56,7 +56,7 @@ impl LivePtySession {
         experiment: ExperimentId,
         chronicle: Arc<ChronicleWriter>,
         app: AppHandle<R>,
-    ) -> WorkbenchResult<Self> {
+    ) -> MezzanineResult<Self> {
         log::info!(
             "Workbench: tightening the vise on {} — cwd {}",
             experiment.label(),
@@ -67,13 +67,13 @@ impl LivePtySession {
 
         let pty = native_pty_system()
             .openpty(DEFAULT_PTY_SIZE)
-            .map_err(|e| WorkbenchError::PtySpawn(format!("openpty failed: {e}")))?;
+            .map_err(|e| MezzanineError::PtySpawn(format!("openpty failed: {e}")))?;
 
         let cmd = build_command(spec);
         let child = pty
             .slave
             .spawn_command(cmd)
-            .map_err(|e| WorkbenchError::PtySpawn(format!("spawn_command failed: {e}")))?;
+            .map_err(|e| MezzanineError::PtySpawn(format!("spawn_command failed: {e}")))?;
 
         // Drop the slave handle — the child holds it open from its end.
         drop(pty.slave);
@@ -81,11 +81,11 @@ impl LivePtySession {
         let writer = pty
             .master
             .take_writer()
-            .map_err(|e| WorkbenchError::PtySpawn(format!("take_writer failed: {e}")))?;
+            .map_err(|e| MezzanineError::PtySpawn(format!("take_writer failed: {e}")))?;
         let reader = pty
             .master
             .try_clone_reader()
-            .map_err(|e| WorkbenchError::PtySpawn(format!("try_clone_reader failed: {e}")))?;
+            .map_err(|e| MezzanineError::PtySpawn(format!("try_clone_reader failed: {e}")))?;
 
         let child = Arc::new(Mutex::new(child));
         let child_for_reader = child.clone();
@@ -114,7 +114,7 @@ impl LivePtySession {
     /// `claude` redraws at the right width. The frontend invokes this
     /// when the canvas's xterm.js terminal mounts or its container
     /// resizes; the wrapped TUI receives SIGWINCH and adapts.
-    pub fn resize(&self, cols: u16, rows: u16) -> WorkbenchResult<()> {
+    pub fn resize(&self, cols: u16, rows: u16) -> MezzanineResult<()> {
         let size = PtySize {
             cols,
             rows,
@@ -124,7 +124,7 @@ impl LivePtySession {
         self.master
             .lock()
             .resize(size)
-            .map_err(|e| WorkbenchError::PtySpawn(format!("resize failed: {e}")))
+            .map_err(|e| MezzanineError::PtySpawn(format!("resize failed: {e}")))
     }
 
     /// Write `bytes` to the pty's stdin and flush. Returns an io error if
@@ -132,7 +132,7 @@ impl LivePtySession {
     /// recorded as an `in` turn in the chronicle before the write — if
     /// the chronicle errors, the write still happens (chronicle failures
     /// must never block the bench).
-    pub fn write(&self, bytes: &[u8]) -> WorkbenchResult<()> {
+    pub fn write(&self, bytes: &[u8]) -> MezzanineResult<()> {
         if let Err(err) =
             self.chronicle
                 .record(self.experiment, TurnDirection::In, &decode_chunk(bytes))

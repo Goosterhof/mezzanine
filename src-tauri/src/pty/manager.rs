@@ -9,7 +9,7 @@
 // not.
 
 use crate::chronicle::ChronicleWriter;
-use crate::error::WorkbenchError;
+use crate::error::MezzanineError;
 use crate::pty::live::LivePtySession;
 use crate::pty::session::{ExperimentId, SessionState};
 use crate::pty::substrate::SessionSpec;
@@ -42,7 +42,7 @@ impl PtyManager {
         distro: Option<String>,
         chronicle: Arc<ChronicleWriter>,
         app: AppHandle<R>,
-    ) -> Result<SessionState, WorkbenchError> {
+    ) -> Result<SessionState, MezzanineError> {
         if self.sessions.contains_key(&experiment) {
             self.bump_recency(experiment);
             return Ok(SessionState::Awaiting);
@@ -74,11 +74,11 @@ impl PtyManager {
 
     /// Write bytes to the named session's stdin. Returns SessionNotFound
     /// if the session has already been killed or never spawned.
-    pub fn write(&self, experiment: ExperimentId, bytes: &[u8]) -> Result<(), WorkbenchError> {
+    pub fn write(&self, experiment: ExperimentId, bytes: &[u8]) -> Result<(), MezzanineError> {
         let session = self
             .sessions
             .get(&experiment)
-            .ok_or_else(|| WorkbenchError::SessionNotFound(format!("{experiment:?}")))?;
+            .ok_or_else(|| MezzanineError::SessionNotFound(format!("{experiment:?}")))?;
         session.write(bytes)
     }
 
@@ -91,18 +91,18 @@ impl PtyManager {
         experiment: ExperimentId,
         cols: u16,
         rows: u16,
-    ) -> Result<(), WorkbenchError> {
+    ) -> Result<(), MezzanineError> {
         let session = self
             .sessions
             .get(&experiment)
-            .ok_or_else(|| WorkbenchError::SessionNotFound(format!("{experiment:?}")))?;
+            .ok_or_else(|| MezzanineError::SessionNotFound(format!("{experiment:?}")))?;
         session.resize(cols, rows)
     }
 
     /// Kill the named session. Reader thread observes EOF, harvests the
     /// exit code via `wait()`, and emits `pty-exit`. The session entry
     /// is removed from the registry; the recency vec drops it too.
-    pub fn kill(&mut self, experiment: ExperimentId) -> Result<(), WorkbenchError> {
+    pub fn kill(&mut self, experiment: ExperimentId) -> Result<(), MezzanineError> {
         if let Some(session) = self.sessions.remove(&experiment) {
             session.kill_child();
             self.recency.retain(|&id| id != experiment);
@@ -182,7 +182,7 @@ mod tests {
         let mgr = PtyManager::default();
         let err = mgr.write(ExperimentId::Crucible, b"hello").unwrap_err();
         match err {
-            WorkbenchError::SessionNotFound(label) => {
+            MezzanineError::SessionNotFound(label) => {
                 assert!(
                     label.contains("Crucible"),
                     "expected experiment in label: {label}"

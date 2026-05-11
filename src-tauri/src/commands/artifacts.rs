@@ -13,7 +13,7 @@ use crate::drydock::{
     chaos_detonations::{self, ChaosDetonation},
     minion_touch::{self, MinionTouch},
 };
-use crate::error::{WorkbenchError, WorkbenchResult};
+use crate::error::{MezzanineError, MezzanineResult};
 use crate::state::AppState;
 use std::path::PathBuf;
 use tauri::State;
@@ -23,7 +23,7 @@ pub fn find_minion_touch(
     state: State<'_, AppState>,
     repo_local_path: String,
     file_path: String,
-) -> WorkbenchResult<Option<MinionTouch>> {
+) -> MezzanineResult<Option<MinionTouch>> {
     let (lab_root, distro) = read_lab_state(&state)?;
     let working_dir = lab_root.join(&repo_local_path);
     let stdout = bridge::run_in_lab(
@@ -47,7 +47,7 @@ pub fn find_minion_touch(
 pub fn find_chaos_detonations(
     state: State<'_, AppState>,
     file_path: String,
-) -> WorkbenchResult<Vec<ChaosDetonation>> {
+) -> MezzanineResult<Vec<ChaosDetonation>> {
     let (lab_root, _distro) = read_lab_state(&state)?;
     let chaos_dir = lab_root.join("documents/chaos-reports");
     if !chaos_dir.exists() {
@@ -61,7 +61,7 @@ pub fn find_chaos_detonations(
 pub fn find_active_experiment_log(
     state: State<'_, AppState>,
     scope: String,
-) -> WorkbenchResult<Option<ActiveExperimentLog>> {
+) -> MezzanineResult<Option<ActiveExperimentLog>> {
     let (lab_root, _distro) = read_lab_state(&state)?;
     let logs_dir = lab_root.join("documents/experiment-logs");
     if !logs_dir.exists() {
@@ -71,20 +71,20 @@ pub fn find_active_experiment_log(
     Ok(active_log::find_active_for_scope(&logs, &scope))
 }
 
-fn read_lab_state(state: &State<'_, AppState>) -> WorkbenchResult<(PathBuf, Option<String>)> {
+fn read_lab_state(state: &State<'_, AppState>) -> MezzanineResult<(PathBuf, Option<String>)> {
     let lab_root = {
         let guard = state.lab_root.read();
-        guard.clone().ok_or(WorkbenchError::ConfigCorrupt)?
+        guard.clone().ok_or(MezzanineError::ConfigCorrupt)?
     };
     let distro = state.distro.read().clone();
     Ok((lab_root, distro))
 }
 
-fn read_dir_markdown(dir: &std::path::Path) -> WorkbenchResult<Vec<(String, String)>> {
-    let entries = std::fs::read_dir(dir).map_err(WorkbenchError::Io)?;
+fn read_dir_markdown(dir: &std::path::Path) -> MezzanineResult<Vec<(String, String)>> {
+    let entries = std::fs::read_dir(dir).map_err(MezzanineError::Io)?;
     let mut out = Vec::new();
     for entry in entries {
-        let entry = entry.map_err(WorkbenchError::Io)?;
+        let entry = entry.map_err(MezzanineError::Io)?;
         let path = entry.path();
         let Some(filename) = path.file_name().and_then(|n| n.to_str()) else {
             continue;
@@ -92,13 +92,13 @@ fn read_dir_markdown(dir: &std::path::Path) -> WorkbenchResult<Vec<(String, Stri
         if !filename.ends_with(".md") {
             continue;
         }
-        let content = std::fs::read_to_string(&path).map_err(WorkbenchError::Io)?;
+        let content = std::fs::read_to_string(&path).map_err(MezzanineError::Io)?;
         out.push((filename.to_string(), content));
     }
     Ok(out)
 }
 
-fn read_log_headers(dir: &std::path::Path) -> WorkbenchResult<Vec<LogHeader>> {
+fn read_log_headers(dir: &std::path::Path) -> MezzanineResult<Vec<LogHeader>> {
     let raw = read_dir_markdown(dir)?;
     Ok(raw
         .into_iter()

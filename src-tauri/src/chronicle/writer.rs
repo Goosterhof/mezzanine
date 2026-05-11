@@ -7,7 +7,7 @@
 // is flipped to `false` once the investor acknowledges the privacy
 // disclosure.
 
-use crate::error::{WorkbenchError, WorkbenchResult};
+use crate::error::{MezzanineError, MezzanineResult};
 use crate::pty::session::ExperimentId;
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use parking_lot::Mutex;
@@ -74,7 +74,7 @@ impl ChronicleWriter {
     /// session id. Existing entries are closed (BufWriter dropped) before
     /// the new file is opened. While paused this is a no-op that returns
     /// a fresh uuid the manager can still hold for traceability.
-    pub fn begin_session(&self, experiment: ExperimentId) -> WorkbenchResult<Uuid> {
+    pub fn begin_session(&self, experiment: ExperimentId) -> MezzanineResult<Uuid> {
         let session_id = Uuid::new_v4();
         if self.is_paused() {
             return Ok(session_id);
@@ -102,7 +102,7 @@ impl ChronicleWriter {
         experiment: ExperimentId,
         direction: TurnDirection,
         payload: &str,
-    ) -> WorkbenchResult<()> {
+    ) -> MezzanineResult<()> {
         if self.is_paused() {
             return Ok(());
         }
@@ -133,7 +133,7 @@ impl ChronicleWriter {
     /// Drop the file handle for `experiment` so its writes are flushed
     /// and the next `begin_session` opens a fresh file. Called from
     /// PtyManager::kill when a session ends.
-    pub fn end_session(&self, experiment: ExperimentId) -> WorkbenchResult<()> {
+    pub fn end_session(&self, experiment: ExperimentId) -> MezzanineResult<()> {
         let mut guard = self.sessions.lock();
         if let Some(mut entry) = guard.remove(&experiment) {
             entry.file.flush()?;
@@ -142,15 +142,15 @@ impl ChronicleWriter {
     }
 }
 
-fn open_append(path: &Path) -> WorkbenchResult<BufWriter<File>> {
+fn open_append(path: &Path) -> MezzanineResult<BufWriter<File>> {
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(WorkbenchError::Io)?;
+        std::fs::create_dir_all(parent).map_err(MezzanineError::Io)?;
     }
     let file = OpenOptions::new()
         .create(true)
         .append(true)
         .open(path)
-        .map_err(WorkbenchError::Io)?;
+        .map_err(MezzanineError::Io)?;
     Ok(BufWriter::new(file))
 }
 

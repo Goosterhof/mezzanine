@@ -10,7 +10,7 @@
 // empty; that is the canonical "No wounds at threshold." case the panel
 // renders as a quiet empty state.
 
-use crate::error::{WorkbenchError, WorkbenchResult};
+use crate::error::{MezzanineError, MezzanineResult};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use std::path::Path;
@@ -30,11 +30,11 @@ pub fn list(wounds_dir: &Path) -> WoundsResult {
     if !wounds_dir.exists() {
         return Ok(Vec::new());
     }
-    let entries = std::fs::read_dir(wounds_dir).map_err(WorkbenchError::Io)?;
+    let entries = std::fs::read_dir(wounds_dir).map_err(MezzanineError::Io)?;
     let mut found: Vec<(SystemTime, WoundSummary)> = Vec::new();
     for entry in entries {
-        let entry = entry.map_err(WorkbenchError::Io)?;
-        let metadata = entry.metadata().map_err(WorkbenchError::Io)?;
+        let entry = entry.map_err(MezzanineError::Io)?;
+        let metadata = entry.metadata().map_err(MezzanineError::Io)?;
         if !metadata.is_file() {
             continue;
         }
@@ -60,7 +60,7 @@ pub fn list(wounds_dir: &Path) -> WoundsResult {
     Ok(found.into_iter().map(|(_, s)| s).take(MAX_WOUNDS).collect())
 }
 
-type WoundsResult = WorkbenchResult<Vec<WoundSummary>>;
+type WoundsResult = MezzanineResult<Vec<WoundSummary>>;
 
 fn format_rfc3339(t: SystemTime) -> String {
     let datetime: DateTime<Utc> = t.into();

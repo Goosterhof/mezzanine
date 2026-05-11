@@ -1,8 +1,8 @@
-// The Workbench's error vocabulary.
+// The Mezzanine's error vocabulary.
 //
-// The bench breaks. When it does, the investor deserves to know which tool
-// snapped. Every error variant names the part of the workbench that failed —
-// no anonymous "something went wrong."
+// The balcony's instruments fail. When they do, the investor deserves to
+// know which one snapped. Every error variant names the part of the
+// gadget that failed — no anonymous "something went wrong."
 
 use serde::Serialize;
 use thiserror::Error;
@@ -12,7 +12,7 @@ use thiserror::Error;
 // those modules grow, the variants live here unconstructed.
 #[allow(dead_code)]
 #[derive(Debug, Error)]
-pub enum WorkbenchError {
+pub enum MezzanineError {
     #[error("the vise refused to grip — pty spawn failed: {0}")]
     PtySpawn(String),
 
@@ -41,7 +41,7 @@ pub enum WorkbenchError {
 // Tauri requires errors crossing the IPC bridge to be Serializable. The
 // frontend never sees the raw error type — only its rendered message — but
 // serde::Serialize is the contract Tauri enforces.
-impl Serialize for WorkbenchError {
+impl Serialize for MezzanineError {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -50,4 +50,4 @@ impl Serialize for WorkbenchError {
     }
 }
 
-pub type WorkbenchResult<T> = Result<T, WorkbenchError>;
+pub type MezzanineResult<T> = Result<T, MezzanineError>;

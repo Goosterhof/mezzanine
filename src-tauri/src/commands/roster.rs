@@ -6,7 +6,7 @@
 // active roster, list the recently-recalled strip, write input to a
 // scientist's pty. Resize is also exposed for the xterm.js integration.
 
-use crate::error::{WorkbenchError, WorkbenchResult};
+use crate::error::{MezzanineError, MezzanineResult};
 use crate::roster::recall_strip::RecalledScientist;
 use crate::roster::scientist::{MissionState, Scientist, ScientistId};
 use crate::roster::target::Target;
@@ -20,10 +20,10 @@ pub fn dispatch_scientist<R: Runtime>(
     app: AppHandle<R>,
     target: Target,
     mission: String,
-) -> WorkbenchResult<Scientist> {
+) -> MezzanineResult<Scientist> {
     let lab_root = {
         let guard = state.lab_root.read();
-        guard.clone().ok_or(WorkbenchError::ConfigCorrupt)?
+        guard.clone().ok_or(MezzanineError::ConfigCorrupt)?
     };
     let distro = state.distro.read().clone();
     let chronicle_base = state.chronicle_base.clone();
@@ -38,19 +38,19 @@ pub fn dispatch_scientist<R: Runtime>(
 }
 
 #[tauri::command]
-pub fn recall_scientist(state: State<'_, AppState>, id: ScientistId) -> WorkbenchResult<()> {
+pub fn recall_scientist(state: State<'_, AppState>, id: ScientistId) -> MezzanineResult<()> {
     state.roster_manager.write().recall(id)
 }
 
 #[tauri::command]
-pub fn list_roster(state: State<'_, AppState>) -> WorkbenchResult<Vec<Scientist>> {
+pub fn list_roster(state: State<'_, AppState>) -> MezzanineResult<Vec<Scientist>> {
     Ok(state.roster_manager.read().list())
 }
 
 #[tauri::command]
 pub fn list_recently_recalled(
     state: State<'_, AppState>,
-) -> WorkbenchResult<Vec<RecalledScientist>> {
+) -> MezzanineResult<Vec<RecalledScientist>> {
     Ok(state.roster_manager.write().recently_recalled(Utc::now()))
 }
 
@@ -59,7 +59,7 @@ pub fn write_to_scientist(
     state: State<'_, AppState>,
     id: ScientistId,
     input: String,
-) -> WorkbenchResult<()> {
+) -> MezzanineResult<()> {
     state.roster_manager.read().write(id, input.as_bytes())
 }
 
@@ -69,13 +69,13 @@ pub fn resize_scientist(
     id: ScientistId,
     cols: u16,
     rows: u16,
-) -> WorkbenchResult<()> {
+) -> MezzanineResult<()> {
     match state.roster_manager.read().resize(id, cols, rows) {
         Ok(()) => Ok(()),
         // The canvas may emit a resize for a scientist that has just been
         // recalled. Swallow — the row is gone from the active Roster and
         // the resize cannot affect anything.
-        Err(WorkbenchError::SessionNotFound(_)) => Ok(()),
+        Err(MezzanineError::SessionNotFound(_)) => Ok(()),
         Err(other) => Err(other),
     }
 }
@@ -85,7 +85,7 @@ pub fn transition_scientist(
     state: State<'_, AppState>,
     id: ScientistId,
     next: MissionState,
-) -> WorkbenchResult<()> {
+) -> MezzanineResult<()> {
     state.roster_manager.write().transition(id, next);
     Ok(())
 }

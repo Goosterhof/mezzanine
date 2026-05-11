@@ -11,7 +11,7 @@
 // The transcript stays on disk after recall (the Mezzanine's 5-minute
 // recall-strip is a UI affordance; the chronicle is a permanent record).
 
-use crate::error::{WorkbenchError, WorkbenchResult};
+use crate::error::{MezzanineError, MezzanineResult};
 use crate::pty::substrate::{build_command, SessionSpec};
 use crate::roster::scientist::ScientistId;
 use chrono::Utc;
@@ -74,7 +74,7 @@ impl LiveScientistSession {
         scientist: ScientistId,
         chronicle_base: PathBuf,
         app: AppHandle<R>,
-    ) -> WorkbenchResult<Self> {
+    ) -> MezzanineResult<Self> {
         log::info!(
             "Mezzanine: dispatching scientist {scientist} — cwd {}",
             spec.working_dir.display(),
@@ -83,29 +83,29 @@ impl LiveScientistSession {
         let transcript_path = transcript_path(&chronicle_base, scientist);
         if let Some(parent) = transcript_path.parent() {
             std::fs::create_dir_all(parent)
-                .map_err(|e| WorkbenchError::Chronicle(format!("mkdir: {e}")))?;
+                .map_err(|e| MezzanineError::Chronicle(format!("mkdir: {e}")))?;
         }
 
         let pty = native_pty_system()
             .openpty(DEFAULT_PTY_SIZE)
-            .map_err(|e| WorkbenchError::PtySpawn(format!("openpty failed: {e}")))?;
+            .map_err(|e| MezzanineError::PtySpawn(format!("openpty failed: {e}")))?;
 
         let cmd = build_command(spec);
         let child = pty
             .slave
             .spawn_command(cmd)
-            .map_err(|e| WorkbenchError::PtySpawn(format!("spawn_command failed: {e}")))?;
+            .map_err(|e| MezzanineError::PtySpawn(format!("spawn_command failed: {e}")))?;
 
         drop(pty.slave);
 
         let writer = pty
             .master
             .take_writer()
-            .map_err(|e| WorkbenchError::PtySpawn(format!("take_writer failed: {e}")))?;
+            .map_err(|e| MezzanineError::PtySpawn(format!("take_writer failed: {e}")))?;
         let reader = pty
             .master
             .try_clone_reader()
-            .map_err(|e| WorkbenchError::PtySpawn(format!("try_clone_reader failed: {e}")))?;
+            .map_err(|e| MezzanineError::PtySpawn(format!("try_clone_reader failed: {e}")))?;
 
         let child = Arc::new(Mutex::new(child));
         let child_for_reader = child.clone();
@@ -130,7 +130,7 @@ impl LiveScientistSession {
         })
     }
 
-    pub fn resize(&self, cols: u16, rows: u16) -> WorkbenchResult<()> {
+    pub fn resize(&self, cols: u16, rows: u16) -> MezzanineResult<()> {
         let size = PtySize {
             cols,
             rows,
@@ -140,14 +140,14 @@ impl LiveScientistSession {
         self.master
             .lock()
             .resize(size)
-            .map_err(|e| WorkbenchError::PtySpawn(format!("resize failed: {e}")))
+            .map_err(|e| MezzanineError::PtySpawn(format!("resize failed: {e}")))
     }
 
     /// Write `bytes` to the pty's stdin and flush. Records an `in` turn in
     /// the scientist's transcript before the write — chronicle failures
     /// are logged and ignored (the dispatch must not be blocked by a
     /// transcript I/O error).
-    pub fn write(&self, bytes: &[u8]) -> WorkbenchResult<()> {
+    pub fn write(&self, bytes: &[u8]) -> MezzanineResult<()> {
         let chunk = String::from_utf8_lossy(bytes);
         if let Err(err) = append_turn(&self.transcript_path, TurnDirection::In, &chunk) {
             log::warn!(

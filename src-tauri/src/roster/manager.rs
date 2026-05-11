@@ -6,7 +6,7 @@
 // recently-recalled strip for the Mezzanine's "row dims out, then drops"
 // post-recall UX.
 
-use crate::error::{WorkbenchError, WorkbenchResult};
+use crate::error::{MezzanineError, MezzanineResult};
 use crate::pty::substrate::SessionSpec;
 use crate::roster::live::LiveScientistSession;
 use crate::roster::persistence::{read_snapshot, write_snapshot, RosterSnapshot};
@@ -65,7 +65,7 @@ impl RosterManager {
         distro: Option<String>,
         chronicle_base: PathBuf,
         app: AppHandle<R>,
-    ) -> WorkbenchResult<Scientist> {
+    ) -> MezzanineResult<Scientist> {
         let scientist = Scientist::new(target.clone(), mission);
         let id = scientist.id;
         let spec = SessionSpec::for_target(lab_root, &target, distro);
@@ -79,7 +79,7 @@ impl RosterManager {
     /// Recall the scientist by id. Kills the live pty if present, moves
     /// the record into the recall strip, persists. Idempotent on already-
     /// recalled scientists (they're already in the strip).
-    pub fn recall(&mut self, id: ScientistId) -> WorkbenchResult<()> {
+    pub fn recall(&mut self, id: ScientistId) -> MezzanineResult<()> {
         if let Some(live) = self.scientists.remove(&id) {
             live.kill_child();
         }
@@ -106,20 +106,20 @@ impl RosterManager {
 
     /// Write `bytes` to the named scientist's stdin. SessionNotFound if
     /// the scientist has been recalled or never dispatched.
-    pub fn write(&self, id: ScientistId, bytes: &[u8]) -> WorkbenchResult<()> {
+    pub fn write(&self, id: ScientistId, bytes: &[u8]) -> MezzanineResult<()> {
         let live = self
             .scientists
             .get(&id)
-            .ok_or_else(|| WorkbenchError::SessionNotFound(format!("{id}")))?;
+            .ok_or_else(|| MezzanineError::SessionNotFound(format!("{id}")))?;
         live.write(bytes)
     }
 
     /// Push new terminal dimensions to the named scientist's pty master.
-    pub fn resize(&self, id: ScientistId, cols: u16, rows: u16) -> WorkbenchResult<()> {
+    pub fn resize(&self, id: ScientistId, cols: u16, rows: u16) -> MezzanineResult<()> {
         let live = self
             .scientists
             .get(&id)
-            .ok_or_else(|| WorkbenchError::SessionNotFound(format!("{id}")))?;
+            .ok_or_else(|| MezzanineError::SessionNotFound(format!("{id}")))?;
         live.resize(cols, rows)
     }
 
@@ -289,7 +289,7 @@ mod tests {
         let phantom = ScientistId::new();
         let err = mgr.write(phantom, b"hello").unwrap_err();
         match err {
-            WorkbenchError::SessionNotFound(label) => {
+            MezzanineError::SessionNotFound(label) => {
                 assert!(label.contains(&phantom.to_string()));
             }
             other => panic!("expected SessionNotFound, got: {other:?}"),

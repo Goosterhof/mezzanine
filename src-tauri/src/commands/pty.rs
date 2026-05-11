@@ -5,7 +5,7 @@
 // the three verbs the frontend needs to direct a live pty through the
 // command bar and the experiment rail.
 
-use crate::error::{WorkbenchError, WorkbenchResult};
+use crate::error::{MezzanineError, MezzanineResult};
 use crate::pty::session::{ExperimentId, SessionState};
 use crate::state::AppState;
 use tauri::{AppHandle, Runtime, State};
@@ -13,7 +13,7 @@ use tauri::{AppHandle, Runtime, State};
 #[tauri::command]
 pub fn list_sessions(
     state: State<'_, AppState>,
-) -> WorkbenchResult<Vec<(ExperimentId, SessionState)>> {
+) -> MezzanineResult<Vec<(ExperimentId, SessionState)>> {
     Ok(state.pty_manager.read().snapshot())
 }
 
@@ -21,7 +21,7 @@ pub fn list_sessions(
 pub fn session_state(
     state: State<'_, AppState>,
     experiment: ExperimentId,
-) -> WorkbenchResult<SessionState> {
+) -> MezzanineResult<SessionState> {
     Ok(state.pty_manager.read().state(experiment))
 }
 
@@ -30,10 +30,10 @@ pub fn spawn_session<R: Runtime>(
     state: State<'_, AppState>,
     app: AppHandle<R>,
     experiment: ExperimentId,
-) -> WorkbenchResult<SessionState> {
+) -> MezzanineResult<SessionState> {
     let lab_root = {
         let guard = state.lab_root.read();
-        guard.clone().ok_or(WorkbenchError::ConfigCorrupt)?
+        guard.clone().ok_or(MezzanineError::ConfigCorrupt)?
     };
     let distro = state.distro.read().clone();
     let chronicle = state.chronicle.clone();
@@ -48,12 +48,12 @@ pub fn write_to_session(
     state: State<'_, AppState>,
     experiment: ExperimentId,
     input: String,
-) -> WorkbenchResult<()> {
+) -> MezzanineResult<()> {
     state.pty_manager.read().write(experiment, input.as_bytes())
 }
 
 #[tauri::command]
-pub fn kill_session(state: State<'_, AppState>, experiment: ExperimentId) -> WorkbenchResult<()> {
+pub fn kill_session(state: State<'_, AppState>, experiment: ExperimentId) -> MezzanineResult<()> {
     state.pty_manager.write().kill(experiment)
 }
 
@@ -63,13 +63,13 @@ pub fn resize_session(
     experiment: ExperimentId,
     cols: u16,
     rows: u16,
-) -> WorkbenchResult<()> {
+) -> MezzanineResult<()> {
     match state.pty_manager.read().resize(experiment, cols, rows) {
         Ok(()) => Ok(()),
         // The canvas may emit a resize for an experiment whose session
         // was just evicted. Swallow it — the next spawn will pick up
         // the right size from DEFAULT_PTY_SIZE and the next resize.
-        Err(WorkbenchError::SessionNotFound(_)) => Ok(()),
+        Err(MezzanineError::SessionNotFound(_)) => Ok(()),
         Err(other) => Err(other),
     }
 }

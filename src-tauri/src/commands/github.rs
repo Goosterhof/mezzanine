@@ -16,7 +16,7 @@
 //     are passed cleanly.
 
 use crate::drydock::{bridge, repo_registry};
-use crate::error::{WorkbenchError, WorkbenchResult};
+use crate::error::{MezzanineError, MezzanineResult};
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -98,7 +98,7 @@ const PR_LIST_FIELDS: &str =
     "number,title,author,headRefName,isDraft,additions,deletions,changedFiles,url";
 
 #[tauri::command]
-pub fn gh_auth_status(state: State<'_, AppState>) -> WorkbenchResult<GhAuthStatus> {
+pub fn gh_auth_status(state: State<'_, AppState>) -> MezzanineResult<GhAuthStatus> {
     let (lab_root, distro) = read_lab_state(&state)?;
     // `gh auth status` exits 0 when authenticated, 1 when not.
     // We treat the error case as a non-authenticated signal — not a
@@ -108,7 +108,7 @@ pub fn gh_auth_status(state: State<'_, AppState>) -> WorkbenchResult<GhAuthStatu
             authenticated: true,
             message: msg.trim().to_string(),
         }),
-        Err(WorkbenchError::WslBridge(msg)) => Ok(GhAuthStatus {
+        Err(MezzanineError::WslBridge(msg)) => Ok(GhAuthStatus {
             authenticated: false,
             message: msg,
         }),
@@ -117,7 +117,7 @@ pub fn gh_auth_status(state: State<'_, AppState>) -> WorkbenchResult<GhAuthStatu
 }
 
 #[tauri::command]
-pub fn list_open_prs(state: State<'_, AppState>) -> WorkbenchResult<Vec<PullRequest>> {
+pub fn list_open_prs(state: State<'_, AppState>) -> MezzanineResult<Vec<PullRequest>> {
     let (lab_root, distro) = read_lab_state(&state)?;
     let mut out = Vec::new();
     for repo in repo_registry::lab_repos() {
@@ -186,7 +186,7 @@ pub fn pull_request_files(
     state: State<'_, AppState>,
     repo_full_name: String,
     number: u64,
-) -> WorkbenchResult<Vec<PullRequestFile>> {
+) -> MezzanineResult<Vec<PullRequestFile>> {
     let (lab_root, distro) = read_lab_state(&state)?;
     let number_arg = number.to_string();
     let stdout = bridge::run_in_lab(
@@ -204,7 +204,7 @@ pub fn pull_request_files(
         distro.as_deref(),
     )?;
     let envelope: RawPrFilesEnvelope = serde_json::from_str(stdout.trim())
-        .map_err(|e| WorkbenchError::WslBridge(format!("gh pr view JSON: {e}")))?;
+        .map_err(|e| MezzanineError::WslBridge(format!("gh pr view JSON: {e}")))?;
     Ok(envelope
         .files
         .into_iter()
@@ -222,7 +222,7 @@ pub fn approve_pr(
     repo_full_name: String,
     number: u64,
     body: String,
-) -> WorkbenchResult<()> {
+) -> MezzanineResult<()> {
     submit_review(&state, &repo_full_name, number, "--approve", &body)
 }
 
@@ -232,7 +232,7 @@ pub fn comment_pr(
     repo_full_name: String,
     number: u64,
     body: String,
-) -> WorkbenchResult<()> {
+) -> MezzanineResult<()> {
     submit_review(&state, &repo_full_name, number, "--comment", &body)
 }
 
@@ -242,7 +242,7 @@ pub fn request_changes_pr(
     repo_full_name: String,
     number: u64,
     body: String,
-) -> WorkbenchResult<()> {
+) -> MezzanineResult<()> {
     submit_review(&state, &repo_full_name, number, "--request-changes", &body)
 }
 
@@ -252,7 +252,7 @@ fn submit_review(
     number: u64,
     verdict_flag: &str,
     body: &str,
-) -> WorkbenchResult<()> {
+) -> MezzanineResult<()> {
     let (lab_root, distro) = read_lab_state(state)?;
     let number_arg = number.to_string();
     // --body-file - reads the body from stdin so multi-line review bodies
@@ -276,10 +276,10 @@ fn submit_review(
     Ok(())
 }
 
-fn read_lab_state(state: &State<'_, AppState>) -> WorkbenchResult<(PathBuf, Option<String>)> {
+fn read_lab_state(state: &State<'_, AppState>) -> MezzanineResult<(PathBuf, Option<String>)> {
     let lab_root = {
         let guard = state.lab_root.read();
-        guard.clone().ok_or(WorkbenchError::ConfigCorrupt)?
+        guard.clone().ok_or(MezzanineError::ConfigCorrupt)?
     };
     let distro = state.distro.read().clone();
     Ok((lab_root, distro))
