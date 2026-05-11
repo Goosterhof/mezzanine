@@ -82,6 +82,23 @@ impl PtyManager {
         session.write(bytes)
     }
 
+    /// Push new terminal dimensions to the named session's pty master.
+    /// SessionNotFound if the session is absent — the frontend may race
+    /// a resize against a kill, and the canvas should treat that as a
+    /// no-op rather than an error.
+    pub fn resize(
+        &self,
+        experiment: ExperimentId,
+        cols: u16,
+        rows: u16,
+    ) -> Result<(), WorkbenchError> {
+        let session = self
+            .sessions
+            .get(&experiment)
+            .ok_or_else(|| WorkbenchError::SessionNotFound(format!("{experiment:?}")))?;
+        session.resize(cols, rows)
+    }
+
     /// Kill the named session. Reader thread observes EOF, harvests the
     /// exit code via `wait()`, and emits `pty-exit`. The session entry
     /// is removed from the registry; the recency vec drops it too.

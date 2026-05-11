@@ -1,8 +1,37 @@
 import {mount} from '@vue/test-utils';
-import {describe, it, expect, beforeEach} from 'vitest';
+import {describe, it, expect, beforeEach, vi} from 'vitest';
 
 import SessionCanvas from '../../src/session/SessionCanvas.vue';
+import {EXPERIMENTS} from '../../src/session/types';
 import {useSessions} from '../../src/session/useSessions';
+
+// SessionCanvas mounts xterm.js Terminals into per-experiment wrappers
+// at runtime. jsdom can't render xterm, so the useTerminals composable
+// is stubbed; we only verify the structural / state-driven behavior of
+// the Vue component itself.
+vi.mock('../../src/session/useTerminals', () => {
+    const stubSlot = {
+        terminal: {
+            element: document.createElement('div'),
+            cols: 132,
+            rows: 40,
+            open: () => {},
+            focus: () => {},
+            write: () => {},
+        },
+        fit: {fit: () => {}},
+        lastSize: null,
+        dataDisposable: {dispose: () => {}},
+    };
+    return {
+        useTerminals: () => ({
+            get: () => stubSlot,
+            has: () => true,
+            setDataHandler: () => {},
+            reset: () => {},
+        }),
+    };
+});
 
 describe('SessionCanvas', () => {
     beforeEach(() => {
@@ -23,24 +52,15 @@ describe('SessionCanvas', () => {
         expect(wrapper.text()).toContain('experiments/zmuuzn-strava');
     });
 
-    it('shows the booting message when the buffer is empty for the active experiment', () => {
-        const sessions = useSessions();
-        sessions.focus('crucible');
-        const wrapper = mount(SessionCanvas);
-        expect(wrapper.text()).toContain('Vise tightening… booting The Crucible.');
-    });
-
-    it('renders buffer lines as a pre block when output exists', () => {
+    it('renders one wrapper div per experiment when an experiment is focused', () => {
         const sessions = useSessions();
         sessions.focus('parlour');
-        sessions.appendOutput('parlour', 'hello world');
-        sessions.appendOutput('parlour', 'second line');
         const wrapper = mount(SessionCanvas);
-        const pre = wrapper.find('pre');
-        expect(pre.exists()).toBe(true);
-        expect(pre.text()).toContain('hello world');
-        expect(pre.text()).toContain('second line');
-        expect(wrapper.text()).not.toContain('Vise tightening');
+        // Six absolutely-positioned wrappers, all stacked, only the
+        // active one visible. Inactive wrappers stay in layout so the
+        // FitAddon can compute correct dimensions on tab activation.
+        const stack = wrapper.findAll('div.absolute.inset-0');
+        expect(stack).toHaveLength(EXPERIMENTS.length);
     });
 
     it('does not render the active-bench header when no experiment is focused', () => {

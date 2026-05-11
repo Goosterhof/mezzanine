@@ -12,3 +12,15 @@ type ListenFn = (eventName: string, handler: (event: unknown) => void) => Promis
 vi.mock('@tauri-apps/api/core', () => ({invoke: vi.fn<InvokeFn>(() => Promise.resolve())}));
 
 vi.mock('@tauri-apps/api/event', () => ({listen: vi.fn<ListenFn>(() => Promise.resolve(() => {}))}));
+
+// jsdom does not implement ResizeObserver. SessionCanvas observes its
+// terminal wrappers to re-fit on layout change; without this shim the
+// component would throw on mount.
+class ResizeObserverShim {
+    constructor(_callback: ResizeObserverCallback) {}
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+}
+(globalThis as unknown as {ResizeObserver?: typeof ResizeObserver}).ResizeObserver ??=
+    ResizeObserverShim as unknown as typeof ResizeObserver;

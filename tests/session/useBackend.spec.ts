@@ -4,9 +4,38 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {useBackend} from '../../src/session/useBackend';
 import {useSessions} from '../../src/session/useSessions';
+import {useTerminals} from '../../src/session/useTerminals';
 
 const mockedInvoke = vi.mocked(invoke);
 const mockedListen = vi.mocked(listen);
+
+vi.mock('../../src/session/useTerminals', () => {
+    const writes = new Map<string, string[]>();
+    const stub = {
+        get: (id: string) => {
+            const log = writes.get(id) ?? [];
+            writes.set(id, log);
+            return {
+                terminal: {
+                    write: (chunk: string) => {
+                        log.push(chunk);
+                    },
+                },
+                fit: {fit: () => {}},
+                lastSize: null,
+                dataDisposable: {dispose: () => {}},
+            };
+        },
+        has: (id: string) => writes.has(id),
+        setDataHandler: () => {},
+        reset: () => {
+            writes.clear();
+        },
+        // Test-only: surface the writes log so specs can assert routing.
+        _writes: writes,
+    };
+    return {useTerminals: () => stub};
+});
 
 interface CapturedHandlers {
     output?: (event: {payload: {experiment: string; chunk: string}}) => void;
@@ -29,6 +58,7 @@ function captureListenHandlers(): CapturedHandlers {
 describe('useBackend', () => {
     beforeEach(() => {
         useSessions().reset();
+        useTerminals().reset();
         useBackend()._resetSubscriptionForTests();
         mockedInvoke.mockReset();
         mockedInvoke.mockResolvedValue(undefined);
@@ -60,13 +90,23 @@ describe('useBackend', () => {
             expect(mockedListen).toHaveBeenCalledTimes(2);
         });
 
-        it('routes pty-output payloads into appendChunk and marks the bench working', async () => {
+        it('routes pty-output payloads into the per-experiment terminal and marks the bench working', async () => {
             const captured = captureListenHandlers();
             await useBackend().subscribe();
             captured.output!({payload: {experiment: 'crucible', chunk: 'forge online\n'}});
             const sessions = useSessions();
-            expect(sessions.buffers.value.crucible).toStrictEqual(['forge online']);
+            const terminals = useTerminals() as unknown as {_writes: Map<string, string[]>};
+            expect(terminals._writes.get('crucible')).toStrictEqual(['forge online\n']);
             expect(sessions.states.value.crucible).toBe('working');
+        });
+
+        it('exposes resizeSession that invokes resize_session with cols and rows', async () => {
+            await useBackend().resizeSession('crucible', 132, 40);
+            expect(mockedInvoke).toHaveBeenCalledWith('resize_session', {
+                experiment: 'crucible',
+                cols: 132,
+                rows: 40,
+            });
         });
 
         it('routes pty-exit payloads into idle on success and crashed on non-zero', async () => {

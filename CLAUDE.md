@@ -76,6 +76,11 @@ pass through; terminal width queries return the right answer.
 - **Pty:** the `portable-pty` Rust crate (the lab's first use of it; the
   Horadric Cube uses `tauri-plugin-shell` for one-shot subprocesses, not
   interactive pty sessions)
+- **Terminal renderer:** `@xterm/xterm` 5.x + `@xterm/addon-fit` — the
+  canvas mounts one `Terminal` per experiment (lazy, persistent for the
+  gadget's lifetime). xterm's own scrollback (5000 lines) replaces the
+  ring-buffer model the original Phase 1B/1C design specified; ANSI
+  escape sequences from `claude` are rendered, not printed as glyphs
 - **Async:** `tokio` for the read/write pumps
 - **Persistence:** `tauri-plugin-store` for first-run wizard config
   (lab root path, claude binary path, transcript acknowledgment)
@@ -127,9 +132,10 @@ workbench/
 │   │   ├── ExperimentRail.vue  Left rail — 6 tabs with pulse dots
 │   │   └── useShell.ts ....... openPanel + togglePanel/closePanel singleton
 │   ├── session/               Pty session domain (state, buffers, recency)
-│   │   ├── SessionCanvas.vue . Center pty output pane (last 200 lines)
+│   │   ├── SessionCanvas.vue . Center xterm.js stack — one wrapper per experiment, only active visible
 │   │   ├── PulseDot.vue ...... 5-state animated indicator
-│   │   ├── useSessions.ts .... Singleton state, ring buffers, recency, focus
+│   │   ├── useSessions.ts .... Singleton pulse state, recency, active focus
+│   │   ├── useTerminals.ts ... Singleton xterm Terminal pool (one per experiment, lazy, persistent)
 │   │   └── types.ts .......... ExperimentId / SessionState / EXPERIMENTS table
 │   ├── command/               Always-on input tray
 │   │   └── CommandBar.vue .... Always-focused bottom input + @<exp> routing
@@ -178,8 +184,14 @@ magic alias.
 
 State lives in **module-singleton composables**, not Pinia:
 
-- `session/useSessions.ts` — pty state, 200-line ring buffers per
-  experiment, LRU recency, active-experiment focus.
+- `session/useSessions.ts` — pulse state per experiment, LRU recency,
+  active-experiment focus. The pty byte stream lives in xterm.js
+  Terminals (`useTerminals.ts`); this composable holds only the
+  rail/pulse-dot facing state.
+- `session/useTerminals.ts` — module-singleton pool of xterm `Terminal`
+  instances, one per experiment. Created lazily on first activation
+  and kept alive for the gadget's lifetime so cursor, scrollback, and
+  half-typed input survive tab switches and LRU subprocess eviction.
 - `shell/useShell.ts` — which top-bar panel (if any) is open.
 
 Each composable exports a `reset()` that tests call in `beforeEach` to
@@ -201,8 +213,8 @@ Status pointer for Claude when reopening this lab journal:
 | Phase | Scope | Status |
 |-------|-------|--------|
 | 1A | Tauri scaffold + Apprentice retirement + Sentinel CI | ✅ Closed 2026-04-30 |
-| 1B | The Floor — window, rail, command bar wired to mock data | ✅ Closed 2026-05-03 (Windows boot smoke-test deferred to first investor `tauri dev`) |
-| 1C | Pty integration — `portable-pty` + `wsl.exe` substrate spike + live sessions | ⏳ Substrate spike + live-session manager + spawn/write/kill commands + frontend wiring + LRU eviction (3-warm cap) + `@<exp>` prefix routing + working/awaiting debounce all landed 2026-05-03 (Unix substrate verified, Windows substrate compiles & is staged for investor). Remaining: end-to-end smoke test on Windows (`tauri dev` + click a bench → claude renders in canvas). |
+| 1B | The Floor — window, rail, command bar wired to mock data | ✅ Closed 2026-05-03; ratified on Windows 2026-05-11 |
+| 1C | Pty integration — `portable-pty` + `wsl.exe` substrate spike + live sessions | ✅ Closed 2026-05-03 (Linux); ratified on Windows 2026-05-11 — substrate path-separator bug fixed (PathBuf::join → POSIX string join, regression test added), xterm.js + FitAddon now host the pty stream, `resize_session` plumbs cols/rows. Substrate criteria 2–4 directly verified by live `claude` boot, not just compile-time |
 | 2A | Mission Control panel (Vital Signs + dispatch + minion-due + wounds) | ✅ Closed 2026-05-03 — slide-in panel reads CLAUDE.md vital-signs box, `documents/war-room-dispatch.md`, `documents/laboratory-pulse.md` Pending Signals, and `.claude/memory/wounds/`; Compose Dispatch templated editor splices `### N. Title` blocks ahead of `## Resolved`. 23 new vitest specs (77→100), 18 new Rust tests (15→33), all five containment protocols green |
 | 2B | The Chronicle — JSONL transcript writer + History pane | ✅ Closed 2026-05-03 — `chronicle::writer` appends `{ts, direction, payload}` per pty turn, rotates files at local midnight, paused at boot until the investor acks `PrivacyDisclosure`. `chronicle::reader::history(dir, exp, days)` replays last N days; tolerates malformed lines. New `src/chronicle/` slice with HistoryPane (overlays SessionCanvas) and PrivacyDisclosure (one-time blocking modal — stands in for the Phase 4A wizard's privacy-ack subset). 12 new Rust tests (33→45), 17 new vitest specs (100→117), all five containment protocols green |
 | 3A | The Drydock — PR review with three artifact-derived enrichment fields | Pending Phase 2 |

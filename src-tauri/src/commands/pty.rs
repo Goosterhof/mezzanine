@@ -56,3 +56,20 @@ pub fn write_to_session(
 pub fn kill_session(state: State<'_, AppState>, experiment: ExperimentId) -> WorkbenchResult<()> {
     state.pty_manager.write().kill(experiment)
 }
+
+#[tauri::command]
+pub fn resize_session(
+    state: State<'_, AppState>,
+    experiment: ExperimentId,
+    cols: u16,
+    rows: u16,
+) -> WorkbenchResult<()> {
+    match state.pty_manager.read().resize(experiment, cols, rows) {
+        Ok(()) => Ok(()),
+        // The canvas may emit a resize for an experiment whose session
+        // was just evicted. Swallow it — the next spawn will pick up
+        // the right size from DEFAULT_PTY_SIZE and the next resize.
+        Err(WorkbenchError::SessionNotFound(_)) => Ok(()),
+        Err(other) => Err(other),
+    }
+}

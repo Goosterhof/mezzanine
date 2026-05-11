@@ -73,6 +73,7 @@ pub fn run() {
             commands::pty::spawn_session,
             commands::pty::write_to_session,
             commands::pty::kill_session,
+            commands::pty::resize_session,
             commands::files::read_vital_signs,
             commands::files::read_war_room_dispatch,
             commands::files::read_inheritance_signals,

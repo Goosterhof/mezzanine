@@ -19,6 +19,7 @@ import {listen, type UnlistenFn} from '@tauri-apps/api/event';
 import type {ExperimentId} from './types';
 
 import {useSessions} from './useSessions';
+import {useTerminals} from './useTerminals';
 
 interface OutputPayload {
     experiment: ExperimentId;
@@ -48,6 +49,7 @@ function clearQuietTimer(id: ExperimentId): void {
 
 export function useBackend() {
     const sessions = useSessions();
+    const terminals = useTerminals();
 
     return {
         /** Wire pty-output and pty-exit listeners exactly once per app lifetime.
@@ -58,9 +60,14 @@ export function useBackend() {
             if (subscribed && unlistenOutput && unlistenExit) {
                 return {output: unlistenOutput, exit: unlistenExit};
             }
+            // Install the keystroke handler that routes onData from every
+            // xterm.js terminal back through write_to_session.
+            terminals.setDataHandler((id, data) => {
+                void invoke('write_to_session', {experiment: id, input: data});
+            });
             unlistenOutput = await listen<OutputPayload>('pty-output', (event) => {
                 const id = event.payload.experiment;
-                sessions.appendChunk(id, event.payload.chunk);
+                terminals.get(id).terminal.write(event.payload.chunk);
                 sessions.setState(id, 'working');
                 clearQuietTimer(id);
                 quietTimers.set(
@@ -96,6 +103,14 @@ export function useBackend() {
             await invoke('kill_session', {experiment: id});
             clearQuietTimer(id);
             sessions.setState(id, 'idle');
+        },
+
+        /** Push the active terminal's dimensions to the pty master so
+         *  the wrapped TUI redraws at the right width. SessionCanvas
+         *  calls this after every fit() — both on first attach and on
+         *  ResizeObserver ticks. */
+        async resizeSession(id: ExperimentId, cols: number, rows: number): Promise<void> {
+            await invoke('resize_session', {experiment: id, cols, rows});
         },
 
         /** Test-only: re-arm the singleton subscribe state. */

@@ -42,8 +42,9 @@ pub struct LivePtySession {
     chronicle: Arc<ChronicleWriter>,
     experiment: ExperimentId,
     // The master is kept alive to keep the TTY pair valid while the slave
-    // process holds it. Dropped implicitly when the session drops.
-    _master: Mutex<Box<dyn MasterPty + Send>>,
+    // process holds it, and used by `resize` to push new dimensions when
+    // the canvas's xterm.js terminal grows or shrinks.
+    master: Mutex<Box<dyn MasterPty + Send>>,
 }
 
 impl LivePtySession {
@@ -105,8 +106,25 @@ impl LivePtySession {
             child,
             chronicle,
             experiment,
-            _master: Mutex::new(pty.master),
+            master: Mutex::new(pty.master),
         })
+    }
+
+    /// Push new terminal dimensions to the pty master so the wrapped
+    /// `claude` redraws at the right width. The frontend invokes this
+    /// when the canvas's xterm.js terminal mounts or its container
+    /// resizes; the wrapped TUI receives SIGWINCH and adapts.
+    pub fn resize(&self, cols: u16, rows: u16) -> WorkbenchResult<()> {
+        let size = PtySize {
+            cols,
+            rows,
+            pixel_width: 0,
+            pixel_height: 0,
+        };
+        self.master
+            .lock()
+            .resize(size)
+            .map_err(|e| WorkbenchError::PtySpawn(format!("resize failed: {e}")))
     }
 
     /// Write `bytes` to the pty's stdin and flush. Returns an io error if
