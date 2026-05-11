@@ -1,18 +1,27 @@
 // The Chronicle — append-only JSONL transcript writer.
 //
-// Every pty I/O pair is appended to a local file at
-// `<home>/.zmuuzn-cockpit/transcripts/<experiment>/<YYYY-MM-DD>-<session-id>.jsonl`
-// (Linux) or the same path under `%USERPROFILE%` on Windows. One JSONL
-// line per turn: `{ts, direction: "in"|"out", payload}`. New file per
-// calendar day per experiment — sessions that span midnight write to two
-// files with the same session-id suffix. Local-only — never synced, never
-// committed; defensive `.gitignore` entries in the lab root and each
-// experiment guard against accidental commits if the path ever drifts.
+// Phase 2A (the Mezzanine reframe) moves the canonical path from
+// `~/.zmuuzn-cockpit/` to `~/.zmuuzn-mezzanine/`. On first Mezzanine boot
+// the `migration` module performs a one-time copy from the bench-era
+// location into the new one; subsequent boots observe the marker file and
+// no-op. The bench-era directory is left intact for rollback.
 //
-// The writer is held as `Arc<ChronicleWriter>` in `AppState`; the pty
-// manager clones the Arc into each `LivePtySession`, which records "in"
-// on every command-bar write and "out" on every reader chunk.
+// Two writer layouts coexist during the bench → Mezzanine transition:
+//
+//   1. Bench era (still in use until the frontend cutover):
+//      `<base>/<experiment>/<YYYY-MM-DD>-<session-id>.jsonl` — one file
+//      per calendar day per experiment, written via `ChronicleWriter`.
+//
+//   2. Mezzanine era (consumed by the new RosterManager):
+//      `<base>/scientists/<scientist-id>.jsonl` — one file per dispatched
+//      scientist, written inline by `roster::live::LiveScientistSession`.
+//
+// One JSONL line per turn in both layouts: `{ts, direction: "in"|"out",
+// payload}`. Local-only — never synced, never committed; defensive
+// `.gitignore` entries in the lab root and each experiment guard against
+// accidental commits if the path ever drifts.
 
+pub mod migration;
 pub mod reader;
 pub mod writer;
 

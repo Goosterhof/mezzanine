@@ -19,6 +19,7 @@
 // once — no wishful cross-platform validation.
 
 use crate::pty::session::ExperimentId;
+use crate::roster::target::Target;
 use portable_pty::CommandBuilder;
 use std::path::{Path, PathBuf};
 
@@ -63,6 +64,20 @@ impl SessionSpec {
         );
         Self {
             working_dir: PathBuf::from(working_dir),
+            binary: "claude".to_string(),
+            args: Vec::new(),
+            distro,
+        }
+    }
+
+    /// Build a session spec for one of the Mezzanine's dispatched
+    /// scientists. The `Target::cwd` resolver already handles
+    /// POSIX/backslash normalization and trailing-slash hygiene, so the
+    /// path is constructed there rather than re-implementing the join
+    /// logic here.
+    pub fn for_target(lab_root: &Path, target: &Target, distro: Option<String>) -> Self {
+        Self {
+            working_dir: target.cwd(lab_root),
             binary: "claude".to_string(),
             args: Vec::new(),
             distro,

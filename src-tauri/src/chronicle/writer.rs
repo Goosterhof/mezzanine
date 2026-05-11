@@ -45,10 +45,11 @@ pub struct ChronicleWriter {
 }
 
 impl ChronicleWriter {
-    /// Build a writer rooted at `base_dir` (typically
-    /// `~/.zmuuzn-cockpit/transcripts/`). The writer starts paused — the
-    /// disclosure-ack flow flips it to active once the investor
-    /// acknowledges the privacy notice.
+    /// Build a writer rooted at `base_dir` (Phase 2A: typically
+    /// `~/.zmuuzn-mezzanine/transcripts/`; bench-era directory is
+    /// migrated by `chronicle::migration` on first Mezzanine boot). The
+    /// writer starts paused — the disclosure-ack flow flips it to active
+    /// once the investor acknowledges the privacy notice.
     pub fn new(base_dir: PathBuf) -> Self {
         Self {
             base_dir,

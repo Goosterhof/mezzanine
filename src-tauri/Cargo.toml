@@ -1,13 +1,13 @@
 [package]
-name = "workbench"
+name = "mezzanine"
 version = "0.1.0"
-description = "The Workbench — daily-driver Tauri cockpit for the Mad Scientist's laboratory"
+description = "The Mezzanine — the balcony overlooking the lab floor; dispatch mad scientists onto missions"
 authors = ["Gerard Oosterhof <gerard@kendo.dev>"]
 edition = "2021"
 rust-version = "1.77"
 
 [lib]
-name = "workbench_lib"
+name = "mezzanine_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -23,8 +23,8 @@ tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 
-# The Workbench's bench: serde for Tauri payloads, anyhow/thiserror for errors,
-# chrono for chronicle timestamps, log for structured logging.
+# The Mezzanine's instruments: serde for Tauri payloads, anyhow/thiserror for errors,
+# chrono for chronicle timestamps, log for structured logging, uuid for ScientistId.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 anyhow = "1"
@@ -33,9 +33,9 @@ chrono = { version = "0.4", features = ["serde"] }
 log = "0.4"
 uuid = { version = "1", features = ["v4", "serde"] }
 
-# The Workbench's vise: portable-pty wraps wsl.exe (Windows) or bash (Linux dev)
-# to host claude sessions inside a real terminal. tokio drives the async I/O
-# pumps that read pty output and forward it to the frontend via Tauri events.
+# The bridge to the lab floor: portable-pty wraps wsl.exe (Windows) or bash (Linux dev)
+# to host the dispatched scientist's claude session inside a real terminal. tokio drives
+# the async I/O pumps that read pty output and forward it to the frontend via Tauri events.
 portable-pty = "0.8"
 tokio = { version = "1", features = ["full"] }
 parking_lot = "0.12"

@@ -1,8 +1,8 @@
 {
     "$schema": "https://schema.tauri.app/config/2",
-    "productName": "The Workbench",
+    "productName": "The Mezzanine",
     "version": "0.1.0",
-    "identifier": "nl.zmuuzn.workbench",
+    "identifier": "nl.zmuuzn.mezzanine",
     "build": {
         "beforeDevCommand": "npm run dev",
         "devUrl": "http://localhost:1430",
@@ -14,7 +14,7 @@
         "windows": [
             {
                 "label": "main",
-                "title": "The Workbench",
+                "title": "The Mezzanine",
                 "width": 1440,
                 "height": 900,
                 "minWidth": 1080,
@@ -36,8 +36,8 @@
         "targets": ["msi", "nsis"],
         "publisher": "Zmuuzn Laboratory",
         "category": "DeveloperTool",
-        "shortDescription": "Daily-driver cockpit for directing claude across the laboratory's experiments",
-        "longDescription": "The Workbench wraps the claude CLI in six persistent pty sessions — one per experiment — and surfaces Mission Control, the Drydock (PR review), and the Experiment Dossier as slide-in panels. The Mad Scientist directs the laboratory from one bench instead of bouncing between terminals.",
+        "shortDescription": "The balcony overlooking the lab floor — dispatch mad scientists onto missions",
+        "longDescription": "The Mezzanine is the investor's command balcony. The lab floor stretches out below — six experiments, five gadgets, the shared packages, the lab itself. From the balcony, the investor dispatches mad scientists onto missions: each scientist a persistent claude pty, each mission a brief either from the curated Briefing Library or written free-form. The Roster shows who's out and on what. No tabs, no benches — one elevated view of the work in flight.",
         "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
         "windows": {
             "wix": {"language": "en-US"},

@@ -1,8 +1,8 @@
 {
-    "name": "workbench",
+    "name": "mezzanine",
     "version": "0.1.0",
     "private": true,
-    "description": "The Workbench — the Mad Scientist's daily-driver Tauri v2 cockpit. Six pty-wrapped claude sessions, Mission Control, and a Drydock for PR review — all on one bench.",
+    "description": "The Mezzanine — the balcony overlooking the lab floor. Dispatch mad scientists onto missions: each scientist a persistent claude pty, each mission a brief from the Briefing Library or written free-form.",
     "type": "module",
     "scripts": {
         "build": "vue-tsc --noEmit && vite build",

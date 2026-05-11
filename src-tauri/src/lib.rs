@@ -1,32 +1,21 @@
-// The Workbench — library entry.
+// The Mezzanine — library entry.
 //
-// Every experiment in this laboratory needs a different combination of CWD,
-// shell incantation, and patience for `claude` to wake up. The Workbench
-// keeps six of those incantations warm at once, pipes their pty output to a
-// single Vue surface, and lets the investor switch between them with a
-// click instead of a context-switch.
+// Phase 2A reframes the gadget's metaphor from "six benches" to "one
+// balcony overlooking the lab floor." The bench-era pty machinery still
+// lives in `pty::*` and serves the bench-era frontend until the frontend
+// cutover lands; the Mezzanine's new lifecycle lives in `roster::*` and
+// is exposed via `commands::roster`. Both managers share the chronicle
+// base path under `~/.zmuuzn-mezzanine/transcripts/` (a one-time
+// migration copies the bench-era `.zmuuzn-cockpit/` transcripts on first
+// boot — see `chronicle::migration`).
 //
-// Phase 1C wires the live pty layer:
-//   * `pty/substrate.rs` — cross-platform `bash` (Unix) / `wsl.exe` bridge
-//   * `pty/live.rs`       — one live session: master, writer, reader thread
-//   * `pty/manager.rs`    — registry + recency, spawn/write/kill
-//   * `commands/pty.rs`   — Tauri commands the frontend invokes
-//
-// Phase 2A wires Mission Control file reads + Compose Dispatch write.
-//
-// Phase 2B wires the Chronicle:
-//   * `chronicle/writer.rs` — append-only JSONL with daily rotation
-//   * `chronicle/reader.rs` — last-N-days replay for the History pane
-//   * `commands/chronicle.rs` — read_chronicle_history + disclosure ack
-//
-// Phase 3A wires the Drydock:
-//   * `drydock/repo_registry.rs` — canonical list of 12 lab repos
-//   * `drydock/bridge.rs`        — non-pty subprocess via WSL2 bridge
-//   * `drydock/minion_touch.rs`  — parse git log for minion-stamped commits
-//   * `drydock/chaos_detonations.rs` — scan chaos-reports for filename hits
-//   * `drydock/active_log.rs`    — find IN PROGRESS/PLANNING log by scope
-//   * `commands/github.rs`       — `gh` enumeration + review actions
-//   * `commands/artifacts.rs`    — the three enrichment readers
+// Modules:
+//   * `pty::*`         — bench-era pty layer (LivePtySession + PtyManager)
+//   * `roster::*`      — Mezzanine-era dispatch lifecycle (LiveScientistSession + RosterManager)
+//   * `chronicle::*`   — JSONL transcript writers (two layouts: per-experiment-per-day for the bench era, per-scientist for the Mezzanine era) + migration
+//   * `lab::*`         — Mission Control file parsers (Phase 2A bench-era)
+//   * `drydock::*`     — PR review enrichment (Phase 3A bench-era)
+//   * `commands::*`    — Tauri IPC surface
 //
 // Phase 4A's first-run wizard will replace the env-var fallback for
 // lab_root + distro with prompted config; for now the laboratory's
@@ -38,6 +27,7 @@ mod drydock;
 mod error;
 mod lab;
 mod pty;
+mod roster;
 mod state;
 
 use std::path::PathBuf;
@@ -63,8 +53,30 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
-            let chronicle_base = chronicle_base_dir(app);
-            let app_state = state::AppState::new(chronicle_base);
+            // Resolve the Mezzanine's data home (sibling layout under
+            // `~/.zmuuzn-mezzanine/`): transcripts go under the
+            // `transcripts/` subdir, the roster snapshot sits at the root.
+            let mezzanine_home = mezzanine_data_dir(app);
+            let chronicle_base = mezzanine_home.join("transcripts");
+
+            // One-time chronicle migration from the bench-era directory.
+            // Failure is logged and downgraded — the Mezzanine must open
+            // even if the migration cannot run (the bench-era directory
+            // is still on disk and accessible).
+            if let Some(cockpit) = bench_era_chronicle_dir(app) {
+                if let Err(err) = chronicle::migration::migrate_once_from_cockpit(
+                    &cockpit,
+                    &mezzanine_home,
+                ) {
+                    log::warn!(
+                        "Mezzanine: chronicle migration failed ({err}) — bench-era transcripts \
+                         are still at {} and can be migrated manually",
+                        cockpit.display(),
+                    );
+                }
+            }
+
+            let app_state = state::AppState::new(chronicle_base, mezzanine_home);
             *app_state.lab_root.write() = Some(detect_lab_root());
             *app_state.distro.write() = detect_distro();
             // If the investor has previously acknowledged the privacy
@@ -78,20 +90,32 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // Bench-era pty surface (serves the current frontend until cutover).
             commands::pty::list_sessions,
             commands::pty::session_state,
             commands::pty::spawn_session,
             commands::pty::write_to_session,
             commands::pty::kill_session,
             commands::pty::resize_session,
+            // Mezzanine-era roster surface (Phase 2A backend swap).
+            commands::roster::dispatch_scientist,
+            commands::roster::recall_scientist,
+            commands::roster::list_roster,
+            commands::roster::list_recently_recalled,
+            commands::roster::write_to_scientist,
+            commands::roster::resize_scientist,
+            commands::roster::transition_scientist,
+            // Mission Control file commands.
             commands::files::read_vital_signs,
             commands::files::read_war_room_dispatch,
             commands::files::read_inheritance_signals,
             commands::files::read_wounds_at_threshold,
             commands::files::write_war_room_dispatch,
+            // Chronicle commands.
             commands::chronicle::read_chronicle_history,
             commands::chronicle::read_chronicle_disclosure,
             commands::chronicle::write_chronicle_disclosure_ack,
+            // Drydock commands.
             commands::github::gh_auth_status,
             commands::github::list_open_prs,
             commands::github::pull_request_files,
@@ -103,16 +127,16 @@ pub fn run() {
             commands::artifacts::find_active_experiment_log,
         ])
         .run(tauri::generate_context!())
-        .expect("the Workbench refused to open");
+        .expect("the Mezzanine refused to open")
 }
 
 /// The WSL2-side absolute path to the laboratory root.
 ///
-/// `WORKBENCH_LAB_ROOT` overrides; the default is the investor's canonical
+/// `MEZZANINE_LAB_ROOT` overrides; the default is the investor's canonical
 /// laboratory location. The first-run wizard (Phase 4A) will replace this
 /// with prompted config.
 fn detect_lab_root() -> PathBuf {
-    if let Ok(env_root) = std::env::var("WORKBENCH_LAB_ROOT") {
+    if let Ok(env_root) = std::env::var("MEZZANINE_LAB_ROOT") {
         return PathBuf::from(env_root);
     }
     PathBuf::from("/home/goosterhof/code/zmuuzn")
@@ -120,12 +144,12 @@ fn detect_lab_root() -> PathBuf {
 
 /// The WSL2 distro name to bridge into via `wsl.exe -d <distro>`.
 ///
-/// `WORKBENCH_WSL_DISTRO` overrides. On Unix this is ignored by the
+/// `MEZZANINE_WSL_DISTRO` overrides. On Unix this is ignored by the
 /// substrate; on Windows the default is `Ubuntu` (the laboratory's
 /// canonical distro). The first-run wizard will enumerate distros via
 /// `wsl.exe --list --quiet` and let the investor pick.
 fn detect_distro() -> Option<String> {
-    if let Ok(env_distro) = std::env::var("WORKBENCH_WSL_DISTRO") {
+    if let Ok(env_distro) = std::env::var("MEZZANINE_WSL_DISTRO") {
         return Some(env_distro);
     }
     if cfg!(windows) {
@@ -135,23 +159,28 @@ fn detect_distro() -> Option<String> {
     }
 }
 
-/// `~/.zmuuzn-cockpit/transcripts/` (Linux) or
-/// `%USERPROFILE%\.zmuuzn-cockpit\transcripts\` (Windows). Resolved via
-/// Tauri's `path()` resolver so the value is correct on every platform.
-/// `WORKBENCH_CHRONICLE_BASE` overrides for tests that don't want to
-/// pollute the user's home directory.
-fn chronicle_base_dir<R: tauri::Runtime, M: Manager<R>>(app: &M) -> PathBuf {
-    if let Ok(env_path) = std::env::var("WORKBENCH_CHRONICLE_BASE") {
+/// The Mezzanine's data home — `<home>/.zmuuzn-mezzanine/` on Linux,
+/// `%USERPROFILE%\.zmuuzn-mezzanine\` on Windows.
+/// `MEZZANINE_DATA_BASE` overrides for tests that don't want to pollute
+/// the user's home directory.
+fn mezzanine_data_dir<R: tauri::Runtime, M: Manager<R>>(app: &M) -> PathBuf {
+    if let Ok(env_path) = std::env::var("MEZZANINE_DATA_BASE") {
         return PathBuf::from(env_path);
     }
     match app.path().home_dir() {
-        Ok(home) => home.join(".zmuuzn-cockpit").join("transcripts"),
+        Ok(home) => home.join(".zmuuzn-mezzanine"),
         Err(err) => {
             log::warn!(
-                "Workbench: home_dir resolution failed ({err}) — chronicle disabled \
-                 until WORKBENCH_CHRONICLE_BASE is set",
+                "Mezzanine: home_dir resolution failed ({err}) — falling back to current directory",
             );
             PathBuf::from(".")
         }
     }
+}
+
+/// The bench-era chronicle directory — `<home>/.zmuuzn-cockpit/` if the
+/// path can be resolved. Returns `None` if the home directory cannot be
+/// resolved (the migration is then a no-op).
+fn bench_era_chronicle_dir<R: tauri::Runtime, M: Manager<R>>(app: &M) -> Option<PathBuf> {
+    app.path().home_dir().ok().map(|home| home.join(".zmuuzn-cockpit"))
 }
