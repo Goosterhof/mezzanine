@@ -1,17 +1,20 @@
-// Tauri command modules — the gadget's IPC surface.
+// Tauri command modules — the Mezzanine's IPC surface.
 //
-// Each module groups commands by the surface they serve. Phase 1A shipped
-// pty status reads; Phase 1C grew them to live spawn/write/kill verbs;
-// Phase 2A (Mission Control) adds the Mission Control file commands;
-// Phase 2B adds the Chronicle commands; Phase 3A adds the Drydock's `gh`
-// enumeration + review actions and the three artifact-enrichment readers.
-// Mezzanine Phase 2A adds the `roster` module — dispatch/recall lifecycle
-// for scientists, alongside the bench-era pty surface that the existing
-// frontend still consumes.
+// Each module groups commands by the surface they serve:
+//   * `roster`     — dispatch / recall / list / write / resize / transition
+//                    (the Mezzanine's lifecycle for dispatched scientists)
+//   * `files`      — Mission Control file reads + dispatch write
+//   * `chronicle`  — privacy-disclosure ack flow (read + write)
+//   * `github`     — `gh` enumeration + review actions for the Drydock
+//   * `artifacts`  — three readers feeding the Drydock's per-file enrichment
+//
+// The bench-era `pty` module (six per-experiment session commands) was
+// retired with the frontend cutover; the bench-era `chronicle::history`
+// reader went with it (the History pane is retired — chronicle replay is
+// a future Briefing Library mission, not a panel).
 
 pub mod artifacts;
 pub mod chronicle;
 pub mod files;
 pub mod github;
-pub mod pty;
 pub mod roster;

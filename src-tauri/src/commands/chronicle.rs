@@ -1,35 +1,21 @@
-// Chronicle Tauri commands — Phase 2B's IPC surface for the History
-// pane and the privacy disclosure flow.
+// Chronicle Tauri commands — the privacy-disclosure ack flow.
 //
-// Three commands:
-//   * `read_chronicle_history(experiment, days)` — reads the last N days
-//     of the experiment's chronicle files and returns the parsed turns.
-//   * `read_chronicle_disclosure` — returns the ISO date the investor
-//     first acknowledged the chronicle privacy notice, or null.
-//   * `write_chronicle_disclosure_ack` — records today's date as the
-//     ack and unpauses the chronicle writer so the next pty turn lands
-//     on disk.
+// In the bench era a third command (`read_chronicle_history`) read the
+// per-experiment-per-day transcript layout for the History pane. The
+// Mezzanine's chronicle is per-scientist, the History pane is retired,
+// and the bench-era reader was deleted with the frontend cutover.
+// What remains is the disclosure ack contract: read whether the
+// investor has acknowledged the chronicle privacy notice, and write the
+// ack (which unpauses the writer so the next dispatched scientist's
+// transcript lands on disk).
 
-use crate::chronicle::reader::{history, DEFAULT_HISTORY_DAYS};
-use crate::chronicle::writer::ChronicleTurn;
 use crate::chronicle::ChronicleWriter;
 use crate::error::{MezzanineError, MezzanineResult};
-use crate::pty::session::ExperimentId;
 use crate::state::AppState;
 use std::path::Path;
 use tauri::State;
 
 const DISCLOSURE_FILENAME: &str = ".disclosure-acked";
-
-#[tauri::command]
-pub fn read_chronicle_history(
-    state: State<'_, AppState>,
-    experiment: ExperimentId,
-    days: Option<i64>,
-) -> MezzanineResult<Vec<ChronicleTurn>> {
-    let days_back = days.unwrap_or(DEFAULT_HISTORY_DAYS).max(0);
-    history(state.chronicle.base_dir(), experiment, days_back)
-}
 
 #[tauri::command]
 pub fn read_chronicle_disclosure(state: State<'_, AppState>) -> MezzanineResult<Option<String>> {

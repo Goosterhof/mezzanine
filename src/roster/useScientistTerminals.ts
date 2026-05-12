@@ -1,31 +1,27 @@
-// useTerminals — the bench's xterm pool.
+// useScientistTerminals — xterm.js pool keyed by ScientistId.
 //
-// Six experiments, six xterm.js Terminals, all created lazily on first
-// activation and kept alive for the gadget's lifetime. Switching tabs
-// hides the DOM but preserves cursor position, scrollback, and any
-// half-typed input — the same property a real terminal multiplexer has.
-//
-// Each Terminal's `onData` is wired exactly once at creation and routes
-// keystrokes through a module-level handler that App-level wiring
-// installs at startup (`setDataHandler`). Tests override the handler.
+// Each dispatched scientist gets a dedicated xterm Terminal + FitAddon, lazy
+// on first canvas activation, kept alive until the scientist is recalled.
+// `onData` routes keystrokes through a module-level handler that
+// `useRosterBackend` installs at app startup — every key the investor types
+// in any active scientist's canvas becomes a `write_to_scientist` IPC call.
 
 import {FitAddon} from '@xterm/addon-fit';
 import {Terminal, type IDisposable} from '@xterm/xterm';
 
-import type {ExperimentId} from './types';
+import type {ScientistId} from './types';
 
 export interface TerminalSlot {
     terminal: Terminal;
     fit: FitAddon;
     /** Last (cols, rows) pushed to the backend — used to suppress
-     *  redundant resize_session invocations on every observer tick. */
+     *  redundant resize_scientist invocations on every observer tick. */
     lastSize: {cols: number; rows: number} | null;
-    /** xterm's IDisposable for the onData listener. Tests dispose this
-     *  via reset(); production never calls reset(). */
+    /** xterm IDisposable for the onData listener. Tests dispose via reset(). */
     dataDisposable: IDisposable;
 }
 
-const BENCH_THEME = {
+const MEZZANINE_THEME = {
     background: '#0B0D10',
     foreground: '#E2E5E9',
     cursor: '#D4A24C',
@@ -49,10 +45,10 @@ const BENCH_THEME = {
     brightWhite: '#F3F4F6',
 };
 
-const slots = new Map<ExperimentId, TerminalSlot>();
-let dataHandler: ((id: ExperimentId, data: string) => void | Promise<void>) | null = null;
+const slots = new Map<ScientistId, TerminalSlot>();
+let dataHandler: ((id: ScientistId, data: string) => void | Promise<void>) | null = null;
 
-function createSlot(id: ExperimentId): TerminalSlot {
+function createSlot(id: ScientistId): TerminalSlot {
     const terminal = new Terminal({
         convertEol: true,
         cursorBlink: true,
@@ -60,7 +56,7 @@ function createSlot(id: ExperimentId): TerminalSlot {
         fontFamily: '"JetBrains Mono", "Fira Code", monospace',
         fontSize: 13,
         lineHeight: 1.2,
-        theme: BENCH_THEME,
+        theme: MEZZANINE_THEME,
         allowProposedApi: true,
     });
     const fit = new FitAddon();
@@ -73,10 +69,10 @@ function createSlot(id: ExperimentId): TerminalSlot {
     return {terminal, fit, lastSize: null, dataDisposable};
 }
 
-export function useTerminals() {
+export function useScientistTerminals() {
     return {
-        /** Get-or-create the slot for an experiment. */
-        get(id: ExperimentId): TerminalSlot {
+        /** Get-or-create the slot for a scientist. */
+        get(id: ScientistId): TerminalSlot {
             let slot = slots.get(id);
             if (!slot) {
                 slot = createSlot(id);
@@ -85,14 +81,26 @@ export function useTerminals() {
             return slot;
         },
 
-        /** True if a slot has been created for this experiment yet. */
-        has(id: ExperimentId): boolean {
+        has(id: ScientistId): boolean {
             return slots.has(id);
         },
 
-        /** Install the keystroke handler. Called once at app startup
-         *  (App.vue or useBackend setup). Tests override for isolation. */
-        setDataHandler(handler: ((id: ExperimentId, data: string) => void | Promise<void>) | null): void {
+        /** Tear down a single scientist's terminal — called when recall lands. */
+        dispose(id: ScientistId): void {
+            const slot = slots.get(id);
+            if (!slot) {
+                return;
+            }
+            slot.dataDisposable.dispose();
+            slot.terminal.dispose();
+            slots.delete(id);
+        },
+
+        ids(): ScientistId[] {
+            return [...slots.keys()];
+        },
+
+        setDataHandler(handler: ((id: ScientistId, data: string) => void | Promise<void>) | null): void {
             dataHandler = handler;
         },
 

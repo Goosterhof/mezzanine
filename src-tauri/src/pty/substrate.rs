@@ -18,7 +18,6 @@
 // (the investor's `cargo test` on Windows). Each axis is covered exactly
 // once — no wishful cross-platform validation.
 
-use crate::pty::session::ExperimentId;
 use crate::roster::target::Target;
 use portable_pty::CommandBuilder;
 use std::path::{Path, PathBuf};
@@ -38,38 +37,6 @@ pub struct SessionSpec {
 }
 
 impl SessionSpec {
-    /// Build a session spec for one of the laboratory's six experiments.
-    ///
-    /// `lab_root` is the WSL2-side absolute path to the laboratory root
-    /// (`/home/goosterhof/code/zmuuzn`). `experiment` selects which
-    /// subdirectory to enter; the label is logged at spawn time by the
-    /// caller (`LivePtySession`).
-    pub fn for_experiment(
-        lab_root: &Path,
-        experiment: ExperimentId,
-        distro: Option<String>,
-    ) -> Self {
-        // PathBuf::join uses the host separator — on Windows that injects a
-        // backslash between lab_root and the WSL-relative path, and bash
-        // inside `wsl.exe` then sees `cd /home/.../zmuuzn\experiments/...`,
-        // interprets `\e` as an escape, and fails. The working_dir is a
-        // WSL2-side POSIX path on every host, so join it as a string.
-        let lab_root_str = lab_root
-            .to_str()
-            .expect("substrate: lab_root must be valid UTF-8");
-        let working_dir = format!(
-            "{}/{}",
-            lab_root_str.trim_end_matches('/'),
-            experiment.wsl_relative_path(),
-        );
-        Self {
-            working_dir: PathBuf::from(working_dir),
-            binary: "claude".to_string(),
-            args: Vec::new(),
-            distro,
-        }
-    }
-
     /// Build a session spec for one of the Mezzanine's dispatched
     /// scientists. The `Target::cwd` resolver already handles
     /// POSIX/backslash normalization and trailing-slash hygiene, so the
@@ -228,33 +195,18 @@ mod tests {
     }
 
     #[test]
-    fn for_experiment_resolves_wsl_path_and_label() {
-        let spec = SessionSpec::for_experiment(
+    fn for_target_resolves_via_target_cwd() {
+        use crate::roster::target::{ExperimentCodename, Target};
+        let spec = SessionSpec::for_target(
             Path::new("/home/scientist/code/zmuuzn"),
-            ExperimentId::Crucible,
+            &Target::experiment(ExperimentCodename::Crucible),
             None,
         );
-        // Assert the string form, not PathBuf component equality — the
-        // latter is separator-blind on Windows and would mask a regression
-        // where PathBuf::join slips a backslash in.
         assert_eq!(
             spec.working_dir.to_str().unwrap(),
             "/home/scientist/code/zmuuzn/experiments/zmuuzn-strava",
         );
         assert_eq!(spec.binary, "claude");
-    }
-
-    #[test]
-    fn for_experiment_trims_trailing_slash_on_lab_root() {
-        let spec = SessionSpec::for_experiment(
-            Path::new("/home/scientist/code/zmuuzn/"),
-            ExperimentId::Crucible,
-            None,
-        );
-        assert_eq!(
-            spec.working_dir.to_str().unwrap(),
-            "/home/scientist/code/zmuuzn/experiments/zmuuzn-strava",
-        );
     }
 
     // ---- Windows substrate criterion 1 ------------------------------------
@@ -264,9 +216,10 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn windows_substrate_wraps_wsl_exe() {
-        let spec = SessionSpec::for_experiment(
+        use crate::roster::target::{ExperimentCodename, Target};
+        let spec = SessionSpec::for_target(
             Path::new("/home/scientist/code/zmuuzn"),
-            ExperimentId::Crucible,
+            &Target::experiment(ExperimentCodename::Crucible),
             Some("Ubuntu".to_string()),
         );
         let cmd = build_command(&spec);

@@ -1,20 +1,19 @@
 // The Mezzanine — library entry.
 //
-// Phase 2A reframes the gadget's metaphor from "six benches" to "one
-// balcony overlooking the lab floor." The bench-era pty machinery still
-// lives in `pty::*` and serves the bench-era frontend until the frontend
-// cutover lands; the Mezzanine's new lifecycle lives in `roster::*` and
-// is exposed via `commands::roster`. Both managers share the chronicle
-// base path under `~/.zmuuzn-mezzanine/transcripts/` (a one-time
-// migration copies the bench-era `.zmuuzn-cockpit/` transcripts on first
-// boot — see `chronicle::migration`).
+// Phase 2A reframed the gadget's metaphor from "six benches" to "one
+// balcony overlooking the lab floor." The frontend cutover landed: the
+// bench-era pty layer is gone, the Mezzanine's dispatched-scientist
+// lifecycle is the only session model. Chronicle transcripts live under
+// `~/.zmuuzn-mezzanine/transcripts/` (a one-time migration copies the
+// bench-era `.zmuuzn-cockpit/` transcripts on first boot — see
+// `chronicle::migration`).
 //
 // Modules:
-//   * `pty::*`         — bench-era pty layer (LivePtySession + PtyManager)
-//   * `roster::*`      — Mezzanine-era dispatch lifecycle (LiveScientistSession + RosterManager)
-//   * `chronicle::*`   — JSONL transcript writers (two layouts: per-experiment-per-day for the bench era, per-scientist for the Mezzanine era) + migration
-//   * `lab::*`         — Mission Control file parsers (Phase 2A bench-era)
-//   * `drydock::*`     — PR review enrichment (Phase 3A bench-era)
+//   * `pty::substrate` — substrate command builder (wsl.exe on Windows, bash on Unix)
+//   * `roster::*`      — dispatched-scientist lifecycle (LiveScientistSession + RosterManager)
+//   * `chronicle::*`   — privacy ack flow + bench-era → Mezzanine migration
+//   * `lab::*`         — Mission Control file parsers
+//   * `drydock::*`     — PR review enrichment
 //   * `commands::*`    — Tauri IPC surface
 //
 // Phase 4A's first-run wizard will replace the env-var fallback for
@@ -90,14 +89,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            // Bench-era pty surface (serves the current frontend until cutover).
-            commands::pty::list_sessions,
-            commands::pty::session_state,
-            commands::pty::spawn_session,
-            commands::pty::write_to_session,
-            commands::pty::kill_session,
-            commands::pty::resize_session,
-            // Mezzanine-era roster surface (Phase 2A backend swap).
+            // The Mezzanine's roster surface — dispatch / recall / list /
+            // write / resize / transition for dispatched scientists.
             commands::roster::dispatch_scientist,
             commands::roster::recall_scientist,
             commands::roster::list_roster,
@@ -111,8 +104,7 @@ pub fn run() {
             commands::files::read_inheritance_signals,
             commands::files::read_wounds_at_threshold,
             commands::files::write_war_room_dispatch,
-            // Chronicle commands.
-            commands::chronicle::read_chronicle_history,
+            // Chronicle privacy disclosure ack flow.
             commands::chronicle::read_chronicle_disclosure,
             commands::chronicle::write_chronicle_disclosure_ack,
             // Drydock commands.

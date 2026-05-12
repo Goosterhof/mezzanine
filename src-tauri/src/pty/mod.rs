@@ -1,16 +1,14 @@
-// The pty module — the Workbench's vise.
+// The substrate — the only piece of the bench-era pty layer that survived
+// the frontend cutover. `LiveScientistSession` (under `roster::live`) wraps
+// the substrate's `build_command` to spawn dispatched-scientist ptys; the
+// bench-era `LivePtySession` / `PtyManager` / `commands::pty` surfaces and
+// the `ExperimentId` / `SessionState` enums were retired alongside the
+// six-bench frontend they served.
 //
-// Six pty sessions, each one wrapping a `wsl.exe -d <distro> -- bash -c
-// "cd <wsl-path> && claude"` subprocess on Windows (or a direct bash on Linux
-// during development). The vise grips a session and holds it open between
-// glances — switching tabs does not kill the subprocess.
-//
-// Phase 1A: structs only. The actual portable-pty integration lands at the
-// start of Phase 1C with a substrate-validation spike before any UI work
-// depends on live sessions.
+// The module retains its `pty::` name for the substrate path (`pty::substrate`)
+// so the imports in `roster::live` and `roster::manager` keep their current
+// shape. A later cleanup pass may rename `pty::substrate` → `substrate::`
+// at the crate root; for now the substrate is one file and its location is
+// not worth churning the call sites.
 
-pub mod live;
-pub mod manager;
-pub mod output;
-pub mod session;
 pub mod substrate;
