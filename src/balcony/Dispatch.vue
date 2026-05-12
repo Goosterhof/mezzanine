@@ -3,6 +3,7 @@ import {ref, watch} from 'vue';
 
 import type {Target} from '../roster/types';
 
+import BriefingLibrary from './BriefingLibrary.vue';
 import TargetPicker from './TargetPicker.vue';
 import {useDispatch} from './useDispatch';
 
@@ -25,6 +26,10 @@ function pickTarget(target: Target): void {
 function onBriefInput(event: Event): void {
     const el = event.target as HTMLTextAreaElement;
     dispatch.setBrief(el.value);
+}
+
+function onTemplate(id: string | null): void {
+    dispatch.selectTemplate(id);
 }
 
 function onSubmit(): void {
@@ -76,13 +81,15 @@ function onKeydown(event: KeyboardEvent): void {
 
             <TargetPicker :selected="dispatch.target.value" @select="pickTarget" />
 
+            <BriefingLibrary :selected-id="dispatch.templateId.value" @select="onTemplate" />
+
             <div>
                 <label class="mz-stamp-label block mb-1.5" for="dispatch-brief">Brief</label>
                 <textarea
                     id="dispatch-brief"
                     ref="briefRef"
                     :value="dispatch.brief.value"
-                    rows="5"
+                    rows="6"
                     class="w-full mz-input resize-none"
                     placeholder="What is the mission? Free-form — the scientist receives this as the opening prompt."
                     data-dispatch-brief

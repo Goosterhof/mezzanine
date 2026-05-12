@@ -14,6 +14,7 @@
 // a future Briefing Library mission, not a panel).
 
 pub mod artifacts;
+pub mod balcony;
 pub mod chronicle;
 pub mod files;
 pub mod github;

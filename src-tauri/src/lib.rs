@@ -20,6 +20,7 @@
 // lab_root + distro with prompted config; for now the laboratory's
 // canonical path is the seed.
 
+mod balcony;
 mod chronicle;
 mod commands;
 mod drydock;
@@ -104,6 +105,9 @@ pub fn run() {
             commands::files::read_inheritance_signals,
             commands::files::read_wounds_at_threshold,
             commands::files::write_war_room_dispatch,
+            // Balcony — Phase 2B's rail surfaces.
+            commands::balcony::read_balcony_signs,
+            commands::balcony::list_briefing_templates,
             // Chronicle privacy disclosure ack flow.
             commands::chronicle::read_chronicle_disclosure,
             commands::chronicle::write_chronicle_disclosure_ack,

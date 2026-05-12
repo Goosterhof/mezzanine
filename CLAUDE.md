@@ -148,6 +148,10 @@ mezzanine/
 │   │   │   ├── dispatch.rs ... war-room-dispatch.md parser + insert_finding
 │   │   │   ├── signals.rs .... laboratory-pulse.md Pending Signals parser
 │   │   │   └── wounds.rs ..... `.claude/memory/wounds/` listing by mtime
+│   │   ├── balcony/             Phase 2B — the rail's two read surfaces
+│   │   │   ├── mod.rs
+│   │   │   ├── signs.rs ...... Last Chaos + Idea Ledger sign parsers
+│   │   │   └── briefing_library.rs  Five seed templates (Rust compile-time)
 │   │   ├── drydock/             Bench-era Phase 3A — PR review enrichment (untouched by cutover)
 │   │   │   ├── mod.rs
 │   │   │   ├── repo_registry.rs Canonical list of 12 lab repos
@@ -159,6 +163,7 @@ mezzanine/
 │   │       ├── mod.rs ........ Command surface registry
 │   │       ├── roster.rs ..... dispatch / recall / list / list_recalled / write / resize / transition
 │   │       ├── files.rs ...... Mission Control reads + dispatch write
+│   │       ├── balcony.rs .... read_balcony_signs + list_briefing_templates (Phase 2B)
 │   │       ├── chronicle.rs .. Privacy disclosure ack flow (read + write)
 │   │       ├── github.rs ..... `gh` enumeration + review actions (Drydock)
 │   │       └── artifacts.rs .. The three enrichment readers (Drydock)
@@ -170,7 +175,7 @@ mezzanine/
 │   ├── App.vue ............... Top-level shell — BalconyRail + TopBar + Roster + ScientistCanvas + CommandBar + Dispatch + MissionControl + DrydockPanel + PrivacyDisclosure
 │   ├── main.ts ............... createApp + UnoCSS
 │   ├── shell/                 Frame
-│   │   ├── BalconyRail.vue ... Top rail — title + Dispatch ▾ trigger (signs land in Phase 2B)
+│   │   ├── BalconyRail.vue ... Top rail — three signs (Last Chaos, Idea Ledger, Reserved) + Dispatch ▾ trigger
 │   │   ├── TopBar.vue ........ Mission Control / Drydock panel toggles
 │   │   └── useShell.ts ....... openPanel + togglePanel/closePanel singleton
 │   ├── roster/                The dispatched-scientist domain
@@ -184,10 +189,15 @@ mezzanine/
 │   │   ├── Roster.vue ........ The list of dispatched scientists + Recently Recalled strip
 │   │   ├── RecentlyRecalledStrip.vue  5-minute dim strip below the active Roster
 │   │   └── ScientistCanvas.vue Center xterm.js stack — one wrapper per scientist, only selected visible
-│   ├── balcony/               The Dispatch surface
-│   │   ├── useDispatch.ts .... Singleton dispatch-sheet state (open / target / brief / submit)
+│   ├── balcony/               Dispatch surface + rail signs (Phase 2B)
+│   │   ├── types.ts .......... BalconySigns / BriefingTemplate mirrors of the Rust serde shapes
+│   │   ├── useDispatch.ts .... Singleton dispatch-sheet state (open / target / template / brief / submit)
+│   │   ├── useBalconySigns.ts Last Chaos + Idea Ledger sign loader (refresh on demand)
+│   │   ├── useBriefingLibrary.ts Cached fetch of the five seed templates
 │   │   ├── TargetPicker.vue .. Grouped target list (Experiments / Gadgets / Packages / The Lab)
-│   │   └── Dispatch.vue ...... Slide-down dispatch sheet over the Roster
+│   │   ├── BalconySign.vue ... One stamped tile on the rail (label + value + optional refresh)
+│   │   ├── BriefingLibrary.vue Selectable template cards inside the dispatch sheet
+│   │   └── Dispatch.vue ...... Slide-down dispatch sheet over the Roster (Target + Library + Brief)
 │   ├── command/               Always-on input tray
 │   │   └── CommandBar.vue .... Always-focused bottom input → write_to_scientist(selected, text + "\n")
 │   ├── mission/               Mission Control panel slice (bench-era Phase 2A, untouched)
@@ -200,6 +210,7 @@ mezzanine/
 │   │   └── ...
 │   └── assets/mezzanine.css .. Auxiliary CSS (almost empty — UnoCSS does the work)
 ├── tests/                      Mirrors src/ slices — all *.spec.ts live here
+│   ├── balcony/ ............... BalconySign + BriefingLibrary + useBalconySigns + useBriefingLibrary + useDispatch
 │   ├── chronicle/ ............. PrivacyDisclosure + useDisclosure
 │   ├── mission/ ............... MissionControl + sections + ComposeDispatch + useMissionControl
 │   ├── drydock/ ............... DrydockPanel + PrCard + FileDiff + ReviewActions + useDrydock
@@ -246,7 +257,7 @@ The deployment plan lives in
 |-------|-------|--------|
 | 2A — backend swap | Cargo + Tauri identity renamed; `roster/` module added alongside `pty/`; WorkbenchError → MezzanineError; chronicle migration wired | ✅ Closed 2026-05-11 (df38399 + a1347a8) |
 | 2A — frontend cutover | Folder rename `gadgets/workbench/` → `gadgets/mezzanine/`; CSS prefix swap; new Vue surfaces (Roster / Dispatch / BalconyRail); bench-era code retired; Rust pty / chronicle reader retired; lib.rs registry trimmed | ✅ Closed 2026-05-12 — five containment protocols green on Linux (cargo check + 112/112 cargo test + oxlint + oxfmt + vue-tsc + 78/78 vitest + vite build) |
-| 2B — The Lab Floor | Balcony signs (Last Chaos + Idea Ledger state + Reserved); Briefing Library template cards in the Dispatch sheet | Pending |
+| 2B — The Lab Floor | Balcony signs (Last Chaos + Idea Ledger state + Reserved); Briefing Library template cards in the Dispatch sheet | ✅ Closed 2026-05-12 — `balcony/` Rust module (`signs.rs` + `briefing_library.rs`) + two Tauri commands; new Vue slice (`BalconySign` + `BriefingLibrary` + `useBalconySigns` + `useBriefingLibrary`); BalconyRail wears three signs; Dispatch sheet hosts five-template library. Five containment protocols green on Windows (cargo check + 136/136 cargo test + oxlint 0/0 + oxfmt + vue-tsc + 101/101 vitest + vite build) |
 | 2C — Carry-Overs | Dossier reframed as a Briefing Library template; First-Run Wizard refresh; Apprentice retirement re-verified; backfill component-level tests for the roster / balcony surfaces | Pending |
 | 2D — Cross-Host Ratification | Linux + Windows `tauri dev` boot under the Mezzanine identity; substrate path-separator regression re-verified; chronicle migration idempotency confirmed across hosts | Pending |
 

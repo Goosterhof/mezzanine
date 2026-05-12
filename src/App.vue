@@ -2,6 +2,8 @@
 import {onMounted} from 'vue';
 
 import Dispatch from './balcony/Dispatch.vue';
+import {useBalconySigns} from './balcony/useBalconySigns';
+import {useBriefingLibrary} from './balcony/useBriefingLibrary';
 import PrivacyDisclosure from './chronicle/PrivacyDisclosure.vue';
 import {useDisclosure} from './chronicle/useDisclosure';
 import CommandBar from './command/CommandBar.vue';
@@ -16,6 +18,9 @@ import TopBar from './shell/TopBar.vue';
 onMounted(() => {
     void useRosterBackend().subscribe();
     void useDisclosure().loadStatus();
+    // Balcony state — load the rail's signs and the briefing library on boot.
+    void useBalconySigns().refresh();
+    void useBriefingLibrary().load();
 });
 </script>
 
