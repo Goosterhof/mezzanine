@@ -26,18 +26,18 @@ function formatModified(iso: string): string {
 
 <template>
     <section class="px-5 py-4">
-        <h3 class="wb-stamp-label mb-3">Wounds at Threshold</h3>
-        <div v-if="formatted.length === 0" class="text-wb-text-faint text-sm font-display py-2">
+        <h3 class="mz-stamp-label mb-3">Wounds at Threshold</h3>
+        <div v-if="formatted.length === 0" class="text-mz-text-faint text-sm font-display py-2">
             No wounds at threshold.
         </div>
         <ul v-else class="space-y-1">
             <li
                 v-for="wound in formatted"
                 :key="wound.filename"
-                class="flex items-center justify-between font-mono text-xs text-wb-stamp px-3 py-1.5 bg-wb-canvas border border-wb-edge"
+                class="flex items-center justify-between font-mono text-xs text-mz-stamp px-3 py-1.5 bg-mz-canvas border border-mz-edge"
             >
                 <span class="truncate">{{ wound.filename }}</span>
-                <span class="text-wb-text-faint flex-shrink-0">{{ wound.modifiedLabel }}</span>
+                <span class="text-mz-text-faint flex-shrink-0">{{ wound.modifiedLabel }}</span>
             </li>
         </ul>
     </section>

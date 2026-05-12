@@ -55,24 +55,24 @@ onUnmounted(() => {
     <aside
         v-show="open"
         data-panel="drydock"
-        class="absolute top-11 right-0 bottom-0 w-[32rem] bg-wb-panel border-l border-wb-edge shadow-bench flex flex-col z-20"
+        class="absolute top-11 right-0 bottom-0 w-[32rem] bg-mz-panel border-l border-mz-edge shadow-balcony flex flex-col z-20"
     >
-        <header class="flex items-center justify-between px-5 py-3 border-b border-wb-edge flex-shrink-0">
+        <header class="flex items-center justify-between px-5 py-3 border-b border-mz-edge flex-shrink-0">
             <div>
-                <div class="wb-stamp-label">Panel</div>
-                <h2 class="font-display text-wb-text text-base tracking-wide mt-0.5">Drydock</h2>
+                <div class="mz-stamp-label">Panel</div>
+                <h2 class="font-display text-mz-text text-base tracking-wide mt-0.5">Drydock</h2>
             </div>
             <div class="flex items-center gap-2">
                 <span
                     v-if="lastRefreshedLabel"
-                    class="text-wb-text-faint font-mono text-[11px]"
+                    class="text-mz-text-faint font-mono text-[11px]"
                     :title="`Last refreshed at ${drydock.lastRefreshedAt.value}`"
                 >
                     {{ lastRefreshedLabel }}
                 </span>
                 <button
                     type="button"
-                    class="wb-button"
+                    class="mz-button"
                     data-test="drydock-refresh"
                     :disabled="drydock.loading.value"
                     @click="drydock.refresh()"
@@ -84,7 +84,7 @@ onUnmounted(() => {
 
         <p
             v-if="drydock.lastError.value"
-            class="px-5 py-2 bg-wb-pulse-crashed/10 border-b border-wb-pulse-crashed/40 text-wb-pulse-crashed font-mono text-[11px]"
+            class="px-5 py-2 bg-mz-pulse-crashed/10 border-b border-mz-pulse-crashed/40 text-mz-pulse-crashed font-mono text-[11px]"
             data-test="drydock-error"
         >
             {{ drydock.lastError.value }}
@@ -96,9 +96,9 @@ onUnmounted(() => {
                 class="px-5 py-6 text-center"
                 data-test="drydock-unauth"
             >
-                <p class="text-wb-text-faint font-mono text-[12px] italic">
+                <p class="text-mz-text-faint font-mono text-[12px] italic">
                     gh CLI not authenticated. Run
-                    <code class="text-wb-brass">gh auth login</code>
+                    <code class="text-mz-brass">gh auth login</code>
                     in a terminal.
                 </p>
             </div>
@@ -107,7 +107,7 @@ onUnmounted(() => {
                 class="px-5 py-6 text-center"
                 data-test="drydock-empty"
             >
-                <p class="text-wb-text-faint font-mono text-[12px] italic">
+                <p class="text-mz-text-faint font-mono text-[12px] italic">
                     No open PRs across the laboratory. Clean slate.
                 </p>
             </div>

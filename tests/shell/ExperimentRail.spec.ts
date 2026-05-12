@@ -38,12 +38,12 @@ describe('ExperimentRail', () => {
         expect(useSessions().activeExperiment.value).toBe('crucible');
     });
 
-    it('highlights the active experiment with wb-tab-active', async () => {
+    it('highlights the active experiment with mz-tab-active', async () => {
         const wrapper = mount(ExperimentRail);
         const crucibleButton = wrapper.findAll('button')[2]!;
-        expect(crucibleButton.classes()).not.toContain('wb-tab-active');
+        expect(crucibleButton.classes()).not.toContain('mz-tab-active');
         await crucibleButton.trigger('click');
-        expect(crucibleButton.classes()).toContain('wb-tab-active');
+        expect(crucibleButton.classes()).toContain('mz-tab-active');
     });
 
     it('only one experiment is active at a time', async () => {
@@ -51,8 +51,8 @@ describe('ExperimentRail', () => {
         const buttons = wrapper.findAll('button');
         await buttons[0]!.trigger('click');
         await buttons[3]!.trigger('click');
-        expect(buttons[0]!.classes()).not.toContain('wb-tab-active');
-        expect(buttons[3]!.classes()).toContain('wb-tab-active');
+        expect(buttons[0]!.classes()).not.toContain('mz-tab-active');
+        expect(buttons[3]!.classes()).toContain('mz-tab-active');
     });
 
     it('the vise counter reflects recency length', () => {

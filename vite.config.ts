@@ -6,7 +6,7 @@ import {defineConfig} from 'vite';
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
-// The Workbench dev server runs on 1430 — chosen to sit one decade above the
+// The Mezzanine dev server runs on 1430 — chosen to sit one decade above the
 // Horadric Cube's 1420 so the two gadgets can run side-by-side during
 // cross-gadget development without port collisions.
 

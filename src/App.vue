@@ -19,7 +19,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="relative flex flex-col h-full bg-wb-surface text-wb-text font-body">
+    <div class="relative flex flex-col h-full bg-mz-surface text-mz-text font-body">
         <TopBar />
         <div class="flex flex-1 min-h-0">
             <ExperimentRail />

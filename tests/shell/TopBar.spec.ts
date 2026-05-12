@@ -39,9 +39,9 @@ describe('TopBar', () => {
     it("highlights the open panel's button with the brass border", async () => {
         const wrapper = mount(TopBar);
         const dossierButton = wrapper.findAll('button')[2]!;
-        expect(dossierButton.classes()).not.toContain('border-wb-brass');
+        expect(dossierButton.classes()).not.toContain('border-mz-brass');
         await dossierButton.trigger('click');
-        expect(dossierButton.classes()).toContain('border-wb-brass');
+        expect(dossierButton.classes()).toContain('border-mz-brass');
     });
 
     it('only one button is highlighted at a time', async () => {
@@ -49,8 +49,8 @@ describe('TopBar', () => {
         const buttons = wrapper.findAll('button');
         await buttons[0]!.trigger('click');
         await buttons[2]!.trigger('click');
-        expect(buttons[0]!.classes()).not.toContain('border-wb-brass');
-        expect(buttons[2]!.classes()).toContain('border-wb-brass');
+        expect(buttons[0]!.classes()).not.toContain('border-mz-brass');
+        expect(buttons[2]!.classes()).toContain('border-mz-brass');
     });
 
     it('buttons expose a title attribute matching the panel label', () => {

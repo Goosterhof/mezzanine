@@ -8,15 +8,15 @@ const {state} = defineProps<{state: SessionState}>();
 const dotStyle = computed<string>(() => {
     switch (state) {
         case 'idle':
-            return 'bg-wb-pulse-idle';
+            return 'bg-mz-pulse-idle';
         case 'awaiting':
-            return 'bg-wb-pulse-awaiting shadow-pulse';
+            return 'bg-mz-pulse-awaiting shadow-pulse';
         case 'working':
-            return 'bg-wb-pulse-working animate-pulse-working';
+            return 'bg-mz-pulse-working animate-pulse-working';
         case 'completed-unseen':
-            return 'bg-wb-pulse-flash animate-pulse-flash';
+            return 'bg-mz-pulse-flash animate-pulse-flash';
         case 'crashed':
-            return 'bg-wb-pulse-crashed';
+            return 'bg-mz-pulse-crashed';
     }
 });
 </script>
@@ -27,9 +27,9 @@ const dotStyle = computed<string>(() => {
 
 <style scoped>
 .animate-pulse-working {
-    animation: wb-pulse-working 1.6s ease-in-out infinite;
+    animation: mz-pulse-working 1.6s ease-in-out infinite;
 }
 .animate-pulse-flash {
-    animation: wb-pulse-flash 1.2s ease-out forwards;
+    animation: mz-pulse-flash 1.2s ease-out forwards;
 }
 </style>

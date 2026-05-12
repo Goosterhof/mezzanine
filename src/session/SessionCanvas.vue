@@ -115,28 +115,28 @@ async function openHistory(): Promise<void> {
 </script>
 
 <template>
-    <section class="flex-1 bg-wb-canvas overflow-hidden flex flex-col min-h-0">
+    <section class="flex-1 bg-mz-canvas overflow-hidden flex flex-col min-h-0">
         <header
             v-if="activeMeta"
             ref="headerHeightRef"
-            class="px-6 py-3 border-b border-wb-edge-soft flex items-center justify-between flex-shrink-0"
+            class="px-6 py-3 border-b border-mz-edge-soft flex items-center justify-between flex-shrink-0"
         >
             <div>
-                <div class="wb-stamp-label">Active Bench</div>
-                <h2 class="font-display text-wb-text text-base tracking-wide mt-0.5">
+                <div class="mz-stamp-label">Active Bench</div>
+                <h2 class="font-display text-mz-text text-base tracking-wide mt-0.5">
                     {{ activeMeta.label }}
                 </h2>
             </div>
             <div class="flex items-center gap-3">
-                <span class="text-wb-text-faint font-mono text-xs">{{ activeMeta.wslRelativePath }}</span>
-                <button type="button" class="wb-button" data-canvas-history @click="openHistory">History</button>
+                <span class="text-mz-text-faint font-mono text-xs">{{ activeMeta.wslRelativePath }}</span>
+                <button type="button" class="mz-button" data-canvas-history @click="openHistory">History</button>
             </div>
         </header>
 
         <div v-if="!activeMeta" class="flex-1 flex items-center justify-center">
             <div class="text-center max-w-md">
-                <div class="wb-stamp-label mb-3">No session running</div>
-                <p class="text-wb-text-mute font-display text-sm">
+                <div class="mz-stamp-label mb-3">No session running</div>
+                <p class="text-mz-text-mute font-display text-sm">
                     Tools racked. Click an experiment to start a session.
                 </p>
             </div>

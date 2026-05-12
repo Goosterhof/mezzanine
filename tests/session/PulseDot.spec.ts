@@ -7,11 +7,11 @@ import PulseDot from '../../src/session/PulseDot.vue';
 
 describe('PulseDot', () => {
     const cases: Array<{state: SessionState; classFragment: string}> = [
-        {state: 'idle', classFragment: 'bg-wb-pulse-idle'},
-        {state: 'awaiting', classFragment: 'bg-wb-pulse-awaiting'},
-        {state: 'working', classFragment: 'bg-wb-pulse-working'},
-        {state: 'completed-unseen', classFragment: 'bg-wb-pulse-flash'},
-        {state: 'crashed', classFragment: 'bg-wb-pulse-crashed'},
+        {state: 'idle', classFragment: 'bg-mz-pulse-idle'},
+        {state: 'awaiting', classFragment: 'bg-mz-pulse-awaiting'},
+        {state: 'working', classFragment: 'bg-mz-pulse-working'},
+        {state: 'completed-unseen', classFragment: 'bg-mz-pulse-flash'},
+        {state: 'crashed', classFragment: 'bg-mz-pulse-crashed'},
     ];
 
     it.each(cases)('renders the $state state with the right pulse class', ({state, classFragment}) => {
@@ -21,10 +21,10 @@ describe('PulseDot', () => {
 
     it('reacts when the state prop changes', async () => {
         const wrapper = mount(PulseDot, {props: {state: 'idle'}});
-        expect(wrapper.attributes('class')).toContain('bg-wb-pulse-idle');
+        expect(wrapper.attributes('class')).toContain('bg-mz-pulse-idle');
         await wrapper.setProps({state: 'working'});
-        expect(wrapper.attributes('class')).toContain('bg-wb-pulse-working');
-        expect(wrapper.attributes('class')).not.toContain('bg-wb-pulse-idle');
+        expect(wrapper.attributes('class')).toContain('bg-mz-pulse-working');
+        expect(wrapper.attributes('class')).not.toContain('bg-mz-pulse-idle');
     });
 
     it('attaches the working animation only in the working state', () => {
