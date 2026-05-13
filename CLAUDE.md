@@ -74,7 +74,7 @@ rebrand. What changed is *who* the substrate spawns: every pty wraps a
 data, not laboratory data. Keeping them out of the WSL2 home preserves
 the investor's WSL2 environment for code; the investor can still grep
 them from WSL2 at `/mnt/c/Users/<user>/.zmuuzn-mezzanine/` when needed.
-The first-run wizard (Phase 4A) will make this path explicit.
+The first-run wizard (delivered as Phase 2C) makes this path explicit.
 
 **The chronicle path migration:** on first Mezzanine boot, transcripts
 under the bench-era `~/.zmuuzn-cockpit/` directory are one-time-copied
@@ -127,6 +127,7 @@ mezzanine/
 │   │   ├── main.rs ........... Trivial entry — calls lib::run()
 │   │   ├── error.rs .......... MezzanineError + Serialize-for-Tauri-bridge
 │   │   ├── state.rs .......... AppState — RosterManager + lab_root + distro + claude_binary + mezzanine_home + ChronicleWriter
+│   │   ├── host_paths.rs ..... WSL2-side POSIX `lab_root` ↔ Windows host path resolvers: `\\wsl$\` UNC for `std::fs` reads, POSIX strings for `wsl.exe -- bash -lc "cd …"` working dirs (Phase 2D runtime sweep)
 │   │   ├── wizard/             First-run wizard persistence (Phase 2C)
 │   │   │   └── mod.rs ........ WizardState serde struct + read/write of `wizard-state.json`
 │   │   ├── pty/
@@ -266,7 +267,7 @@ The deployment plan lives in
 | 2A — backend swap | Cargo + Tauri identity renamed; `roster/` module added alongside `pty/`; WorkbenchError → MezzanineError; chronicle migration wired | ✅ Closed 2026-05-11 (df38399 + a1347a8) |
 | 2A — frontend cutover | Folder rename `gadgets/workbench/` → `gadgets/mezzanine/`; CSS prefix swap; new Vue surfaces (Roster / Dispatch / BalconyRail); bench-era code retired; Rust pty / chronicle reader retired; lib.rs registry trimmed | ✅ Closed 2026-05-12 — five containment protocols green on Linux (cargo check + 112/112 cargo test + oxlint + oxfmt + vue-tsc + 78/78 vitest + vite build) |
 | 2B — The Lab Floor | Balcony signs (Last Chaos + Idea Ledger state + Reserved); Briefing Library template cards in the Dispatch sheet | ✅ Closed 2026-05-12 — `balcony/` Rust module (`signs.rs` + `briefing_library.rs`) + two Tauri commands; new Vue slice (`BalconySign` + `BriefingLibrary` + `useBalconySigns` + `useBriefingLibrary`); BalconyRail wears three signs; Dispatch sheet hosts five-template library. Five containment protocols green on Windows (cargo check + 136/136 cargo test + oxlint 0/0 + oxfmt + vue-tsc + 101/101 vitest + vite build) |
-| 2C — Carry-Overs | First-Run Wizard refresh; Apprentice retirement re-verified; backfill component-level tests for the roster slice. **Dossier reframe landed early in Phase 2B** as the `experiment-dossier-read` template. | ✅ Closed 2026-05-13 — `wizard/` Rust module (`mod.rs`) + `commands/wizard.rs` (three Tauri commands: `read_wizard_state` / `read_wizard_detected` / `complete_wizard`); new Vue slice (`FirstRunWizard` + three step components + `useWizard`); substrate accepts a `binary` override threaded from the wizard; `chronicle/PrivacyDisclosure.vue` + `useDisclosure.ts` retired (step 3 folds in the disclosure ack — CTA *"Open the balcony."*). Five containment protocols green on Windows (cargo check + 146/146 cargo test + oxlint 0/0 + oxfmt + vue-tsc + 233/233 vitest + vite build); v8 coverage 96.78% (gate restored at 90%). |
+| 2C — Carry-Overs | First-Run Wizard refresh; Apprentice retirement re-verified; backfill component-level tests for the roster slice. **Dossier reframe landed early in Phase 2B** as the `experiment-dossier-read` template. | ✅ Closed 2026-05-13 — `wizard/` Rust module (`mod.rs`) + `commands/wizard.rs` (three Tauri commands: `read_wizard_state` / `read_wizard_detected` / `complete_wizard`); new Vue slice (`FirstRunWizard` + three step components + `useWizard`); substrate accepts a `binary` override threaded from the wizard; `chronicle/PrivacyDisclosure.vue` + `useDisclosure.ts` retired (step 3 folds in the disclosure ack — CTA *"Open the balcony."*). Five containment protocols green on Windows (cargo check + 146/146 cargo test + oxlint 0/0 + oxfmt + vue-tsc + 236/236 vitest + vite build); v8 coverage 96.78% (gate restored at 90%). Two close-button assertions + one anti-Dossier guard added in commit `0300dd9` while sealing W1 of Phase 2D. |
 | 2D — Cross-Host Ratification | Linux + Windows `tauri dev` boot under the Mezzanine identity; substrate path-separator regression re-verified; chronicle migration idempotency confirmed across hosts | Pending |
 
 ## Commands
@@ -310,7 +311,7 @@ cargo tauri build   # Tauri production build (Windows target)
 - Current experiment log: `documents/experiment-logs/00049-the-mezzanine.md`
 - Predecessor log: `documents/experiment-logs/00048-the-workbench.md`
 - Rebrand decision: `.claude/memory/decisions/008-workbench-rebranded-to-mezzanine.md`
-- Source idea ledger: `documents/idea-ledgers/idea-ledger-cockpit.md`
+- Source idea ledger: `documents/idea-ledgers/idea-ledger-mezzanine.md` (renamed 2026-05-13 from `idea-ledger-cockpit.md` — pre-Workbench-naming-vote filename)
 - Substrate precedent: `gadgets/horadric-cube/CLAUDE.md`
 - Apprentice tombstone: documented in
-  `documents/idea-ledgers/idea-ledger-cockpit.md` § TOMBSTONE
+  `documents/idea-ledgers/idea-ledger-mezzanine.md` § TOMBSTONE
