@@ -26,12 +26,14 @@ pub fn dispatch_scientist<R: Runtime>(
         guard.clone().ok_or(MezzanineError::ConfigCorrupt)?
     };
     let distro = state.distro.read().clone();
+    let binary = state.claude_binary.read().clone();
     let chronicle_base = state.chronicle_base.clone();
     state.roster_manager.write().dispatch(
         target,
         mission,
         &lab_root,
         distro,
+        binary,
         chronicle_base,
         app,
     )

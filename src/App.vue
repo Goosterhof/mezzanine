@@ -4,8 +4,6 @@ import {onMounted} from 'vue';
 import Dispatch from './balcony/Dispatch.vue';
 import {useBalconySigns} from './balcony/useBalconySigns';
 import {useBriefingLibrary} from './balcony/useBriefingLibrary';
-import PrivacyDisclosure from './chronicle/PrivacyDisclosure.vue';
-import {useDisclosure} from './chronicle/useDisclosure';
 import CommandBar from './command/CommandBar.vue';
 import DrydockPanel from './drydock/DrydockPanel.vue';
 import MissionControl from './mission/MissionControl.vue';
@@ -14,10 +12,14 @@ import ScientistCanvas from './roster/ScientistCanvas.vue';
 import {useRosterBackend} from './roster/useRosterBackend';
 import BalconyRail from './shell/BalconyRail.vue';
 import TopBar from './shell/TopBar.vue';
+import FirstRunWizard from './wizard/FirstRunWizard.vue';
+import {useWizard} from './wizard/useWizard';
 
 onMounted(() => {
     void useRosterBackend().subscribe();
-    void useDisclosure().loadStatus();
+    // The wizard's step 3 folds in the chronicle ack — on first boot the
+    // disclosure is acknowledged when the investor opens the balcony.
+    void useWizard().loadStatus();
     // Balcony state — load the rail's signs and the briefing library on boot.
     void useBalconySigns().refresh();
     void useBriefingLibrary().load();
@@ -38,6 +40,6 @@ onMounted(() => {
         <Dispatch />
         <MissionControl />
         <DrydockPanel />
-        <PrivacyDisclosure />
+        <FirstRunWizard />
     </div>
 </template>

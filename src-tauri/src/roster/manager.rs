@@ -56,19 +56,22 @@ impl RosterManager {
 
     /// Dispatch a fresh scientist into `target` with `mission`. Spawns a
     /// pty in the target's CWD, registers the record, persists. Returns
-    /// the created Scientist record (with the freshly-minted id).
+    /// the created Scientist record (with the freshly-minted id). The
+    /// `binary` override threads the wizard's persisted choice down to
+    /// the substrate; pass `None` to use the substrate default (`claude`).
     pub fn dispatch<R: Runtime>(
         &mut self,
         target: Target,
         mission: String,
         lab_root: &Path,
         distro: Option<String>,
+        binary: Option<String>,
         chronicle_base: PathBuf,
         app: AppHandle<R>,
     ) -> MezzanineResult<Scientist> {
         let scientist = Scientist::new(target.clone(), mission);
         let id = scientist.id;
-        let spec = SessionSpec::for_target(lab_root, &target, distro);
+        let spec = SessionSpec::for_target(lab_root, &target, distro, binary);
         let live = LiveScientistSession::spawn(&spec, id, chronicle_base, app)?;
         self.scientists.insert(id, Arc::new(live));
         self.records.insert(id, scientist.clone());

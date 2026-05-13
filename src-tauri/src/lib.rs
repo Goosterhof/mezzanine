@@ -29,6 +29,7 @@ mod lab;
 mod pty;
 mod roster;
 mod state;
+mod wizard;
 
 use std::path::PathBuf;
 use tauri::Manager;
@@ -76,8 +77,17 @@ pub fn run() {
                 }
             }
 
-            let app_state = state::AppState::new(chronicle_base, mezzanine_home);
-            *app_state.lab_root.write() = Some(detect_lab_root());
+            let app_state = state::AppState::new(chronicle_base, mezzanine_home.clone());
+            // Wizard state first — its persisted choices override the
+            // env-var / hardcoded defaults. If the wizard never ran, the
+            // defaults survive and the wizard renders on first paint.
+            let persisted_wizard = wizard::read(&mezzanine_home);
+            *app_state.lab_root.write() = Some(
+                persisted_wizard
+                    .resolved_lab_root()
+                    .unwrap_or_else(detect_lab_root),
+            );
+            *app_state.claude_binary.write() = persisted_wizard.resolved_claude_binary();
             *app_state.distro.write() = detect_distro();
             // If the investor has previously acknowledged the privacy
             // disclosure, unpause the chronicle immediately so the first
@@ -111,6 +121,10 @@ pub fn run() {
             // Chronicle privacy disclosure ack flow.
             commands::chronicle::read_chronicle_disclosure,
             commands::chronicle::write_chronicle_disclosure_ack,
+            // First-run wizard — three step answers persist atomically.
+            commands::wizard::read_wizard_state,
+            commands::wizard::read_wizard_detected,
+            commands::wizard::complete_wizard,
             // Drydock commands.
             commands::github::gh_auth_status,
             commands::github::list_open_prs,

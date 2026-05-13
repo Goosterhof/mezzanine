@@ -7,6 +7,7 @@
 //   * `chronicle`  — privacy-disclosure ack flow (read + write)
 //   * `github`     — `gh` enumeration + review actions for the Drydock
 //   * `artifacts`  — three readers feeding the Drydock's per-file enrichment
+//   * `wizard`     — first-run wizard state read + atomic submission
 //
 // The bench-era `pty` module (six per-experiment session commands) was
 // retired with the frontend cutover; the bench-era `chronicle::history`
@@ -19,3 +20,4 @@ pub mod chronicle;
 pub mod files;
 pub mod github;
 pub mod roster;
+pub mod wizard;

@@ -41,11 +41,19 @@ impl SessionSpec {
     /// scientists. The `Target::cwd` resolver already handles
     /// POSIX/backslash normalization and trailing-slash hygiene, so the
     /// path is constructed there rather than re-implementing the join
-    /// logic here.
-    pub fn for_target(lab_root: &Path, target: &Target, distro: Option<String>) -> Self {
+    /// logic here. `binary` overrides the substrate's default `"claude"`;
+    /// the wizard threads its persisted choice through here.
+    pub fn for_target(
+        lab_root: &Path,
+        target: &Target,
+        distro: Option<String>,
+        binary: Option<String>,
+    ) -> Self {
         Self {
             working_dir: target.cwd(lab_root),
-            binary: "claude".to_string(),
+            binary: binary
+                .filter(|b| !b.trim().is_empty())
+                .unwrap_or_else(|| "claude".to_string()),
             args: Vec::new(),
             distro,
         }
@@ -201,10 +209,35 @@ mod tests {
             Path::new("/home/scientist/code/zmuuzn"),
             &Target::experiment(ExperimentCodename::Crucible),
             None,
+            None,
         );
         assert_eq!(
             spec.working_dir.to_str().unwrap(),
             "/home/scientist/code/zmuuzn/experiments/zmuuzn-strava",
+        );
+        assert_eq!(spec.binary, "claude");
+    }
+
+    #[test]
+    fn for_target_honours_binary_override() {
+        use crate::roster::target::{ExperimentCodename, Target};
+        let spec = SessionSpec::for_target(
+            Path::new("/home/scientist/code/zmuuzn"),
+            &Target::experiment(ExperimentCodename::Crucible),
+            None,
+            Some("/opt/claude/bin/claude".to_string()),
+        );
+        assert_eq!(spec.binary, "/opt/claude/bin/claude");
+    }
+
+    #[test]
+    fn for_target_blank_binary_falls_back_to_claude() {
+        use crate::roster::target::{ExperimentCodename, Target};
+        let spec = SessionSpec::for_target(
+            Path::new("/home/scientist/code/zmuuzn"),
+            &Target::experiment(ExperimentCodename::Crucible),
+            None,
+            Some("   ".to_string()),
         );
         assert_eq!(spec.binary, "claude");
     }
@@ -221,6 +254,7 @@ mod tests {
             Path::new("/home/scientist/code/zmuuzn"),
             &Target::experiment(ExperimentCodename::Crucible),
             Some("Ubuntu".to_string()),
+            None,
         );
         let cmd = build_command(&spec);
         let debug = format!("{cmd:?}");
