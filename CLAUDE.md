@@ -126,7 +126,9 @@ mezzanine/
 │   │   ├── lib.rs ............ Builder, plugin registration, command list
 │   │   ├── main.rs ........... Trivial entry — calls lib::run()
 │   │   ├── error.rs .......... MezzanineError + Serialize-for-Tauri-bridge
-│   │   ├── state.rs .......... AppState — RosterManager + lab_root + distro + ChronicleWriter
+│   │   ├── state.rs .......... AppState — RosterManager + lab_root + distro + claude_binary + mezzanine_home + ChronicleWriter
+│   │   ├── wizard/             First-run wizard persistence (Phase 2C)
+│   │   │   └── mod.rs ........ WizardState serde struct + read/write of `wizard-state.json`
 │   │   ├── pty/
 │   │   │   ├── mod.rs ........ Substrate-only module (bench-era pty layer retired)
 │   │   │   └── substrate.rs .. CommandBuilder for wsl.exe (Windows) / bash (Unix); SessionSpec::for_target
@@ -165,6 +167,7 @@ mezzanine/
 │   │       ├── files.rs ...... Mission Control reads + dispatch write
 │   │       ├── balcony.rs .... read_balcony_signs + list_briefing_templates (Phase 2B)
 │   │       ├── chronicle.rs .. Privacy disclosure ack flow (read + write)
+│   │       ├── wizard.rs ..... First-run wizard IPC (read_state / read_detected / complete) — Phase 2C
 │   │       ├── github.rs ..... `gh` enumeration + review actions (Drydock)
 │   │       └── artifacts.rs .. The three enrichment readers (Drydock)
 │   ├── Cargo.toml ............ name = "mezzanine"; tauri 2 + portable-pty 0.8 + uuid v4
@@ -172,7 +175,7 @@ mezzanine/
 │   ├── capabilities/default.json  Window + plugin permissions
 │   └── icons/ ................ PLACEHOLDER copies from horadric-cube; Phase 4 swaps for balcony iconography
 ├── src/
-│   ├── App.vue ............... Top-level shell — BalconyRail + TopBar + Roster + ScientistCanvas + CommandBar + Dispatch + MissionControl + DrydockPanel + PrivacyDisclosure
+│   ├── App.vue ............... Top-level shell — BalconyRail + TopBar + Roster + ScientistCanvas + CommandBar + Dispatch + MissionControl + DrydockPanel + FirstRunWizard
 │   ├── main.ts ............... createApp + UnoCSS
 │   ├── shell/                 Frame
 │   │   ├── BalconyRail.vue ... Top rail — three signs (Last Chaos, Idea Ledger, Reserved) + Dispatch ▾ trigger
@@ -200,18 +203,23 @@ mezzanine/
 │   │   └── Dispatch.vue ...... Slide-down dispatch sheet over the Roster (Target + Library + Brief)
 │   ├── command/               Always-on input tray
 │   │   └── CommandBar.vue .... Always-focused bottom input → write_to_scientist(selected, text + "\n")
+│   ├── wizard/                First-run wizard (Phase 2C) — three steps, balcony voice
+│   │   ├── types.ts .......... WizardState / WizardDetected / WizardSubmission + WIZARD_STEP_ORDER
+│   │   ├── useWizard.ts ...... Singleton state + IPC (loadStatus / goNext / goBack / submit)
+│   │   ├── FirstRunWizard.vue . Blocking modal — renders active step + Back / Continue / "Open the balcony."
+│   │   ├── StepLaboratory.vue . Step 1 — lab root input
+│   │   ├── StepBinary.vue ..... Step 2 — claude binary override (blank → "claude" from PATH)
+│   │   └── StepChronicle.vue .. Step 3 — chronicle disclosure copy, refreshed for the dispatched model
 │   ├── mission/               Mission Control panel slice (bench-era Phase 2A, untouched)
 │   │   └── ...
-│   ├── chronicle/             Privacy disclosure ack flow (bench-era Phase 2B, slimmed)
-│   │   ├── PrivacyDisclosure.vue One-time blocking modal at first boot
-│   │   ├── useDisclosure.ts .. Boot-time ack check + acknowledge() flow
-│   │   └── types.ts
+│   ├── chronicle/             Chronicle wire-shape stub (PrivacyDisclosure + useDisclosure retired Phase 2C)
+│   │   └── types.ts .......... ChronicleTurn + TurnDirection — JSONL transcript shape
 │   ├── drydock/               PR review with three enrichment fields (bench-era Phase 3A, untouched)
 │   │   └── ...
 │   └── assets/mezzanine.css .. Auxiliary CSS (almost empty — UnoCSS does the work)
 ├── tests/                      Mirrors src/ slices — all *.spec.ts live here
 │   ├── balcony/ ............... BalconySign + BriefingLibrary + useBalconySigns + useBriefingLibrary + useDispatch
-│   ├── chronicle/ ............. PrivacyDisclosure + useDisclosure
+│   ├── wizard/ ................ useWizard + FirstRunWizard + Steps (StepLaboratory / StepBinary / StepChronicle)
 │   ├── mission/ ............... MissionControl + sections + ComposeDispatch + useMissionControl
 │   ├── drydock/ ............... DrydockPanel + PrCard + FileDiff + ReviewActions + useDrydock
 │   └── shell/ ................. TopBar + useShell
@@ -258,7 +266,7 @@ The deployment plan lives in
 | 2A — backend swap | Cargo + Tauri identity renamed; `roster/` module added alongside `pty/`; WorkbenchError → MezzanineError; chronicle migration wired | ✅ Closed 2026-05-11 (df38399 + a1347a8) |
 | 2A — frontend cutover | Folder rename `gadgets/workbench/` → `gadgets/mezzanine/`; CSS prefix swap; new Vue surfaces (Roster / Dispatch / BalconyRail); bench-era code retired; Rust pty / chronicle reader retired; lib.rs registry trimmed | ✅ Closed 2026-05-12 — five containment protocols green on Linux (cargo check + 112/112 cargo test + oxlint + oxfmt + vue-tsc + 78/78 vitest + vite build) |
 | 2B — The Lab Floor | Balcony signs (Last Chaos + Idea Ledger state + Reserved); Briefing Library template cards in the Dispatch sheet | ✅ Closed 2026-05-12 — `balcony/` Rust module (`signs.rs` + `briefing_library.rs`) + two Tauri commands; new Vue slice (`BalconySign` + `BriefingLibrary` + `useBalconySigns` + `useBriefingLibrary`); BalconyRail wears three signs; Dispatch sheet hosts five-template library. Five containment protocols green on Windows (cargo check + 136/136 cargo test + oxlint 0/0 + oxfmt + vue-tsc + 101/101 vitest + vite build) |
-| 2C — Carry-Overs | First-Run Wizard refresh; Apprentice retirement re-verified; backfill component-level tests for the roster slice. **Dossier reframe landed early in Phase 2B** as the `experiment-dossier-read` template. | Pending |
+| 2C — Carry-Overs | First-Run Wizard refresh; Apprentice retirement re-verified; backfill component-level tests for the roster slice. **Dossier reframe landed early in Phase 2B** as the `experiment-dossier-read` template. | ✅ Closed 2026-05-13 — `wizard/` Rust module (`mod.rs`) + `commands/wizard.rs` (three Tauri commands: `read_wizard_state` / `read_wizard_detected` / `complete_wizard`); new Vue slice (`FirstRunWizard` + three step components + `useWizard`); substrate accepts a `binary` override threaded from the wizard; `chronicle/PrivacyDisclosure.vue` + `useDisclosure.ts` retired (step 3 folds in the disclosure ack — CTA *"Open the balcony."*). Five containment protocols green on Windows (cargo check + 146/146 cargo test + oxlint 0/0 + oxfmt + vue-tsc + 233/233 vitest + vite build); v8 coverage 96.78% (gate restored at 90%). |
 | 2D — Cross-Host Ratification | Linux + Windows `tauri dev` boot under the Mezzanine identity; substrate path-separator regression re-verified; chronicle migration idempotency confirmed across hosts | Pending |
 
 ## Commands
