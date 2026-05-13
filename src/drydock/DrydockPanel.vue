@@ -79,6 +79,15 @@ onUnmounted(() => {
                 >
                     {{ drydock.loading.value ? 'Reading…' : 'Refresh' }}
                 </button>
+                <button
+                    type="button"
+                    class="mz-button-icon"
+                    aria-label="Close Drydock"
+                    data-test="drydock-close"
+                    @click="shell.closePanel()"
+                >
+                    ✕
+                </button>
             </div>
         </header>
 

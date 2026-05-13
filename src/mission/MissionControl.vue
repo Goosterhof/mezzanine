@@ -90,6 +90,15 @@ onUnmounted(() => {
                 >
                     {{ mc.loading.value ? 'Reading…' : 'Refresh' }}
                 </button>
+                <button
+                    type="button"
+                    class="mz-button-icon"
+                    aria-label="Close Mission Control"
+                    data-mc-close
+                    @click="shell.closePanel()"
+                >
+                    ✕
+                </button>
             </div>
         </header>
 

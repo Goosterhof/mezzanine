@@ -6,7 +6,6 @@ const shell = useShell();
 const buttons: Array<{id: PanelId; label: string; glyph: string}> = [
     {id: 'mission-control', label: 'Mission Control', glyph: 'MC'},
     {id: 'drydock', label: 'Drydock', glyph: 'DD'},
-    {id: 'dossier', label: 'Dossier', glyph: 'DS'},
 ];
 </script>
 

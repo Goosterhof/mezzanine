@@ -104,6 +104,17 @@ describe('DrydockPanel', () => {
         wrapper.unmount();
     });
 
+    it('the ✕ button closes the panel', async () => {
+        useShell().togglePanel('drydock');
+        const wrapper = mount(DrydockPanel, {attachTo: document.body});
+        await flushPromises();
+        expect(useShell().openPanel.value).toBe('drydock');
+
+        await wrapper.get('[data-test="drydock-close"]').trigger('click');
+        expect(useShell().openPanel.value).toBeNull();
+        wrapper.unmount();
+    });
+
     it('Refresh button triggers a fresh fetch', async () => {
         useShell().togglePanel('drydock');
         const wrapper = mount(DrydockPanel, {attachTo: document.body});

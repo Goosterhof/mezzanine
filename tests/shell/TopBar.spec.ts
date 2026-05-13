@@ -19,8 +19,17 @@ describe('TopBar', () => {
     it('renders one button per panel', () => {
         const wrapper = mount(TopBar);
         const buttons = wrapper.findAll('button');
-        expect(buttons).toHaveLength(3);
-        expect(buttons.map((b) => b.text())).toStrictEqual(['MC', 'DD', 'DS']);
+        // Mission Control + Drydock. The bench-era Dossier panel button was
+        // retired in Phase 2C — the dossier is now a Briefing Library
+        // mission, not a panel of markdown.
+        expect(buttons).toHaveLength(2);
+        expect(buttons.map((b) => b.text())).toStrictEqual(['MC', 'DD']);
+    });
+
+    it('does not expose a Dossier button (retired Phase 2C)', () => {
+        const wrapper = mount(TopBar);
+        expect(wrapper.text()).not.toContain('DS');
+        expect(wrapper.text()).not.toContain('Dossier');
     });
 
     it('clicking a button opens the corresponding panel', async () => {
@@ -39,19 +48,19 @@ describe('TopBar', () => {
 
     it("highlights the open panel's button with the brass border", async () => {
         const wrapper = mount(TopBar);
-        const dossierButton = wrapper.findAll('button')[2]!;
-        expect(dossierButton.classes()).not.toContain('border-mz-brass');
-        await dossierButton.trigger('click');
-        expect(dossierButton.classes()).toContain('border-mz-brass');
+        const drydockButton = wrapper.findAll('button')[1]!;
+        expect(drydockButton.classes()).not.toContain('border-mz-brass');
+        await drydockButton.trigger('click');
+        expect(drydockButton.classes()).toContain('border-mz-brass');
     });
 
     it('only one button is highlighted at a time', async () => {
         const wrapper = mount(TopBar);
         const buttons = wrapper.findAll('button');
         await buttons[0]!.trigger('click');
-        await buttons[2]!.trigger('click');
+        await buttons[1]!.trigger('click');
         expect(buttons[0]!.classes()).not.toContain('border-mz-brass');
-        expect(buttons[2]!.classes()).toContain('border-mz-brass');
+        expect(buttons[1]!.classes()).toContain('border-mz-brass');
     });
 
     it('buttons expose a title attribute matching the panel label', () => {
@@ -59,6 +68,5 @@ describe('TopBar', () => {
         const buttons = wrapper.findAll('button');
         expect(buttons[0]!.attributes('title')).toBe('Mission Control');
         expect(buttons[1]!.attributes('title')).toBe('Drydock');
-        expect(buttons[2]!.attributes('title')).toBe('Dossier');
     });
 });

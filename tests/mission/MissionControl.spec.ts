@@ -102,6 +102,17 @@ describe('MissionControl', () => {
         wrapper.unmount();
     });
 
+    it('closes the panel when the ✕ button is clicked', async () => {
+        useShell().togglePanel('mission-control');
+        const wrapper = mount(MissionControl, {attachTo: document.body});
+        await flushPromises();
+        expect(useShell().openPanel.value).toBe('mission-control');
+
+        await wrapper.get('[data-mc-close]').trigger('click');
+        expect(useShell().openPanel.value).toBeNull();
+        wrapper.unmount();
+    });
+
     it('opens and closes the Compose Dispatch overlay', async () => {
         useShell().togglePanel('mission-control');
         const wrapper = mount(MissionControl, {attachTo: document.body});

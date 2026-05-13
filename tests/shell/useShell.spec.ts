@@ -27,8 +27,8 @@ describe('useShell', () => {
     it('togglePanel switches directly between panels', () => {
         const shell = useShell();
         shell.togglePanel('mission-control');
-        shell.togglePanel('dossier');
-        expect(shell.openPanel.value).toBe('dossier');
+        shell.togglePanel('drydock');
+        expect(shell.openPanel.value).toBe('drydock');
     });
 
     it('closePanel closes whatever is open', () => {
