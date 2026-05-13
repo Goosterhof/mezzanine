@@ -74,14 +74,14 @@ mod tests {
     use std::path::PathBuf;
 
     fn tempdir() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("workbench-wounds-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("mezzanine-wounds-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&dir).unwrap();
         dir
     }
 
     #[test]
     fn missing_directory_returns_empty() {
-        let path = std::env::temp_dir().join("workbench-wounds-does-not-exist-xyz");
+        let path = std::env::temp_dir().join("mezzanine-wounds-does-not-exist-xyz");
         let _ = fs::remove_dir_all(&path);
         let wounds = list(&path).unwrap();
         assert!(wounds.is_empty());

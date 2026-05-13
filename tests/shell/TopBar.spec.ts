@@ -9,9 +9,10 @@ describe('TopBar', () => {
         useShell().reset();
     });
 
-    it('renders the workbench banner and version', () => {
+    it('renders the Mezzanine banner and version', () => {
         const wrapper = mount(TopBar);
-        expect(wrapper.text()).toContain('Workbench');
+        expect(wrapper.text()).toContain('Mezzanine');
+        expect(wrapper.text()).not.toContain('Workbench');
         expect(wrapper.text()).toContain('v0.1');
     });
 

@@ -13,7 +13,7 @@ const buttons: Array<{id: PanelId; label: string; glyph: string}> = [
 <template>
     <header class="h-11 bg-mz-rail border-b border-mz-edge flex items-center justify-between px-4 flex-shrink-0">
         <div class="flex items-center gap-3">
-            <div class="text-mz-brass font-display text-sm tracking-[0.25em] uppercase">⌬ Workbench</div>
+            <div class="text-mz-brass font-display text-sm tracking-[0.25em] uppercase">⌬ Mezzanine</div>
             <span class="text-mz-text-faint font-mono text-xs">v0.1</span>
         </div>
         <div class="flex items-center gap-1">

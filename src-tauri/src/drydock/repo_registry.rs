@@ -100,10 +100,10 @@ pub fn lab_repos() -> Vec<LabRepo> {
             experiment_scope: Some("cube".to_string()),
         },
         LabRepo {
-            label: "The Workbench".to_string(),
-            repo_full_name: "Goosterhof/workbench".to_string(),
-            local_path: "gadgets/workbench".to_string(),
-            experiment_scope: Some("workbench".to_string()),
+            label: "The Mezzanine".to_string(),
+            repo_full_name: "Goosterhof/mezzanine".to_string(),
+            local_path: "gadgets/mezzanine".to_string(),
+            experiment_scope: Some("mezzanine".to_string()),
         },
     ]
 }

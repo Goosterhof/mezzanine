@@ -1,4 +1,4 @@
-// The lab module — the Workbench's read window onto the laboratory's
+// The lab module — the Mezzanine's read window onto the laboratory's
 // long-form artifacts. Mission Control (Phase 2A) reads four sources from
 // disk and renders them as a single panel:
 //

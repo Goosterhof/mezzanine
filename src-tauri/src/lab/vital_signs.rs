@@ -108,7 +108,7 @@ mod tests {
 │ Experiments  │ 6 active — Gatekeeper, War Table, Crucible,     │
 │              │   Parlour, Smokestacks, Horadrim                │
 │ Gadgets      │ 5 calibrated — Observer, Holotable,             │
-│              │   Grind, Horadric Cube, Workbench               │
+│              │   Grind, Horadric Cube, Mezzanine               │
 │ Packages     │ 1 published — The Shared Nervous System         │
 │ Minions      │ 18 operational — all agents, all stations manned │
 │ Sentinels    │ 4 watching — gadget CI pipelines armed          │
