@@ -2,14 +2,18 @@
 //
 // Four reads (vital signs, dispatch, signals, wounds) and one write
 // (append a finding to the war-room dispatch). Every command resolves
-// paths relative to `lab_root` which the wizard (Phase 4A) will
-// configure; today it's seeded from env vars at startup.
+// paths relative to `lab_root` through `host_paths::resolve_for_std_fs`
+// so Windows reads cross the WSL2 UNC bridge correctly.
 //
-// The reads return typed payloads parsed by the pure functions in
-// `crate::lab`. The write splices a new `### N. Title` block into
+// All commands are `async` with their sync I/O wrapped in
+// `tokio::task::spawn_blocking` — UNC reads on Windows can stall on
+// first access, and a sync command on the main thread would freeze the
+// webview. The reads return typed payloads parsed by the pure functions
+// in `crate::lab`. The write splices a new `### N. Title` block into
 // `documents/war-room-dispatch.md` and writes the file back atomically.
 
 use crate::error::{MezzanineError, MezzanineResult};
+use crate::host_paths;
 use crate::lab::dispatch::{DispatchFinding, NewDispatchFinding};
 use crate::lab::signals::MinionSignal;
 use crate::lab::vital_signs::VitalSigns;
@@ -20,56 +24,88 @@ use std::path::PathBuf;
 use tauri::State;
 
 #[tauri::command]
-pub fn read_vital_signs(state: State<'_, AppState>) -> MezzanineResult<VitalSigns> {
+pub async fn read_vital_signs(state: State<'_, AppState>) -> MezzanineResult<VitalSigns> {
     let path = lab_path(&state, "CLAUDE.md")?;
-    let content = std::fs::read_to_string(&path).map_err(MezzanineError::Io)?;
-    Ok(vital_signs::parse(&content))
+    tokio::task::spawn_blocking(move || -> MezzanineResult<VitalSigns> {
+        let content = std::fs::read_to_string(&path).map_err(MezzanineError::Io)?;
+        Ok(vital_signs::parse(&content))
+    })
+    .await
+    .map_err(|e| MezzanineError::LabFileRead(format!("vital signs join failed: {e}")))?
 }
 
 #[tauri::command]
-pub fn read_war_room_dispatch(state: State<'_, AppState>) -> MezzanineResult<Vec<DispatchFinding>> {
+pub async fn read_war_room_dispatch(
+    state: State<'_, AppState>,
+) -> MezzanineResult<Vec<DispatchFinding>> {
     let path = lab_path(&state, "documents/war-room-dispatch.md")?;
-    if !path.exists() {
-        return Ok(Vec::new());
-    }
-    let content = std::fs::read_to_string(&path).map_err(MezzanineError::Io)?;
-    Ok(dispatch::parse(&content))
+    tokio::task::spawn_blocking(move || -> MezzanineResult<Vec<DispatchFinding>> {
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let content = std::fs::read_to_string(&path).map_err(MezzanineError::Io)?;
+        Ok(dispatch::parse(&content))
+    })
+    .await
+    .map_err(|e| MezzanineError::LabFileRead(format!("war room dispatch join failed: {e}")))?
 }
 
 #[tauri::command]
-pub fn read_inheritance_signals(state: State<'_, AppState>) -> MezzanineResult<Vec<MinionSignal>> {
+pub async fn read_inheritance_signals(
+    state: State<'_, AppState>,
+) -> MezzanineResult<Vec<MinionSignal>> {
     let path = lab_path(&state, "documents/laboratory-pulse.md")?;
-    if !path.exists() {
-        return Ok(Vec::new());
-    }
-    let content = std::fs::read_to_string(&path).map_err(MezzanineError::Io)?;
-    Ok(signals::parse(&content))
+    tokio::task::spawn_blocking(move || -> MezzanineResult<Vec<MinionSignal>> {
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let content = std::fs::read_to_string(&path).map_err(MezzanineError::Io)?;
+        Ok(signals::parse(&content))
+    })
+    .await
+    .map_err(|e| MezzanineError::LabFileRead(format!("inheritance signals join failed: {e}")))?
 }
 
 #[tauri::command]
-pub fn read_wounds_at_threshold(state: State<'_, AppState>) -> MezzanineResult<Vec<WoundSummary>> {
+pub async fn read_wounds_at_threshold(
+    state: State<'_, AppState>,
+) -> MezzanineResult<Vec<WoundSummary>> {
     let dir = lab_path(&state, ".claude/memory/wounds")?;
-    wounds::list(&dir)
+    tokio::task::spawn_blocking(move || wounds::list(&dir))
+        .await
+        .map_err(|e| MezzanineError::LabFileRead(format!("wounds list join failed: {e}")))?
 }
 
 #[tauri::command]
-pub fn write_war_room_dispatch(
+pub async fn write_war_room_dispatch(
     state: State<'_, AppState>,
     finding: NewDispatchFinding,
 ) -> MezzanineResult<()> {
     let path = lab_path(&state, "documents/war-room-dispatch.md")?;
-    let existing = if path.exists() {
-        std::fs::read_to_string(&path).map_err(MezzanineError::Io)?
-    } else {
-        "# War Room Dispatch\n".to_string()
-    };
-    let updated = dispatch::insert_finding(&existing, &finding);
-    std::fs::write(&path, updated).map_err(MezzanineError::Io)?;
-    Ok(())
+    tokio::task::spawn_blocking(move || -> MezzanineResult<()> {
+        let existing = if path.exists() {
+            std::fs::read_to_string(&path).map_err(MezzanineError::Io)?
+        } else {
+            "# War Room Dispatch\n".to_string()
+        };
+        let updated = dispatch::insert_finding(&existing, &finding);
+        std::fs::write(&path, updated).map_err(MezzanineError::Io)?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| MezzanineError::LabFileRead(format!("war room dispatch write join failed: {e}")))?
 }
 
 fn lab_path(state: &State<'_, AppState>, relative: &str) -> MezzanineResult<PathBuf> {
-    let guard = state.lab_root.read();
-    let lab_root = guard.clone().ok_or(MezzanineError::ConfigCorrupt)?;
-    Ok(lab_root.join(relative))
+    let lab_root = state
+        .lab_root
+        .read()
+        .clone()
+        .ok_or(MezzanineError::ConfigCorrupt)?;
+    let distro = state.distro.read().clone();
+    Ok(host_paths::resolve_for_std_fs(
+        &lab_root,
+        distro.as_deref(),
+        relative,
+    ))
 }

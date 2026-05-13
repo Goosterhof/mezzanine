@@ -25,6 +25,7 @@ mod chronicle;
 mod commands;
 mod drydock;
 mod error;
+mod host_paths;
 mod lab;
 mod pty;
 mod roster;

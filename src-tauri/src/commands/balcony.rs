@@ -9,35 +9,43 @@
 //
 // `list_briefing_templates` returns the compile-time seed library.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use tauri::State;
 
 use crate::balcony::briefing_library::{self, BriefingTemplate};
 use crate::balcony::signs::{self, BalconySigns, IdeaLedgerSign, LastChaosSign};
 use crate::error::{MezzanineError, MezzanineResult};
+use crate::host_paths;
 use crate::state::AppState;
 
 #[tauri::command]
-pub fn read_balcony_signs(state: State<'_, AppState>) -> MezzanineResult<BalconySigns> {
-    let lab_root = lab_root(&state)?;
-
-    let last_chaos = read_last_chaos_sign(&lab_root);
-    let idea_ledger = read_idea_ledger_sign(&lab_root);
-
-    Ok(BalconySigns {
-        last_chaos,
-        idea_ledger,
+pub async fn read_balcony_signs(state: State<'_, AppState>) -> MezzanineResult<BalconySigns> {
+    let (lab_root, distro) = read_lab_state(&state)?;
+    // Both reads happen through the WSL2 UNC bridge on Windows. They are
+    // sync I/O — move them to the blocking pool so the UI thread stays
+    // responsive on rail refresh.
+    tokio::task::spawn_blocking(move || {
+        let last_chaos = read_last_chaos_sign(&lab_root, distro.as_deref());
+        let idea_ledger = read_idea_ledger_sign(&lab_root, distro.as_deref());
+        Ok(BalconySigns {
+            last_chaos,
+            idea_ledger,
+        })
     })
+    .await
+    .map_err(|e| MezzanineError::LabFileRead(format!("balcony read join failed: {e}")))?
 }
 
 #[tauri::command]
-pub fn list_briefing_templates() -> Vec<BriefingTemplate> {
+pub async fn list_briefing_templates() -> Vec<BriefingTemplate> {
+    // No I/O — the seed library is compile-time. Async wrapper only so
+    // every command in this module presents a uniform signature to Tauri.
     briefing_library::list_templates().to_vec()
 }
 
-fn read_last_chaos_sign(lab_root: &PathBuf) -> LastChaosSign {
-    let path = lab_root.join("CLAUDE.md");
+fn read_last_chaos_sign(lab_root: &Path, distro: Option<&str>) -> LastChaosSign {
+    let path = host_paths::resolve_for_std_fs(lab_root, distro, "CLAUDE.md");
     match std::fs::read_to_string(&path) {
         Ok(content) => signs::parse_last_chaos(&content),
         Err(err) => {
@@ -50,8 +58,8 @@ fn read_last_chaos_sign(lab_root: &PathBuf) -> LastChaosSign {
     }
 }
 
-fn read_idea_ledger_sign(lab_root: &PathBuf) -> IdeaLedgerSign {
-    let dir = lab_root.join("documents").join("idea-ledgers");
+fn read_idea_ledger_sign(lab_root: &Path, distro: Option<&str>) -> IdeaLedgerSign {
+    let dir = host_paths::resolve_for_std_fs(lab_root, distro, "documents/idea-ledgers");
     let entries = match std::fs::read_dir(&dir) {
         Ok(entries) => entries,
         Err(err) => {
@@ -91,9 +99,14 @@ fn is_ledger_file(path: &std::path::Path) -> bool {
         .unwrap_or(false)
 }
 
-fn lab_root(state: &State<'_, AppState>) -> MezzanineResult<PathBuf> {
-    let guard = state.lab_root.read();
-    guard.clone().ok_or(MezzanineError::ConfigCorrupt)
+fn read_lab_state(state: &State<'_, AppState>) -> MezzanineResult<(PathBuf, Option<String>)> {
+    let lab_root = state
+        .lab_root
+        .read()
+        .clone()
+        .ok_or(MezzanineError::ConfigCorrupt)?;
+    let distro = state.distro.read().clone();
+    Ok((lab_root, distro))
 }
 
 #[cfg(test)]
@@ -126,7 +139,7 @@ mod tests {
     #[test]
     fn read_last_chaos_sign_returns_default_when_claude_md_missing() {
         let dir = sandbox("missing-chaos");
-        let sign = read_last_chaos_sign(&dir);
+        let sign = read_last_chaos_sign(&dir, None);
         assert_eq!(sign, LastChaosSign::default());
         let _ = fs::remove_dir_all(&dir);
     }
@@ -139,7 +152,7 @@ mod tests {
             "CLAUDE.md",
             "│ Last Chaos │ #00068 — Cardinal Candlelight (Parlour) — 8/10 │\n",
         );
-        let sign = read_last_chaos_sign(&dir);
+        let sign = read_last_chaos_sign(&dir, None);
         assert_eq!(sign.report_number, Some(68));
         assert_eq!(sign.score.as_deref(), Some("8/10"));
         assert_eq!(sign.label, "Cardinal Candlelight (Parlour)");
@@ -149,7 +162,7 @@ mod tests {
     #[test]
     fn read_idea_ledger_sign_returns_default_when_dir_missing() {
         let dir = sandbox("missing-ledgers");
-        let sign = read_idea_ledger_sign(&dir);
+        let sign = read_idea_ledger_sign(&dir, None);
         assert_eq!(sign, IdeaLedgerSign::default());
         let _ = fs::remove_dir_all(&dir);
     }
@@ -173,16 +186,16 @@ mod tests {
             "documents/idea-ledgers/README.md",
             "### IDEA #99 — Decoy [CANDIDATE]\n",
         );
-        let sign = read_idea_ledger_sign(&dir);
+        let sign = read_idea_ledger_sign(&dir, None);
         assert_eq!(sign.candidate_count, 1);
         assert_eq!(sign.shelved_count, 1);
         assert_eq!(sign.most_recent_delivered.as_deref(), Some("2026-04-22"));
         let _ = fs::remove_dir_all(&dir);
     }
 
-    #[test]
-    fn list_briefing_templates_returns_seed_size() {
-        let templates = list_briefing_templates();
+    #[tokio::test]
+    async fn list_briefing_templates_returns_seed_size() {
+        let templates = list_briefing_templates().await;
         assert_eq!(templates.len(), briefing_library::SEED_TEMPLATES.len());
     }
 }

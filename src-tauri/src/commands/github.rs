@@ -98,12 +98,19 @@ const PR_LIST_FIELDS: &str =
     "number,title,author,headRefName,isDraft,additions,deletions,changedFiles,url";
 
 #[tauri::command]
-pub fn gh_auth_status(state: State<'_, AppState>) -> MezzanineResult<GhAuthStatus> {
+pub async fn gh_auth_status(state: State<'_, AppState>) -> MezzanineResult<GhAuthStatus> {
     let (lab_root, distro) = read_lab_state(&state)?;
-    // `gh auth status` exits 0 when authenticated, 1 when not.
-    // We treat the error case as a non-authenticated signal — not a
-    // bridge failure — so the panel can render the calm one-liner.
-    match bridge::run_in_lab(&lab_root, "gh", &["auth", "status"], distro.as_deref()) {
+    // The subprocess call is sync. Hand it to a blocking-thread so the
+    // main thread (and the tokio worker pool) stays free for the UI.
+    let result = tokio::task::spawn_blocking(move || {
+        bridge::run_in_lab(&lab_root, "gh", &["auth", "status"], distro.as_deref())
+    })
+    .await
+    .map_err(|e| MezzanineError::WslBridge(format!("gh auth status join failed: {e}")))?;
+    // `gh auth status` exits 0 when authenticated, 1 when not. The error
+    // case is a non-authenticated signal — not a bridge failure — so the
+    // panel can render the calm one-liner.
+    match result {
         Ok(msg) => Ok(GhAuthStatus {
             authenticated: true,
             message: msg.trim().to_string(),
@@ -117,31 +124,56 @@ pub fn gh_auth_status(state: State<'_, AppState>) -> MezzanineResult<GhAuthStatu
 }
 
 #[tauri::command]
-pub fn list_open_prs(state: State<'_, AppState>) -> MezzanineResult<Vec<PullRequest>> {
+pub async fn list_open_prs(state: State<'_, AppState>) -> MezzanineResult<Vec<PullRequest>> {
     let (lab_root, distro) = read_lab_state(&state)?;
+    let repos = repo_registry::lab_repos();
+    let lab_root = std::sync::Arc::new(lab_root);
+    let distro = std::sync::Arc::new(distro);
+
+    // Spawn 12 blocking tasks in parallel — one per repo. Wall-clock
+    // collapses from ~12 × per-call latency down to the slowest single
+    // `gh pr list`. The webview thread stays responsive throughout.
+    let mut handles = Vec::with_capacity(repos.len());
+    for repo in repos {
+        let lab_root = std::sync::Arc::clone(&lab_root);
+        let distro = std::sync::Arc::clone(&distro);
+        let handle = tokio::task::spawn_blocking(move || {
+            let stdout = bridge::run_in_lab(
+                &lab_root,
+                "gh",
+                &[
+                    "pr",
+                    "list",
+                    "--repo",
+                    &repo.repo_full_name,
+                    "--state",
+                    "open",
+                    "--limit",
+                    "30",
+                    "--json",
+                    PR_LIST_FIELDS,
+                ],
+                distro.as_deref(),
+            );
+            (repo, stdout)
+        });
+        handles.push(handle);
+    }
+
     let mut out = Vec::new();
-    for repo in repo_registry::lab_repos() {
-        let stdout = match bridge::run_in_lab(
-            &lab_root,
-            "gh",
-            &[
-                "pr",
-                "list",
-                "--repo",
-                &repo.repo_full_name,
-                "--state",
-                "open",
-                "--limit",
-                "30",
-                "--json",
-                PR_LIST_FIELDS,
-            ],
-            distro.as_deref(),
-        ) {
+    for handle in handles {
+        let (repo, stdout_result) = match handle.await {
+            Ok(pair) => pair,
+            Err(e) => {
+                log::warn!("Drydock: gh pr list task join failed: {e}");
+                continue;
+            }
+        };
+        // A single repo's failure (private, archived, network blip) must
+        // not down the whole panel. Skip and continue — the panel will
+        // simply omit that repo's PRs this refresh.
+        let stdout = match stdout_result {
             Ok(s) => s,
-            // A single repo's failure (private, archived, network blip) must
-            // not down the whole panel. Skip and continue — the panel will
-            // simply omit that repo's PRs this refresh.
             Err(e) => {
                 log::warn!(
                     "Drydock: gh pr list failed for {}: {e}",
@@ -182,27 +214,31 @@ pub fn list_open_prs(state: State<'_, AppState>) -> MezzanineResult<Vec<PullRequ
 }
 
 #[tauri::command]
-pub fn pull_request_files(
+pub async fn pull_request_files(
     state: State<'_, AppState>,
     repo_full_name: String,
     number: u64,
 ) -> MezzanineResult<Vec<PullRequestFile>> {
     let (lab_root, distro) = read_lab_state(&state)?;
-    let number_arg = number.to_string();
-    let stdout = bridge::run_in_lab(
-        &lab_root,
-        "gh",
-        &[
-            "pr",
-            "view",
-            &number_arg,
-            "--repo",
-            &repo_full_name,
-            "--json",
-            "files",
-        ],
-        distro.as_deref(),
-    )?;
+    let stdout = tokio::task::spawn_blocking(move || {
+        let number_arg = number.to_string();
+        bridge::run_in_lab(
+            &lab_root,
+            "gh",
+            &[
+                "pr",
+                "view",
+                &number_arg,
+                "--repo",
+                &repo_full_name,
+                "--json",
+                "files",
+            ],
+            distro.as_deref(),
+        )
+    })
+    .await
+    .map_err(|e| MezzanineError::WslBridge(format!("gh pr view join failed: {e}")))??;
     let envelope: RawPrFilesEnvelope = serde_json::from_str(stdout.trim())
         .map_err(|e| MezzanineError::WslBridge(format!("gh pr view JSON: {e}")))?;
     Ok(envelope
@@ -217,62 +253,66 @@ pub fn pull_request_files(
 }
 
 #[tauri::command]
-pub fn approve_pr(
+pub async fn approve_pr(
     state: State<'_, AppState>,
     repo_full_name: String,
     number: u64,
     body: String,
 ) -> MezzanineResult<()> {
-    submit_review(&state, &repo_full_name, number, "--approve", &body)
+    submit_review(&state, repo_full_name, number, "--approve", body).await
 }
 
 #[tauri::command]
-pub fn comment_pr(
+pub async fn comment_pr(
     state: State<'_, AppState>,
     repo_full_name: String,
     number: u64,
     body: String,
 ) -> MezzanineResult<()> {
-    submit_review(&state, &repo_full_name, number, "--comment", &body)
+    submit_review(&state, repo_full_name, number, "--comment", body).await
 }
 
 #[tauri::command]
-pub fn request_changes_pr(
+pub async fn request_changes_pr(
     state: State<'_, AppState>,
     repo_full_name: String,
     number: u64,
     body: String,
 ) -> MezzanineResult<()> {
-    submit_review(&state, &repo_full_name, number, "--request-changes", &body)
+    submit_review(&state, repo_full_name, number, "--request-changes", body).await
 }
 
-fn submit_review(
+async fn submit_review(
     state: &State<'_, AppState>,
-    repo_full_name: &str,
+    repo_full_name: String,
     number: u64,
-    verdict_flag: &str,
-    body: &str,
+    verdict_flag: &'static str,
+    body: String,
 ) -> MezzanineResult<()> {
     let (lab_root, distro) = read_lab_state(state)?;
-    let number_arg = number.to_string();
-    // --body-file - reads the body from stdin so multi-line review bodies
-    // cross the bridge intact (no argv length / quoting surprises).
-    bridge::run_in_lab_with_stdin(
-        &lab_root,
-        "gh",
-        &[
-            "pr",
-            "review",
-            &number_arg,
-            "--repo",
-            repo_full_name,
-            verdict_flag,
-            "--body-file",
-            "-",
-        ],
-        body,
-        distro.as_deref(),
-    )?;
+    tokio::task::spawn_blocking(move || {
+        let number_arg = number.to_string();
+        // --body-file - reads the body from stdin so multi-line review bodies
+        // cross the bridge intact (no argv length / quoting surprises).
+        bridge::run_in_lab_with_stdin(
+            &lab_root,
+            "gh",
+            &[
+                "pr",
+                "review",
+                &number_arg,
+                "--repo",
+                &repo_full_name,
+                verdict_flag,
+                "--body-file",
+                "-",
+            ],
+            &body,
+            distro.as_deref(),
+        )
+    })
+    .await
+    .map_err(|e| MezzanineError::WslBridge(format!("gh pr review join failed: {e}")))??;
     Ok(())
 }
 

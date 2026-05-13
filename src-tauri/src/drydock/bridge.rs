@@ -89,10 +89,13 @@ fn bridged_command(inner: &str, distro: Option<&str>) -> Command {
 }
 
 fn inner_shell_command(working_dir: &Path, bin: &str, args: &[&str]) -> String {
-    let dir = working_dir
-        .to_str()
-        .expect("bridge: working_dir must be valid UTF-8");
-    let mut cmd = format!("cd {} && exec {}", shell_quote(dir), shell_quote(bin));
+    // The working dir is about to cross into bash inside `wsl.exe`. The
+    // string the boundary sees must be POSIX — single-quoted Windows
+    // backslashes would survive into the `cd` argument and bash would
+    // refuse to find the directory. Defensive replace catches a backslash
+    // that might survive an unwitting `Path::join` on the Windows host.
+    let dir = working_dir.to_string_lossy().replace('\\', "/");
+    let mut cmd = format!("cd {} && exec {}", shell_quote(&dir), shell_quote(bin));
     for arg in args {
         cmd.push(' ');
         cmd.push_str(&shell_quote(arg));
@@ -135,6 +138,24 @@ mod tests {
     fn inner_shell_command_composes_cd_and_exec() {
         let cmd = inner_shell_command(&PathBuf::from("/tmp/x"), "git", &["log", "-n", "5"]);
         assert_eq!(cmd, "cd '/tmp/x' && exec 'git' 'log' '-n' '5'");
+    }
+
+    #[test]
+    fn inner_shell_command_normalizes_backslashes_to_posix() {
+        // Regression: bench-era Finding 1 surfaced when a Windows-side
+        // `Path::join` injected a backslash into a WSL2 POSIX path. The
+        // bash inside wsl.exe then refused to `cd` because the directory
+        // had backslashes in its name. Defensive normalization in the
+        // bridge catches the bug at the boundary.
+        let cmd = inner_shell_command(
+            &PathBuf::from("/home/g/code/zmuuzn\\experiments\\zmuuzn-strava"),
+            "git",
+            &["status"],
+        );
+        assert_eq!(
+            cmd,
+            "cd '/home/g/code/zmuuzn/experiments/zmuuzn-strava' && exec 'git' 'status'"
+        );
     }
 
     #[cfg(unix)]
