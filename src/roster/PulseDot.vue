@@ -22,6 +22,10 @@ const classes = computed(() => {
             return 'bg-mz-pulse-flash';
         case 'idle':
             return idleWarning ? 'bg-mz-signal' : 'bg-mz-pulse-idle';
+        default: {
+            const _exhaustive: never = state;
+            throw new Error(`unreachable mission state: ${String(_exhaustive)}`);
+        }
     }
 });
 </script>
