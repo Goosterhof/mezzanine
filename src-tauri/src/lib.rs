@@ -112,10 +112,8 @@ pub fn run() {
             commands::roster::transition_scientist,
             // Mission Control file commands.
             commands::files::read_vital_signs,
-            commands::files::read_war_room_dispatch,
             commands::files::read_inheritance_signals,
             commands::files::read_wounds_at_threshold,
-            commands::files::write_war_room_dispatch,
             // Balcony — Phase 2B's rail surfaces.
             commands::balcony::read_balcony_signs,
             commands::balcony::list_briefing_templates,

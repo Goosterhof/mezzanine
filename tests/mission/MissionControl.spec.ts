@@ -27,8 +27,6 @@ function stubInvoke(): void {
                     chaosFiled: '68',
                     enhanceFiled: '5',
                 });
-            case 'read_war_room_dispatch':
-                return Promise.resolve([]);
             case 'read_inheritance_signals':
                 return Promise.resolve([]);
             case 'read_wounds_at_threshold':
@@ -53,24 +51,21 @@ describe('MissionControl', () => {
         expect(panel.attributes('style') ?? '').toContain('display: none');
     });
 
-    it('refreshes once on the open transition and renders all four sections', async () => {
+    it('refreshes once on the open transition and renders all three sections', async () => {
         useShell().togglePanel('mission-control');
         const wrapper = mount(MissionControl, {attachTo: document.body});
         await flushPromises();
 
         const cmds = mockedInvoke.mock.calls.map(([cmd]) => cmd);
         expect(cmds).toContain('read_vital_signs');
-        expect(cmds).toContain('read_war_room_dispatch');
         expect(cmds).toContain('read_inheritance_signals');
         expect(cmds).toContain('read_wounds_at_threshold');
 
         expect(wrapper.text()).toContain('Mission Control');
         expect(wrapper.text()).toContain('Vital Signs');
-        expect(wrapper.text()).toContain('War Room Dispatch');
         expect(wrapper.text()).toContain('Minions Due for Invocation');
         expect(wrapper.text()).toContain('Wounds at Threshold');
         // Empty states fire when their lists are empty.
-        expect(wrapper.text()).toContain('No active dispatches. Tools racked.');
         expect(wrapper.text()).toContain('All minions recently active.');
         expect(wrapper.text()).toContain('No wounds at threshold.');
         wrapper.unmount();
@@ -113,17 +108,4 @@ describe('MissionControl', () => {
         wrapper.unmount();
     });
 
-    it('opens and closes the Compose Dispatch overlay', async () => {
-        useShell().togglePanel('mission-control');
-        const wrapper = mount(MissionControl, {attachTo: document.body});
-        await flushPromises();
-
-        await wrapper.get('[data-mc-compose]').trigger('click');
-        expect(wrapper.text()).toContain('Compose Dispatch');
-        expect(wrapper.find('textarea').exists()).toBe(true);
-
-        await wrapper.get('[data-mc-cancel]').trigger('click');
-        expect(wrapper.find('textarea').exists()).toBe(false);
-        wrapper.unmount();
-    });
 });

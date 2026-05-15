@@ -21,21 +21,6 @@ export interface VitalSigns {
     enhanceFiled: string;
 }
 
-export interface DispatchFinding {
-    number: number;
-    title: string;
-    severity: string;
-    location: string;
-    bodyMarkdown: string;
-}
-
-export interface NewDispatchFinding {
-    title: string;
-    severity: string;
-    location: string;
-    bodyMarkdown: string;
-}
-
 export interface MinionSignal {
     date: string;
     source: string;

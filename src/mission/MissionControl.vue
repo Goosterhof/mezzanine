@@ -1,19 +1,16 @@
 <script setup lang="ts">
-import {computed, onMounted, onUnmounted, ref, watch} from 'vue';
+import {computed, onMounted, onUnmounted, watch} from 'vue';
 
 import {useShell} from '../shell/useShell';
-import ComposeDispatch from './ComposeDispatch.vue';
 import MinionsDue from './MinionsDue.vue';
 import {useMissionControl} from './useMissionControl';
 import VitalSigns from './VitalSigns.vue';
-import WarRoomDispatch from './WarRoomDispatch.vue';
 import WoundsAtThreshold from './WoundsAtThreshold.vue';
 
 const shell = useShell();
 const mc = useMissionControl();
 
 const open = computed(() => shell.openPanel.value === 'mission-control');
-const composing = ref(false);
 
 const lastRefreshedLabel = computed(() => {
     const value = mc.lastRefreshedAt.value;
@@ -32,8 +29,6 @@ watch(
     (isOpen) => {
         if (isOpen) {
             void mc.refresh();
-        } else {
-            composing.value = false;
         }
     },
     {immediate: true},
@@ -44,10 +39,6 @@ function handleEscape(event: KeyboardEvent): void {
         return;
     }
     if (!open.value) {
-        return;
-    }
-    if (composing.value) {
-        composing.value = false;
         return;
     }
     shell.closePanel();
@@ -111,10 +102,8 @@ onUnmounted(() => {
 
         <div class="flex-1 overflow-y-auto relative">
             <VitalSigns :signs="mc.vitalSigns.value" />
-            <WarRoomDispatch :findings="mc.findings.value" @compose="composing = true" />
             <MinionsDue :signals="mc.signals.value" />
             <WoundsAtThreshold :wounds="mc.wounds.value" />
-            <ComposeDispatch v-if="composing" @close="composing = false" />
         </div>
     </aside>
 </template>

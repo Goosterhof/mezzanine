@@ -55,17 +55,15 @@ pub const SEED_TEMPLATES: &[BriefingTemplate] = &[
     BriefingTemplate {
         id: "mission-control-sweep",
         label: "Mission Control sweep",
-        description: "Read the war-room dispatch, pending signals, and wounds-at-threshold; report a triage plan.",
+        description: "Read the pending signals and wounds-at-threshold; report a triage plan.",
         target_shape: BriefingTargetShape::LabWide,
         opening_prompt: "\
 Run a Mission Control sweep across the laboratory. Read these artefacts and \
 summarise the state inline:
 
-1. `documents/war-room-dispatch.md` — list every active finding and what it \
-   blocks.
-2. `documents/laboratory-pulse.md` § Pending Signals — surface any unprocessed \
+1. `documents/laboratory-pulse.md` § Pending Signals — surface any unprocessed \
    minion signals.
-3. `.claude/memory/wounds/` — flag any wound at or above its escalation \
+2. `.claude/memory/wounds/` — flag any wound at or above its escalation \
    threshold.
 
 For each item, recommend a single next move (resolve, dispatch a minion, \
@@ -129,23 +127,6 @@ Triage the laboratory's wound queue.
 Output one line per active wound. Do not edit any wound file — diagnosis \
 only.",
     },
-    BriefingTemplate {
-        id: "compose-war-room-dispatch",
-        label: "Compose war-room dispatch",
-        description: "Draft a new finding for the war-room dispatch from the current session's evidence.",
-        target_shape: BriefingTargetShape::LabWide,
-        opening_prompt: "\
-Compose a new finding for the war-room dispatch.
-
-1. Read `documents/war-room-dispatch.md` so the new finding fits its tone, \
-   numbering, and structure.
-2. From the current session's evidence, draft one new finding:
-   * a short imperative title,
-   * one paragraph stating the evidence and the recommendation,
-   * a labelled checklist of follow-ups if any apply.
-3. Output the finding as a markdown block ready to paste; do not write the \
-   file yourself unless explicitly asked.",
-    },
 ];
 
 pub fn list_templates() -> &'static [BriefingTemplate] {
@@ -158,8 +139,8 @@ mod tests {
     use std::collections::HashSet;
 
     #[test]
-    fn library_ships_five_seed_templates() {
-        assert_eq!(SEED_TEMPLATES.len(), 5);
+    fn library_ships_four_seed_templates() {
+        assert_eq!(SEED_TEMPLATES.len(), 4);
     }
 
     #[test]
