@@ -1,4 +1,4 @@
-import {defineConfig, presetAttributify, presetIcons, presetUno, transformerVariantGroup} from 'unocss';
+import {defineConfig, presetAttributify, presetIcons, presetWind3, transformerVariantGroup} from 'unocss';
 
 // The Mezzanine — Balcony palette.
 //
@@ -10,7 +10,7 @@ import {defineConfig, presetAttributify, presetIcons, presetUno, transformerVari
 // the bench era used carry forward — the metaphor changed, not the eye.
 
 export default defineConfig({
-    presets: [presetUno({dark: 'class'}), presetAttributify(), presetIcons({scale: 1.2, cdn: 'https://esm.sh/'})],
+    presets: [presetWind3({dark: 'class'}), presetAttributify(), presetIcons({scale: 1.2, cdn: 'https://esm.sh/'})],
     transformers: [transformerVariantGroup()],
     theme: {
         colors: {
