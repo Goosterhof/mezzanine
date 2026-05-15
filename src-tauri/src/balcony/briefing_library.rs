@@ -1,7 +1,7 @@
 // The Briefing Library — a Rust compile-time catalogue of mission templates.
 //
 // The investor opens the Dispatch sheet, picks a target, and either types
-// a free-form brief or grabs a template card here. The five seed
+// a free-form brief or grabs a template card here. The four seed
 // templates reframe the bench-era panels as missions you'd hand to a
 // scientist — instead of opening a Mission Control panel and reading
 // findings, you dispatch a scientist to *go run* Mission Control's sweep.

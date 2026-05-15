@@ -148,13 +148,12 @@ mezzanine/
 │   │   ├── lab/                 Lab-artifact parsers (Mission Control)
 │   │   │   ├── mod.rs
 │   │   │   ├── vital_signs.rs  CLAUDE.md ASCII-box parser
-│   │   │   ├── dispatch.rs ... war-room-dispatch.md parser + insert_finding
 │   │   │   ├── signals.rs .... laboratory-pulse.md Pending Signals parser
 │   │   │   └── wounds.rs ..... `.claude/memory/wounds/` listing by mtime
 │   │   ├── balcony/             Phase 2B — the rail's two read surfaces
 │   │   │   ├── mod.rs
 │   │   │   ├── signs.rs ...... Last Chaos + Idea Ledger sign parsers
-│   │   │   └── briefing_library.rs  Five seed templates (Rust compile-time)
+│   │   │   └── briefing_library.rs  Four seed templates (Rust compile-time)
 │   │   ├── drydock/             Bench-era Phase 3A — PR review enrichment (untouched by cutover)
 │   │   │   ├── mod.rs
 │   │   │   ├── repo_registry.rs Canonical list of 12 lab repos
@@ -197,7 +196,7 @@ mezzanine/
 │   │   ├── types.ts .......... BalconySigns / BriefingTemplate mirrors of the Rust serde shapes
 │   │   ├── useDispatch.ts .... Singleton dispatch-sheet state (open / target / template / brief / submit)
 │   │   ├── useBalconySigns.ts Last Chaos + Idea Ledger sign loader (refresh on demand)
-│   │   ├── useBriefingLibrary.ts Cached fetch of the five seed templates
+│   │   ├── useBriefingLibrary.ts Cached fetch of the four seed templates
 │   │   ├── TargetPicker.vue .. Grouped target list (Experiments / Gadgets / Packages / The Lab)
 │   │   ├── BalconySign.vue ... One stamped tile on the rail (label + value + optional refresh)
 │   │   ├── BriefingLibrary.vue Selectable template cards inside the dispatch sheet
@@ -221,7 +220,7 @@ mezzanine/
 ├── tests/                      Mirrors src/ slices — all *.spec.ts live here
 │   ├── balcony/ ............... BalconySign + BriefingLibrary + useBalconySigns + useBriefingLibrary + useDispatch
 │   ├── wizard/ ................ useWizard + FirstRunWizard + Steps (StepLaboratory / StepBinary / StepChronicle)
-│   ├── mission/ ............... MissionControl + sections + ComposeDispatch + useMissionControl
+│   ├── mission/ ............... MissionControl + sections + useMissionControl
 │   ├── drydock/ ............... DrydockPanel + PrCard + FileDiff + ReviewActions + useDrydock
 │   └── shell/ ................. TopBar + useShell
 ├── uno.config.ts ............. Balcony palette: mz-surface, mz-rail, mz-canvas, mz-pulse-*
@@ -266,7 +265,7 @@ The deployment plan lives in
 |-------|-------|--------|
 | 2A — backend swap | Cargo + Tauri identity renamed; `roster/` module added alongside `pty/`; WorkbenchError → MezzanineError; chronicle migration wired | ✅ Closed 2026-05-11 (df38399 + a1347a8) |
 | 2A — frontend cutover | Folder rename `gadgets/workbench/` → `gadgets/mezzanine/`; CSS prefix swap; new Vue surfaces (Roster / Dispatch / BalconyRail); bench-era code retired; Rust pty / chronicle reader retired; lib.rs registry trimmed | ✅ Closed 2026-05-12 — five containment protocols green on Linux (cargo check + 112/112 cargo test + oxlint + oxfmt + vue-tsc + 78/78 vitest + vite build) |
-| 2B — The Lab Floor | Balcony signs (Last Chaos + Idea Ledger state + Reserved); Briefing Library template cards in the Dispatch sheet | ✅ Closed 2026-05-12 — `balcony/` Rust module (`signs.rs` + `briefing_library.rs`) + two Tauri commands; new Vue slice (`BalconySign` + `BriefingLibrary` + `useBalconySigns` + `useBriefingLibrary`); BalconyRail wears three signs; Dispatch sheet hosts five-template library. Five containment protocols green on Windows (cargo check + 136/136 cargo test + oxlint 0/0 + oxfmt + vue-tsc + 101/101 vitest + vite build) |
+| 2B — The Lab Floor | Balcony signs (Last Chaos + Idea Ledger state + Reserved); Briefing Library template cards in the Dispatch sheet | ✅ Closed 2026-05-12 — `balcony/` Rust module (`signs.rs` + `briefing_library.rs`) + two Tauri commands; new Vue slice (`BalconySign` + `BriefingLibrary` + `useBalconySigns` + `useBriefingLibrary`); BalconyRail wears three signs; Dispatch sheet hosts a four-template library (originally five at Phase 2B close; Compose War Room Dispatch retired 2026-05-15). Five containment protocols green on Windows (cargo check + 136/136 cargo test + oxlint 0/0 + oxfmt + vue-tsc + 101/101 vitest + vite build) |
 | 2C — Carry-Overs | First-Run Wizard refresh; Apprentice retirement re-verified; backfill component-level tests for the roster slice. **Dossier reframe landed early in Phase 2B** as the `experiment-dossier-read` template. | ✅ Closed 2026-05-13 — `wizard/` Rust module (`mod.rs`) + `commands/wizard.rs` (three Tauri commands: `read_wizard_state` / `read_wizard_detected` / `complete_wizard`); new Vue slice (`FirstRunWizard` + three step components + `useWizard`); substrate accepts a `binary` override threaded from the wizard; `chronicle/PrivacyDisclosure.vue` + `useDisclosure.ts` retired (step 3 folds in the disclosure ack — CTA *"Open the balcony."*). Five containment protocols green on Windows (cargo check + 146/146 cargo test + oxlint 0/0 + oxfmt + vue-tsc + 236/236 vitest + vite build); v8 coverage 96.78% (gate restored at 90%). Two close-button assertions + one anti-Dossier guard added in commit `0300dd9` while sealing W1 of Phase 2D. |
 | 2D — Cross-Host Ratification | Linux + Windows `tauri dev` boot under the Mezzanine identity; substrate path-separator regression re-verified; chronicle migration idempotency confirmed across hosts | ✅ Closed 2026-05-15 — de-scoped to Windows-with-WSL2 (the only deployment target). Static green on 2026-05-13 (six unit tests for migration + substrate Debug + cwd POSIX coercion). Runtime W1 stamped 2026-05-13; W2–W9 stamped 2026-05-15 (wizard persisted at `/home/goosterhof/Code/zmuuzn`, live `claude` greeting + ANSI fidelity in xterm, JSONL 297 in / 893 out, Recently Recalled strip honoured, two distinct Gatekeeper scientists with separate UUIDs, `.cockpit-migrated` marker idempotent across boots, zero "Workbench" in chrome). Full evidence notes in #00049 §Runtime ratification. |
 
