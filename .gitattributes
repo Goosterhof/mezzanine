@@ -1,0 +1,7 @@
+# The Mezzanine — line-ending containment
+#
+# Lock package-lock.json to LF regardless of core.autocrlf on the workstation.
+# Pattern 018 Instance 5 (line-ending normalization) — propagated from
+# Smokestacks 5c8d508 per Pattern 002 (fix-propagation-across-experiments).
+
+package-lock.json text eol=lf
