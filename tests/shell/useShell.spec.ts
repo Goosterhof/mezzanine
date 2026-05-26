@@ -48,4 +48,12 @@ describe('useShell', () => {
         useShell().togglePanel('drydock');
         expect(useShell().openPanel.value).toBe('drydock');
     });
+
+    it('accepts holotable as a panel id (arc #00051 absorption)', () => {
+        const shell = useShell();
+        shell.togglePanel('holotable');
+        expect(shell.openPanel.value).toBe('holotable');
+        shell.togglePanel('holotable');
+        expect(shell.openPanel.value).toBeNull();
+    });
 });

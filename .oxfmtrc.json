@@ -27,7 +27,9 @@
         "src-tauri/target/**",
         "src-tauri/gen/**",
         "package-lock.json",
-        "CLAUDE.md"
+        "CLAUDE.md",
+        "src/holotable/scene.js",
+        "src/holotable/lab-core.js"
     ],
 
     "experimentalSortImports": {

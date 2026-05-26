@@ -10,7 +10,9 @@
         "src-tauri/target/**",
         "src-tauri/gen/**",
         "vite.config.ts",
-        "vitest.config.ts"
+        "vitest.config.ts",
+        "src/holotable/scene.js",
+        "src/holotable/lab-core.js"
     ],
     "rules": {
         // Core rules

@@ -5,7 +5,7 @@ import {ref} from 'vue';
 // template — the scientist reads the dossier, the investor doesn't read
 // a panel of markdown. The 'dossier' PanelId is therefore intentionally
 // absent.
-export type PanelId = 'mission-control' | 'drydock';
+export type PanelId = 'mission-control' | 'drydock' | 'holotable';
 
 const openPanel = ref<PanelId | null>(null);
 

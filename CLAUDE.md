@@ -161,6 +161,11 @@ mezzanine/
 │   │   │   ├── minion_touch.rs Parse git log for minion-stamped commits
 │   │   │   ├── chaos_detonations.rs Scan chaos-reports for filename hits
 │   │   │   └── active_log.rs . Find IN PROGRESS / PLANNING log by scope
+│   │   ├── holotable/             Arc 1 of the lab-monitor-3d absorption (#00051)
+│   │   │   ├── mod.rs
+│   │   │   ├── git_state.rs .. Lab branch/status/submodule reader via run_in_lab
+│   │   │   ├── health_check.rs Concurrent /up HTTPS pings via tauri-plugin-http
+│   │   │   └── aggregator.rs . Git + health → DashboardState (typed serde shape)
 │   │   └── commands/
 │   │       ├── mod.rs ........ Command surface registry
 │   │       ├── roster.rs ..... dispatch / recall / list / list_recalled / write / resize / transition
@@ -169,7 +174,8 @@ mezzanine/
 │   │       ├── chronicle.rs .. Privacy disclosure ack flow (read + write)
 │   │       ├── wizard.rs ..... First-run wizard IPC (read_state / read_detected / complete) — Phase 2C
 │   │       ├── github.rs ..... `gh` enumeration + review actions (Drydock)
-│   │       └── artifacts.rs .. The three enrichment readers (Drydock)
+│   │       ├── artifacts.rs .. The three enrichment readers (Drydock)
+│   │       └── holotable.rs .. read_holotable_state — Arc 1 (#00051)
 │   ├── Cargo.toml ............ name = "mezzanine"; tauri 2 + portable-pty 0.8 + uuid v4
 │   ├── tauri.conf.json ....... productName "The Mezzanine"; identifier nl.zmuuzn.mezzanine
 │   ├── capabilities/default.json  Window + plugin permissions
@@ -201,6 +207,13 @@ mezzanine/
 │   │   ├── BalconySign.vue ... One stamped tile on the rail (label + value + optional refresh)
 │   │   ├── BriefingLibrary.vue Selectable template cards inside the dispatch sheet
 │   │   └── Dispatch.vue ...... Slide-down dispatch sheet over the Roster (Target + Library + Brief)
+│   ├── holotable/             Arc 1 — the lab floor below the balcony (#00051)
+│   │   ├── types.ts .......... DashboardState / HealthState / HolotableError TS mirrors
+│   │   ├── useHolotable.ts ... Singleton state + IPC + legacy-shape adapter for the scene
+│   │   ├── lab-core.js ....... Lifted pure helpers (ESM); ignored by oxlint/oxfmt/vue-tsc
+│   │   ├── scene.js .......... Lifted 1835-line WebGL engine; exports initScene(opts)
+│   │   ├── HolotableScene.vue . `<canvas>` host — mounts scene, watches state, pause/resume RAF
+│   │   └── HolotablePanel.vue . Slide-down panel — refresh button, voiced error variants
 │   ├── command/               Always-on input tray
 │   │   └── CommandBar.vue .... Always-focused bottom input → write_to_scientist(selected, text + "\n")
 │   ├── wizard/                First-run wizard (Phase 2C) — three steps, balcony voice
@@ -268,6 +281,7 @@ The deployment plan lives in
 | 2B — The Lab Floor | Balcony signs (Last Chaos + Idea Ledger state + Reserved); Briefing Library template cards in the Dispatch sheet | ✅ Closed 2026-05-12 — `balcony/` Rust module (`signs.rs` + `briefing_library.rs`) + two Tauri commands; new Vue slice (`BalconySign` + `BriefingLibrary` + `useBalconySigns` + `useBriefingLibrary`); BalconyRail wears three signs; Dispatch sheet hosts a four-template library (originally five at Phase 2B close; Compose War Room Dispatch retired 2026-05-15). Five containment protocols green on Windows (cargo check + 136/136 cargo test + oxlint 0/0 + oxfmt + vue-tsc + 101/101 vitest + vite build) |
 | 2C — Carry-Overs | First-Run Wizard refresh; Apprentice retirement re-verified; backfill component-level tests for the roster slice. **Dossier reframe landed early in Phase 2B** as the `experiment-dossier-read` template. | ✅ Closed 2026-05-13 — `wizard/` Rust module (`mod.rs`) + `commands/wizard.rs` (three Tauri commands: `read_wizard_state` / `read_wizard_detected` / `complete_wizard`); new Vue slice (`FirstRunWizard` + three step components + `useWizard`); substrate accepts a `binary` override threaded from the wizard; `chronicle/PrivacyDisclosure.vue` + `useDisclosure.ts` retired (step 3 folds in the disclosure ack — CTA *"Open the balcony."*). Five containment protocols green on Windows (cargo check + 146/146 cargo test + oxlint 0/0 + oxfmt + vue-tsc + 236/236 vitest + vite build); v8 coverage 96.78% (gate restored at 90%). Two close-button assertions + one anti-Dossier guard added in commit `0300dd9` while sealing W1 of Phase 2D. |
 | 2D — Cross-Host Ratification | Linux + Windows `tauri dev` boot under the Mezzanine identity; substrate path-separator regression re-verified; chronicle migration idempotency confirmed across hosts | ✅ Closed 2026-05-15 — de-scoped to Windows-with-WSL2 (the only deployment target). Static green on 2026-05-13 (six unit tests for migration + substrate Debug + cwd POSIX coercion). Runtime W1 stamped 2026-05-13; W2–W9 stamped 2026-05-15 (wizard persisted at `/home/goosterhof/Code/zmuuzn`, live `claude` greeting + ANSI fidelity in xterm, JSONL 297 in / 893 out, Recently Recalled strip honoured, two distinct Gatekeeper scientists with separate UUIDs, `.cockpit-migrated` marker idempotent across boots, zero "Workbench" in chrome). Full evidence notes in #00049 §Runtime ratification. |
+| Arc 1 — The Holotable | VS Code `gadgets/lab-monitor-3d/` absorbed into the Mezzanine as a `[Holotable]` panel; new `holotable/` slice on both sides (Rust substrate + Vue host); 1835-line WebGL engine lifted intact; `[Holotable]` button added to TopBar; cross-host ratification deferred to Windows (no cargo here) | ✅ Static-green 2026-05-26 — frontend gates: oxlint 0/0, vue-tsc clean, vitest 242/242 (+14 new), v8 coverage 97.03% lines / 91.76% branches / 98.48% functions, vite build clean (scene chunked at 31kB). Rust side `cargo check` + `cargo test` pending Windows; static review confirms the substrate follows `commands/balcony.rs` exactly. Per RD-3, `gadgets/lab-monitor-3d/` is NOT tombstoned here — that waits for Arc #00053. Experiment log: `documents/experiment-logs/00051-the-holotable.md`. |
 
 ## Commands
 

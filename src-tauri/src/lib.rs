@@ -25,6 +25,7 @@ mod chronicle;
 mod commands;
 mod drydock;
 mod error;
+mod holotable;
 mod host_paths;
 mod lab;
 mod pty;
@@ -117,6 +118,9 @@ pub fn run() {
             // Balcony — Phase 2B's rail surfaces.
             commands::balcony::read_balcony_signs,
             commands::balcony::list_briefing_templates,
+            // Holotable — Arc 1 of the absorption trilogy (experiment log
+            // #00051). The floor reads on open and on manual refresh.
+            commands::holotable::read_holotable_state,
             // Chronicle privacy disclosure ack flow.
             commands::chronicle::read_chronicle_disclosure,
             commands::chronicle::write_chronicle_disclosure_ack,

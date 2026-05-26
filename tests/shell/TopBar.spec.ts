@@ -19,11 +19,12 @@ describe('TopBar', () => {
     it('renders one button per panel', () => {
         const wrapper = mount(TopBar);
         const buttons = wrapper.findAll('button');
-        // Mission Control + Drydock. The bench-era Dossier panel button was
-        // retired in Phase 2C — the dossier is now a Briefing Library
-        // mission, not a panel of markdown.
-        expect(buttons).toHaveLength(2);
-        expect(buttons.map((b) => b.text())).toStrictEqual(['MC', 'DD']);
+        // Mission Control + Drydock + Holotable. The bench-era Dossier
+        // panel button was retired in Phase 2C; the Holotable arrived in
+        // arc #00051 (2026-05-26) as the rightmost — ambient intelligence
+        // lives at the right edge per the experiment log's H-3 decision.
+        expect(buttons).toHaveLength(3);
+        expect(buttons.map((b) => b.text())).toStrictEqual(['MC', 'DD', 'HT']);
     });
 
     it('does not expose a Dossier button (retired Phase 2C)', () => {
@@ -68,5 +69,6 @@ describe('TopBar', () => {
         const buttons = wrapper.findAll('button');
         expect(buttons[0]!.attributes('title')).toBe('Mission Control');
         expect(buttons[1]!.attributes('title')).toBe('Drydock');
+        expect(buttons[2]!.attributes('title')).toBe('Holotable');
     });
 });

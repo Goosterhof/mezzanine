@@ -32,5 +32,6 @@
         "noEmit": true
     },
     "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue", "tests/**/*.ts", "uno.config.ts"],
+    "exclude": ["src/holotable/scene.js", "src/holotable/lab-core.js"],
     "references": [{"path": "./tsconfig.node.json"}]
 }

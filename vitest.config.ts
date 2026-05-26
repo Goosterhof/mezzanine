@@ -24,6 +24,14 @@ export default defineConfig({
                 'src/App.vue',
                 'src/chronicle/types.ts',
                 'src/drydock/types.ts',
+                // The Holotable's WebGL host components need a real
+                // browser to exercise — jsdom does not provide a WebGL
+                // context. The lifted scene.js + lab-core.js are JS, not
+                // included in the v8 sweep at all. The composable side
+                // (useHolotable.ts + types.ts) covers everything testable
+                // at this layer. See experiment log #00051 § Phase H-4.
+                'src/holotable/HolotablePanel.vue',
+                'src/holotable/HolotableScene.vue',
             ],
             thresholds: {lines: 90, functions: 90, branches: 90, statements: 90},
         },

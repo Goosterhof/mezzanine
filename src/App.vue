@@ -6,6 +6,7 @@ import {useBalconySigns} from './balcony/useBalconySigns';
 import {useBriefingLibrary} from './balcony/useBriefingLibrary';
 import CommandBar from './command/CommandBar.vue';
 import DrydockPanel from './drydock/DrydockPanel.vue';
+import HolotablePanel from './holotable/HolotablePanel.vue';
 import MissionControl from './mission/MissionControl.vue';
 import Roster from './roster/Roster.vue';
 import ScientistCanvas from './roster/ScientistCanvas.vue';
@@ -40,6 +41,7 @@ onMounted(() => {
         <Dispatch />
         <MissionControl />
         <DrydockPanel />
+        <HolotablePanel />
         <FirstRunWizard />
     </div>
 </template>

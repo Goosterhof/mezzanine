@@ -19,5 +19,6 @@ pub mod balcony;
 pub mod chronicle;
 pub mod files;
 pub mod github;
+pub mod holotable;
 pub mod roster;
 pub mod wizard;
