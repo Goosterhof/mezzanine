@@ -19,13 +19,14 @@ describe('TopBar', () => {
     it('renders one button per panel', () => {
         const wrapper = mount(TopBar);
         const buttons = wrapper.findAll('button');
-        // Mission Control + Drydock + Holotable + Observer. The bench-era
-        // Dossier panel button was retired in Phase 2C. Arc 1 (#00051)
-        // added Holotable (HT); arc 2 (#00052) adds Observer (OB) as the
-        // new rightmost button — the Mezzanine-claim that scientists are
-        // on the floor below.
-        expect(buttons).toHaveLength(4);
-        expect(buttons.map((b) => b.text())).toStrictEqual(['MC', 'DD', 'HT', 'OB']);
+        // Mission Control + Drydock + Holotable + Observer + Grind. The
+        // bench-era Dossier panel button was retired in Phase 2C. Arc 1
+        // (#00051) added Holotable (HT); arc 2 (#00052) added Observer
+        // (OB); arc 3 (#00053) adds Grind (GR) as the new rightmost
+        // button — the laboratory's economy panel, the centrepiece of the
+        // Mezzanine-absorbs-VS-Code trilogy.
+        expect(buttons).toHaveLength(5);
+        expect(buttons.map((b) => b.text())).toStrictEqual(['MC', 'DD', 'HT', 'OB', 'GR']);
     });
 
     it('does not expose a Dossier button (retired Phase 2C)', () => {
@@ -72,5 +73,6 @@ describe('TopBar', () => {
         expect(buttons[1]!.attributes('title')).toBe('Drydock');
         expect(buttons[2]!.attributes('title')).toBe('Holotable');
         expect(buttons[3]!.attributes('title')).toBe('Observer');
+        expect(buttons[4]!.attributes('title')).toBe('Grind');
     });
 });

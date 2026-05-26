@@ -33,9 +33,14 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Runtime};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, SeekFrom};
-use tokio::sync::oneshot;
+use tokio::sync::{broadcast, oneshot};
 
 const POLL_INTERVAL_MS: u64 = 200;
+/// Capacity of the in-process broadcast channel that fans chronicle
+/// events to Rust-side consumers (currently: the Grind's EconomyManager).
+/// The Vue-side Observer subscribes through Tauri's `chronicle-event`
+/// emit path instead — that path is unbounded by design.
+const BROADCAST_CAPACITY: usize = 1024;
 /// Cap how long we tolerate a missing transcript file before logging at
 /// info level. The polling itself continues indefinitely — the cap only
 /// controls the log volume so we surface "the file never appeared" once
@@ -62,6 +67,12 @@ struct ActiveTail {
 pub struct ChronicleReader {
     base_dir: PathBuf,
     tails: Mutex<HashMap<ScientistId, ActiveTail>>,
+    /// In-process broadcast — Rust consumers (the Grind) subscribe here
+    /// instead of going through the Tauri bridge for free. The sender is
+    /// cloned into each tail task at start; receivers are handed to
+    /// consumers via `subscribe()`. Capacity is bounded so a slow consumer
+    /// cannot block the chronicle.
+    broadcast_tx: broadcast::Sender<ChronicleEvent>,
 }
 
 impl ChronicleReader {
@@ -71,10 +82,20 @@ impl ChronicleReader {
     /// scientist's path as `<base>/scientists/<id>.jsonl` to mirror
     /// `roster::live::transcript_path` exactly.
     pub fn new(base_dir: PathBuf) -> Self {
+        let (broadcast_tx, _initial_rx) = broadcast::channel(BROADCAST_CAPACITY);
         Self {
             base_dir,
             tails: Mutex::new(HashMap::new()),
+            broadcast_tx,
         }
+    }
+
+    /// Subscribe to the in-process chronicle event stream. Used by the
+    /// Grind's EconomyManager to drive RP grants without going through
+    /// the Tauri bridge. The returned receiver is independent — multiple
+    /// subscribers all see every event.
+    pub fn subscribe(&self) -> broadcast::Receiver<ChronicleEvent> {
+        self.broadcast_tx.subscribe()
     }
 
     /// Begin tailing the transcript for `scientist_id`. Spawns a tokio
@@ -95,9 +116,10 @@ impl ChronicleReader {
 
         let (cancel_tx, cancel_rx) = oneshot::channel();
         let path = transcript_path(&self.base_dir, scientist_id);
+        let broadcast_tx = self.broadcast_tx.clone();
 
         tokio::spawn(async move {
-            run_tail_loop(scientist_id, path, app, cancel_rx).await;
+            run_tail_loop(scientist_id, path, app, broadcast_tx, cancel_rx).await;
         });
 
         let mut tails = self.tails.lock();
@@ -144,6 +166,7 @@ async fn run_tail_loop<R: Runtime>(
     scientist_id: ScientistId,
     path: PathBuf,
     app: AppHandle<R>,
+    broadcast_tx: broadcast::Sender<ChronicleEvent>,
     mut cancel: oneshot::Receiver<()>,
 ) {
     let mut offset: u64 = 0;
@@ -205,7 +228,7 @@ async fn run_tail_loop<R: Runtime>(
                         offset += read as u64;
                         let chunk = String::from_utf8_lossy(&buf);
                         pending.push_str(&chunk);
-                        emit_complete_lines(&mut pending, scientist_id, &app);
+                        emit_complete_lines(&mut pending, scientist_id, &app, &broadcast_tx);
                     }
                     Err(err) => {
                         log::warn!(
@@ -244,6 +267,7 @@ fn emit_complete_lines<R: Runtime>(
     pending: &mut String,
     scientist_id: ScientistId,
     app: &AppHandle<R>,
+    broadcast_tx: &broadcast::Sender<ChronicleEvent>,
 ) {
     // Drain complete lines, leaving any trailing partial line in place.
     let mut consumed_up_to = 0usize;
@@ -257,6 +281,10 @@ fn emit_complete_lines<R: Runtime>(
         match serde_json::from_str::<ChronicleTurn>(trimmed) {
             Ok(turn) => {
                 let payload = ChronicleEvent { scientist_id, turn };
+                // Fan to Rust-side consumers (the Grind's EconomyManager).
+                // Send returning Err means no active receivers — fine,
+                // nothing to do, the Vue-side Tauri emit below still fires.
+                let _ = broadcast_tx.send(payload.clone());
                 if let Err(err) = app.emit("chronicle-event", payload) {
                     log::warn!(
                         "ChronicleReader: emit failed for {scientist_id} — {err}",
@@ -285,8 +313,9 @@ pub(crate) fn emit_complete_lines_for_test<R: Runtime>(
     pending: &mut String,
     scientist_id: ScientistId,
     app: &AppHandle<R>,
+    broadcast_tx: &broadcast::Sender<ChronicleEvent>,
 ) {
-    emit_complete_lines(pending, scientist_id, app);
+    emit_complete_lines(pending, scientist_id, app, broadcast_tx);
 }
 
 #[cfg(test)]

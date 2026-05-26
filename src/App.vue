@@ -6,6 +6,8 @@ import {useBalconySigns} from './balcony/useBalconySigns';
 import {useBriefingLibrary} from './balcony/useBriefingLibrary';
 import CommandBar from './command/CommandBar.vue';
 import DrydockPanel from './drydock/DrydockPanel.vue';
+import GrindPanel from './grind/GrindPanel.vue';
+import {useGrind} from './grind/useGrind';
 import HolotablePanel from './holotable/HolotablePanel.vue';
 import MissionControl from './mission/MissionControl.vue';
 import ObserverPanel from './observer/ObserverPanel.vue';
@@ -37,6 +39,11 @@ onMounted(() => {
     // collapsed, so the sprites reflect the right state the moment the
     // floor opens.
     void observer.subscribe();
+    // Arc 3 (#00053) — start the Grind's economy loop. Push-always: the
+    // lab earns from every chronicle line, dispatch, and clean recall
+    // regardless of whether the panel is open. The renderer's RAF
+    // pauses when the panel closes; the economy never does.
+    void useGrind().start();
 });
 
 // Sprite-click → roster-row scroll. The Observer's setSelected path
@@ -68,6 +75,7 @@ watch(
         <DrydockPanel />
         <HolotablePanel />
         <ObserverPanel />
+        <GrindPanel />
         <FirstRunWizard />
     </div>
 </template>

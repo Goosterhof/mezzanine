@@ -8,6 +8,7 @@ const buttons: Array<{id: PanelId; label: string; glyph: string}> = [
     {id: 'drydock', label: 'Drydock', glyph: 'DD'},
     {id: 'holotable', label: 'Holotable', glyph: 'HT'},
     {id: 'observer', label: 'Observer', glyph: 'OB'},
+    {id: 'grind', label: 'Grind', glyph: 'GR'},
 ];
 </script>
 

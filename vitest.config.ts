@@ -44,6 +44,14 @@ export default defineConfig({
                 'src/observer/ObserverPanel.vue',
                 'src/observer/scene.js',
                 'src/observer/lab-core.js',
+                // The Grind's Canvas 2D renderer (Arc 3 #00053) draws
+                // through `canvas.getContext('2d')`; jsdom returns `null`
+                // for that context (see tests/setup.ts shim), making the
+                // renderer untestable at the v8 level. The HUD and the
+                // composable carry the testable surface.
+                'src/grind/GrindRenderer.vue',
+                'src/grind/GrindPanel.vue',
+                'src/grind/types.ts',
             ],
             thresholds: {lines: 90, functions: 90, branches: 90, statements: 90},
         },

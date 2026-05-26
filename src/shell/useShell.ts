@@ -6,10 +6,11 @@ import {ref} from 'vue';
 // a panel of markdown. The 'dossier' PanelId is therefore intentionally
 // absent.
 //
-// Arc 2 of the absorption trilogy (#00052) widens this union to include
-// `observer` — the new sibling panel to Holotable, opened from a third
-// TopBar button.
-export type PanelId = 'mission-control' | 'drydock' | 'holotable' | 'observer';
+// Arc 2 of the absorption trilogy (#00052) widened this union to include
+// `observer`. Arc 3 (#00053) closes the trilogy with `grind` — the lab
+// economy panel sits beside Mission Control, Drydock, Holotable, and
+// Observer on the TopBar.
+export type PanelId = 'mission-control' | 'drydock' | 'holotable' | 'observer' | 'grind';
 
 const openPanel = ref<PanelId | null>(null);
 

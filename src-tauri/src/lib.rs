@@ -25,6 +25,7 @@ mod chronicle;
 mod commands;
 mod drydock;
 mod error;
+mod grind;
 mod holotable;
 mod host_paths;
 mod lab;
@@ -98,6 +99,19 @@ pub fn run() {
             if commands::chronicle::disclosure_status_value(&app_state.chronicle).is_some() {
                 app_state.chronicle.set_paused(false);
             }
+            // Arc 3 of the absorption (#00053). The Grind's economy
+            // subscribes to the chronicle broadcast for chronicle-line
+            // grants. The subscriber task runs for the gadget's lifetime
+            // and exits when the reader's broadcast Sender drops at
+            // shutdown.
+            let economy_arc = app_state.economy.clone();
+            let chronicle_subscriber = app_state.chronicle_reader.subscribe();
+            crate::grind::economy::spawn_chronicle_subscriber(
+                economy_arc,
+                chronicle_subscriber,
+                app.handle().clone(),
+            );
+
             app.manage(app_state);
             Ok(())
         })
@@ -143,6 +157,11 @@ pub fn run() {
             commands::artifacts::find_minion_touch,
             commands::artifacts::find_chaos_detonations,
             commands::artifacts::find_active_experiment_log,
+            // The Grind — Arc 3 of the absorption (#00053). Game-state
+            // load/save round-trip; the economy's grind-rp-grant events
+            // arrive on the Tauri bridge without a command.
+            commands::grind::load_grind_state,
+            commands::grind::save_grind_state,
         ])
         .run(tauri::generate_context!())
         .expect("the Mezzanine refused to open")

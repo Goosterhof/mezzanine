@@ -21,6 +21,7 @@ pub mod balcony;
 pub mod chronicle;
 pub mod files;
 pub mod github;
+pub mod grind;
 pub mod holotable;
 pub mod observer;
 pub mod roster;

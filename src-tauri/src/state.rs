@@ -16,6 +16,7 @@
 // recall so a missed frontend stop never leaks a tail task.
 
 use crate::chronicle::{ChronicleReader, ChronicleWriter};
+use crate::grind::EconomyManager;
 use crate::roster::RosterManager;
 use parking_lot::RwLock;
 use std::path::PathBuf;
@@ -55,6 +56,12 @@ pub struct AppState {
     /// recall (via the frontend's stop_watching IPC + the belt-and-
     /// suspenders stop inside `commands::roster::recall_scientist`).
     pub chronicle_reader: Arc<ChronicleReader>,
+    /// Arc 3 (#00053) — The Grind's RP grant engine. Holds the per-scientist
+    /// chronicle rate limiters and lifecycle dedup sets. Lifecycle events
+    /// (dispatch / recall) are reported to this singleton by the
+    /// commands::roster command wrappers; chronicle-line events arrive via
+    /// the in-process broadcast that `ChronicleReader::subscribe()` returns.
+    pub economy: Arc<EconomyManager>,
 }
 
 impl AppState {
@@ -68,6 +75,7 @@ impl AppState {
             mezzanine_home,
             chronicle: Arc::new(ChronicleWriter::new(chronicle_base.clone())),
             chronicle_reader: Arc::new(ChronicleReader::new(chronicle_base)),
+            economy: Arc::new(EconomyManager::new()),
         }
     }
 }
