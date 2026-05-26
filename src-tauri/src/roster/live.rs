@@ -10,7 +10,13 @@
 // scientists are typically short-lived dispatches that recall closes.
 // The transcript stays on disk after recall (the Mezzanine's 5-minute
 // recall-strip is a UI affordance; the chronicle is a permanent record).
+//
+// Phase O-1 of the Observer (#00052) promoted `ChronicleTurn` and
+// `TurnDirection` into `chronicle::types` so the new `chronicle::reader`
+// can deserialize the same shape this writer produces. The writer here
+// re-imports those types; the on-disk format is unchanged.
 
+use crate::chronicle::types::{ChronicleTurn, TurnDirection};
 use crate::error::{MezzanineError, MezzanineResult};
 use crate::pty::substrate::{build_command, SessionSpec};
 use crate::roster::scientist::ScientistId;
@@ -40,20 +46,6 @@ pub struct ScientistOutputPayload {
 pub struct ScientistExitPayload {
     pub scientist: ScientistId,
     pub exit_code: i32,
-}
-
-#[derive(Debug, Clone, Copy, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum TurnDirection {
-    In,
-    Out,
-}
-
-#[derive(Debug, Serialize)]
-struct ChronicleTurn<'a> {
-    ts: String,
-    direction: TurnDirection,
-    payload: &'a str,
 }
 
 pub struct LiveScientistSession {
@@ -227,7 +219,7 @@ fn append_turn(
     let turn = ChronicleTurn {
         ts: Utc::now().to_rfc3339(),
         direction,
-        payload,
+        payload: payload.to_string(),
     };
     let line = serde_json::to_string(&turn)
         .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?;
@@ -290,6 +282,23 @@ mod tests {
         let contents = std::fs::read_to_string(&path).unwrap();
         let lines: Vec<&str> = contents.lines().collect();
         assert_eq!(lines.len(), 2);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn writer_produced_jsonl_roundtrips_through_reader_types() {
+        // Cross-module guard — the writer above and the reader in
+        // chronicle::reader must agree on the wire shape. If the
+        // serde rename or field order ever diverges, this test fails
+        // before the runtime observation does.
+        let dir = temp_dir("roundtrip");
+        let path = dir.join("test.jsonl");
+        append_turn(&path, TurnDirection::Out, "agent output").unwrap();
+        let contents = std::fs::read_to_string(&path).unwrap();
+        let line = contents.lines().next().unwrap();
+        let turn: ChronicleTurn = serde_json::from_str(line).unwrap();
+        assert_eq!(turn.direction, TurnDirection::Out);
+        assert_eq!(turn.payload, "agent output");
         std::fs::remove_dir_all(&dir).ok();
     }
 }

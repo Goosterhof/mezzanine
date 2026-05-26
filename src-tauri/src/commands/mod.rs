@@ -8,6 +8,8 @@
 //   * `github`     — `gh` enumeration + review actions for the Drydock
 //   * `artifacts`  — three readers feeding the Drydock's per-file enrichment
 //   * `wizard`     — first-run wizard state read + atomic submission
+//   * `holotable`  — Arc 1 dashboard read for the lab floor below
+//   * `observer`   — Arc 2 chronicle tail start/stop for per-scientist sprites
 //
 // The bench-era `pty` module (six per-experiment session commands) was
 // retired with the frontend cutover; the bench-era `chronicle::history`
@@ -20,5 +22,6 @@ pub mod chronicle;
 pub mod files;
 pub mod github;
 pub mod holotable;
+pub mod observer;
 pub mod roster;
 pub mod wizard;

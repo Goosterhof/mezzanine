@@ -42,3 +42,10 @@ parking_lot = "0.12"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+
+# The `test` feature on tauri unlocks `tauri::test::mock_app` + `MockRuntime`
+# for the Phase O-1 chronicle reader integration tests (the tokio tail loop
+# emits events through an AppHandle; the mock runtime accepts the emits
+# without spinning a real webview).
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }

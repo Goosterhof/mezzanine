@@ -107,5 +107,4 @@ describe('MissionControl', () => {
         expect(useShell().openPanel.value).toBeNull();
         wrapper.unmount();
     });
-
 });

@@ -56,4 +56,12 @@ describe('useShell', () => {
         shell.togglePanel('holotable');
         expect(shell.openPanel.value).toBeNull();
     });
+
+    it('accepts observer as a panel id (arc #00052 absorption)', () => {
+        const shell = useShell();
+        shell.togglePanel('observer');
+        expect(shell.openPanel.value).toBe('observer');
+        shell.togglePanel('observer');
+        expect(shell.openPanel.value).toBeNull();
+    });
 });

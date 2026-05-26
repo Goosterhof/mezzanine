@@ -5,6 +5,12 @@
 // into a target with a mission, recall a scientist by id, list the
 // active roster, list the recently-recalled strip, write input to a
 // scientist's pty. Resize is also exposed for the xterm.js integration.
+//
+// Phase O-1 of the Observer (#00052): `recall_scientist` also stops the
+// per-scientist chronicle tail. The frontend stops the tail explicitly
+// in its recall flow as well — the double call is idempotent by design.
+// This belt-and-suspenders stop catches the case where the frontend's
+// stop signal is dropped (panel closed in race, IPC reorder).
 
 use crate::error::{MezzanineError, MezzanineResult};
 use crate::roster::recall_strip::RecalledScientist;
@@ -41,6 +47,10 @@ pub fn dispatch_scientist<R: Runtime>(
 
 #[tauri::command]
 pub fn recall_scientist(state: State<'_, AppState>, id: ScientistId) -> MezzanineResult<()> {
+    // Belt-and-suspenders: stop the chronicle tail before the manager
+    // tears down the live pty. The frontend's recall flow also calls
+    // `stop_watching_scientist` directly — both paths are idempotent.
+    state.chronicle_reader.stop_watching(id);
     state.roster_manager.write().recall(id)
 }
 

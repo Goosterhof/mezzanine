@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {onMounted} from 'vue';
+import {onMounted, ref, watch} from 'vue';
 
 import Dispatch from './balcony/Dispatch.vue';
 import {useBalconySigns} from './balcony/useBalconySigns';
@@ -8,13 +8,20 @@ import CommandBar from './command/CommandBar.vue';
 import DrydockPanel from './drydock/DrydockPanel.vue';
 import HolotablePanel from './holotable/HolotablePanel.vue';
 import MissionControl from './mission/MissionControl.vue';
+import ObserverPanel from './observer/ObserverPanel.vue';
+import {useObserver} from './observer/useObserver';
 import Roster from './roster/Roster.vue';
 import ScientistCanvas from './roster/ScientistCanvas.vue';
+import {useRoster} from './roster/useRoster';
 import {useRosterBackend} from './roster/useRosterBackend';
 import BalconyRail from './shell/BalconyRail.vue';
 import TopBar from './shell/TopBar.vue';
 import FirstRunWizard from './wizard/FirstRunWizard.vue';
 import {useWizard} from './wizard/useWizard';
+
+const rosterRef = ref<InstanceType<typeof Roster> | null>(null);
+const roster = useRoster();
+const observer = useObserver();
 
 onMounted(() => {
     void useRosterBackend().subscribe();
@@ -24,7 +31,25 @@ onMounted(() => {
     // Balcony state — load the rail's signs and the briefing library on boot.
     void useBalconySigns().refresh();
     void useBriefingLibrary().load();
+    // Arc 2 (#00052) — subscribe to the chronicle-event channel. The
+    // subscription is push-always: events fan into the Observer's
+    // per-scientist activity map even while the Observer panel is
+    // collapsed, so the sprites reflect the right state the moment the
+    // floor opens.
+    void observer.subscribe();
 });
+
+// Sprite-click → roster-row scroll. The Observer's setSelected path
+// updates `useRoster.selected`; this watcher fans the selection out
+// to the Roster component so the matching row scrolls into view.
+watch(
+    () => roster.selected.value,
+    (id) => {
+        if (id !== null) {
+            rosterRef.value?.scrollToRow(id);
+        }
+    },
+);
 </script>
 
 <template>
@@ -32,7 +57,7 @@ onMounted(() => {
         <BalconyRail />
         <TopBar />
         <div class="flex flex-1 min-h-0">
-            <Roster />
+            <Roster ref="rosterRef" />
             <main class="relative flex-1 flex flex-col min-w-0">
                 <ScientistCanvas />
                 <CommandBar />
@@ -42,6 +67,7 @@ onMounted(() => {
         <MissionControl />
         <DrydockPanel />
         <HolotablePanel />
+        <ObserverPanel />
         <FirstRunWizard />
     </div>
 </template>

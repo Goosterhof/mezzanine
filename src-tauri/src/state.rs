@@ -7,8 +7,15 @@
 // when dispatching a new scientist, the optional `claude_binary` override
 // the wizard configures, and the `mezzanine_home` path the wizard module
 // uses to persist its own state file beside the roster snapshot.
+//
+// Phase O-1 of the Observer (#00052) adds `chronicle_reader`: a
+// ChronicleReader rooted at the same base directory as the writer. The
+// reader starts per-scientist tails on dispatch and stops them on
+// recall; `commands::observer` is the IPC surface and
+// `commands::roster::recall_scientist` calls `stop_watching` as part of
+// recall so a missed frontend stop never leaks a tail task.
 
-use crate::chronicle::ChronicleWriter;
+use crate::chronicle::{ChronicleReader, ChronicleWriter};
 use crate::roster::RosterManager;
 use parking_lot::RwLock;
 use std::path::PathBuf;
@@ -43,6 +50,11 @@ pub struct AppState {
     /// flips this off so the next dispatched scientist's transcript lands
     /// on disk.
     pub chronicle: Arc<ChronicleWriter>,
+    /// Phase O-1: the per-scientist JSONL tail registry. Started on
+    /// dispatch (via the frontend's start_watching IPC) and stopped on
+    /// recall (via the frontend's stop_watching IPC + the belt-and-
+    /// suspenders stop inside `commands::roster::recall_scientist`).
+    pub chronicle_reader: Arc<ChronicleReader>,
 }
 
 impl AppState {
@@ -54,7 +66,8 @@ impl AppState {
             claude_binary: RwLock::new(None),
             chronicle_base: chronicle_base.clone(),
             mezzanine_home,
-            chronicle: Arc::new(ChronicleWriter::new(chronicle_base)),
+            chronicle: Arc::new(ChronicleWriter::new(chronicle_base.clone())),
+            chronicle_reader: Arc::new(ChronicleReader::new(chronicle_base)),
         }
     }
 }

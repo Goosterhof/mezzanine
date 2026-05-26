@@ -19,12 +19,13 @@ describe('TopBar', () => {
     it('renders one button per panel', () => {
         const wrapper = mount(TopBar);
         const buttons = wrapper.findAll('button');
-        // Mission Control + Drydock + Holotable. The bench-era Dossier
-        // panel button was retired in Phase 2C; the Holotable arrived in
-        // arc #00051 (2026-05-26) as the rightmost — ambient intelligence
-        // lives at the right edge per the experiment log's H-3 decision.
-        expect(buttons).toHaveLength(3);
-        expect(buttons.map((b) => b.text())).toStrictEqual(['MC', 'DD', 'HT']);
+        // Mission Control + Drydock + Holotable + Observer. The bench-era
+        // Dossier panel button was retired in Phase 2C. Arc 1 (#00051)
+        // added Holotable (HT); arc 2 (#00052) adds Observer (OB) as the
+        // new rightmost button — the Mezzanine-claim that scientists are
+        // on the floor below.
+        expect(buttons).toHaveLength(4);
+        expect(buttons.map((b) => b.text())).toStrictEqual(['MC', 'DD', 'HT', 'OB']);
     });
 
     it('does not expose a Dossier button (retired Phase 2C)', () => {
@@ -70,5 +71,6 @@ describe('TopBar', () => {
         expect(buttons[0]!.attributes('title')).toBe('Mission Control');
         expect(buttons[1]!.attributes('title')).toBe('Drydock');
         expect(buttons[2]!.attributes('title')).toBe('Holotable');
+        expect(buttons[3]!.attributes('title')).toBe('Observer');
     });
 });

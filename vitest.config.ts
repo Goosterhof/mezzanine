@@ -32,6 +32,18 @@ export default defineConfig({
                 // at this layer. See experiment log #00051 § Phase H-4.
                 'src/holotable/HolotablePanel.vue',
                 'src/holotable/HolotableScene.vue',
+                // The Observer's lifted canvas scene (Arc 2 #00052) is
+                // pure JS pixel-art rendering — jsdom has no Canvas 2D
+                // implementation and the renderer guards behind
+                // `ctx.imageSmoothingEnabled = false` and so on. The
+                // LabScene Vue wrapper mounts the scene module which the
+                // jsdom environment cannot run; the composable side
+                // (useObserver.ts + activityInference.ts + types.ts) is
+                // what carries the testable surface for v8 coverage.
+                'src/observer/LabScene.vue',
+                'src/observer/ObserverPanel.vue',
+                'src/observer/scene.js',
+                'src/observer/lab-core.js',
             ],
             thresholds: {lines: 90, functions: 90, branches: 90, statements: 90},
         },

@@ -5,7 +5,11 @@ import {ref} from 'vue';
 // template — the scientist reads the dossier, the investor doesn't read
 // a panel of markdown. The 'dossier' PanelId is therefore intentionally
 // absent.
-export type PanelId = 'mission-control' | 'drydock' | 'holotable';
+//
+// Arc 2 of the absorption trilogy (#00052) widens this union to include
+// `observer` — the new sibling panel to Holotable, opened from a third
+// TopBar button.
+export type PanelId = 'mission-control' | 'drydock' | 'holotable' | 'observer';
 
 const openPanel = ref<PanelId | null>(null);
 

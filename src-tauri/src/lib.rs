@@ -121,6 +121,11 @@ pub fn run() {
             // Holotable — Arc 1 of the absorption trilogy (experiment log
             // #00051). The floor reads on open and on manual refresh.
             commands::holotable::read_holotable_state,
+            // Observer — Arc 2 of the absorption trilogy (experiment log
+            // #00052). The chronicle tail starts on dispatch and stops on
+            // recall; the Vue side subscribes to "chronicle-event".
+            commands::observer::start_watching_scientist,
+            commands::observer::stop_watching_scientist,
             // Chronicle privacy disclosure ack flow.
             commands::chronicle::read_chronicle_disclosure,
             commands::chronicle::write_chronicle_disclosure_ack,

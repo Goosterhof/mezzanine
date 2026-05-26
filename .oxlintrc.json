@@ -12,7 +12,9 @@
         "vite.config.ts",
         "vitest.config.ts",
         "src/holotable/scene.js",
-        "src/holotable/lab-core.js"
+        "src/holotable/lab-core.js",
+        "src/observer/scene.js",
+        "src/observer/lab-core.js"
     ],
     "rules": {
         // Core rules

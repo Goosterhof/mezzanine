@@ -16,6 +16,7 @@ import {listen, type UnlistenFn} from '@tauri-apps/api/event';
 
 import type {MissionState, RecalledScientist, Scientist, ScientistId, Target} from './types';
 
+import {useObserver} from '../observer/useObserver';
 import {useRoster} from './useRoster';
 import {useScientistTerminals} from './useScientistTerminals';
 
@@ -115,16 +116,48 @@ export function useRosterBackend() {
             roster.replace(list);
             const recalled = await invoke<RecalledScientist[]>('list_recently_recalled');
             roster.setRecalledStrip(recalled);
+            // Arc 2 (#00052) — rebind chronicle tails for the surviving
+            // scientists. The reader's `start_watching` is idempotent, so
+            // repeated calls during a session are safe; this matters on
+            // gadget restart where the roster snapshot resurrected
+            // scientists whose tails were lost with the previous process.
+            for (const scientist of list) {
+                try {
+                    await invoke('start_watching_scientist', {scientistId: scientist.id});
+                } catch (err) {
+                    console.warn('start_watching_scientist (restore) failed', err);
+                }
+            }
         },
 
         async dispatch(target: Target, mission: string): Promise<Scientist> {
             const scientist = await invoke<Scientist>('dispatch_scientist', {target, mission});
             roster.upsert(scientist);
             roster.select(scientist.id);
+            // Arc 2 (#00052) — start the per-scientist chronicle tail
+            // immediately on dispatch so the Observer is accurate the
+            // first time the panel opens, regardless of whether it is
+            // open right now. Swallow errors — the dispatch must not
+            // fail because the tail registration hiccupped.
+            try {
+                await invoke('start_watching_scientist', {scientistId: scientist.id});
+            } catch (err) {
+                console.warn('start_watching_scientist failed', err);
+            }
             return scientist;
         },
 
         async recall(id: ScientistId): Promise<void> {
+            // Stop the chronicle tail first — see Arc 2 belt-and-suspenders
+            // protocol. The frontend stop guards against an IPC race where
+            // recall_scientist's stop is skipped; the backend stop guards
+            // against the frontend dropping its stop on a panel-closed race.
+            try {
+                await invoke('stop_watching_scientist', {scientistId: id});
+            } catch (err) {
+                console.warn('stop_watching_scientist failed', err);
+            }
+            useObserver().forget(id);
             await invoke('recall_scientist', {id});
             clearQuietTimer(id);
             terminals.dispose(id);
