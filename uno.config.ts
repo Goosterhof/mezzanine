@@ -96,6 +96,14 @@ export default defineConfig({
           0% { background-color: #86EFAC; box-shadow: 0 0 12px rgba(134, 239, 172, 0.7); }
           100% { background-color: #4ADE80; box-shadow: 0 0 6px rgba(74, 222, 128, 0.35); }
         }
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+          }
+        }
       `,
         },
     ],
