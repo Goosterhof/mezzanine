@@ -54,12 +54,18 @@ jobs:
               run: npm ci
 
             # tauri-action builds the frontend (beforeBuildCommand), compiles
-            # the Rust binary, bundles both installers (MSI for first install,
-            # NSIS for the updater per RD-3), signs the updater artifact, and —
-            # because tauri.conf.json sets bundle.createUpdaterArtifacts — emits
-            # and uploads `latest.json` pointing at the NSIS bundle. On Windows
-            # only NSIS carries an updater artifact, so the manifest advertises
-            # NSIS unambiguously.
+            # the Rust binary, bundles the installer, signs the updater
+            # artifact, and — because tauri.conf.json sets
+            # bundle.createUpdaterArtifacts — emits and uploads `latest.json`.
+            #
+            # `--bundles nsis` restricts the RELEASE to NSIS only (RD-3): the
+            # earlier both-targets release produced a `latest.json` whose
+            # default `windows-x86_64` key pointed at the MSI, with NSIS only
+            # under `windows-x86_64-nsis` — a latent risk that an installed
+            # balcony pulls an MSI update (WiX elevation / product-code caveats)
+            # instead of NSIS. NSIS-only here makes the manifest unambiguous.
+            # `bundle.targets` keeps `msi` for local `cargo tauri build` /
+            # first-install distribution; only the auto-update release is NSIS.
             - name: Build, sign, and publish the release
               uses: tauri-apps/tauri-action@v0
               env:
@@ -72,3 +78,4 @@ jobs:
                   releaseBody: 'A newer balcony stands ready. The installed Mezzanine will offer the descent on next boot.'
                   releaseDraft: false
                   prerelease: false
+                  args: --bundles nsis
