@@ -1,0 +1,31 @@
+name: Agent Review Label
+
+# Applies the "Agent Review Requested" label to every human/agent-authored PR when it opens,
+# reopens, or leaves draft. That label is the signal the General's review agent keys off — making
+# it automatic means a hand-created PR can never silently skip review. `reopened` is included
+# because a close→reopen (if the label was stripped) does not fire `opened`.
+#
+# Bot-authored PRs (Dependabot et al., which report user.type == 'Bot') are skipped: dependency
+# bumps are not "our" PRs and do not need an agent review. Flip the `if` below to include them.
+
+on:
+    pull_request:
+        types: [opened, reopened, ready_for_review]
+
+permissions:
+    pull-requests: write
+
+jobs:
+    label:
+        if: github.event.pull_request.user.type != 'Bot'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/github-script@v7
+              with:
+                  script: |
+                      await github.rest.issues.addLabels({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          issue_number: context.payload.pull_request.number,
+                          labels: ['Agent Review Requested'],
+                      });
