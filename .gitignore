@@ -31,6 +31,15 @@ src-tauri/Cargo.lock
 # Tauri runtime caches
 src-tauri/.cache
 
+# The Ascent (#00056) — updater signing keys. The private key is the
+# security spine: lose it and no future build can ever update an installed
+# balcony. It is escrowed by the investor (password manager + GitHub Actions
+# secrets) and NEVER committed. The public key lives in tauri.conf.json under
+# plugins.updater.pubkey — not as a loose file. RD-4.
+*.key
+*.key.pub
+.tauri-keys/
+
 # Chronicle transcripts safeguard — canonical path is ~/.zmuuzn-cockpit/
 # (outside any repo); these entries fire if the chronicle base ever drifts
 # inside the gadget's working tree.

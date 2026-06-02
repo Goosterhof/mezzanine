@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import {onMounted, ref, watch} from 'vue';
 
+import AscentPrompt from './ascent/AscentPrompt.vue';
+import {useAscent} from './ascent/useAscent';
 import Dispatch from './balcony/Dispatch.vue';
 import {useBalconySigns} from './balcony/useBalconySigns';
 import {useBriefingLibrary} from './balcony/useBriefingLibrary';
@@ -24,6 +26,13 @@ import {useWizard} from './wizard/useWizard';
 const rosterRef = ref<InstanceType<typeof Roster> | null>(null);
 const roster = useRoster();
 const observer = useObserver();
+const wizard = useWizard();
+
+// The Ascent (#00056) — fire the boot update-check exactly once, and only
+// after the first-run wizard has cleared. A brand-new install configures
+// itself (lab root, claude binary, chronicle ack) before the balcony reaches
+// outward to the floor below for the first time (§7 — first reach outward).
+let ascentChecked = false;
 
 onMounted(() => {
     void useRosterBackend().subscribe();
@@ -57,6 +66,21 @@ watch(
         }
     },
 );
+
+// The Ascent boot check — gated on wizard completion. `needsWalkthrough` is
+// true while the wizard is checked-and-incomplete; it flips false once the
+// investor opens the balcony (or on boot for a returning investor). Fire the
+// silent boot check the first time the balcony is confirmed configured.
+watch(
+    () => wizard.isReady() && !wizard.needsWalkthrough.value,
+    (cleared) => {
+        if (cleared && !ascentChecked) {
+            ascentChecked = true;
+            void useAscent().check();
+        }
+    },
+    {immediate: true},
+);
 </script>
 
 <template>
@@ -77,5 +101,6 @@ watch(
         <ObserverPanel />
         <GrindPanel />
         <FirstRunWizard />
+        <AscentPrompt />
     </div>
 </template>

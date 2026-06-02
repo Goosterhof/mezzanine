@@ -1,0 +1,32 @@
+name: Version Lockstep
+
+# Phase A-4 of the Ascent (#00056). The Mezzanine's version lives in three
+# manifests — package.json, src-tauri/tauri.conf.json, src-tauri/Cargo.toml —
+# and the updater leans on them agreeing: it compares the running version
+# (baked from tauri.conf.json) against the release manifest. Drift means a
+# release that re-offers itself forever, or never. This gate fails the moment
+# the three disagree, so the only way to change the version is the single
+# source: `npm run version:bump <version>`.
+#
+# Dependency-free: scripts/version.mjs uses only Node built-ins, so this runs
+# on a bare runner with no install step.
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+
+jobs:
+    lockstep:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out the balcony
+              uses: actions/checkout@v4
+
+            - name: Set up Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+
+            - name: Assert the three manifests agree
+              run: node scripts/version.mjs check

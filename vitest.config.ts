@@ -22,6 +22,7 @@ export default defineConfig({
                 'src/main.ts',
                 'src/vite-env.d.ts',
                 'src/App.vue',
+                'src/ascent/types.ts',
                 'src/chronicle/types.ts',
                 'src/drydock/types.ts',
                 // The Holotable's WebGL host components need a real

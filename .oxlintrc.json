@@ -11,6 +11,7 @@
         "src-tauri/gen/**",
         "vite.config.ts",
         "vitest.config.ts",
+        "scripts/**",
         "src/holotable/scene.js",
         "src/holotable/lab-core.js",
         "src/observer/scene.js",

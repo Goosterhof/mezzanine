@@ -180,9 +180,15 @@ mezzanine/
 │   ├── tauri.conf.json ....... productName "The Mezzanine"; identifier nl.zmuuzn.mezzanine
 │   ├── capabilities/default.json  Window + plugin permissions
 │   └── icons/ ................ PLACEHOLDER copies from horadric-cube; Phase 4 swaps for balcony iconography
+├── scripts/
+│   └── version.mjs ........... The Ascent (#00056) — version lockstep across package.json / tauri.conf.json / Cargo.toml (`check` / `bump` modes)
 ├── src/
-│   ├── App.vue ............... Top-level shell — BalconyRail + TopBar + Roster + ScientistCanvas + CommandBar + Dispatch + MissionControl + DrydockPanel + FirstRunWizard
+│   ├── App.vue ............... Top-level shell — BalconyRail + TopBar + Roster + ScientistCanvas + CommandBar + Dispatch + MissionControl + DrydockPanel + FirstRunWizard + AscentPrompt
 │   ├── main.ts ............... createApp + UnoCSS
+│   ├── ascent/                The Ascent (#00056) — the balcony rebuilds itself
+│   │   ├── types.ts .......... AscentStatus union + UpdateMeta
+│   │   ├── useAscent.ts ...... Singleton — check() / descend() / dismiss(); wraps plugin-updater + plugin-process; _resetForTests()
+│   │   └── AscentPrompt.vue .. Balcony-voiced prompt strip; descend/stay actions + descent progress
 │   ├── shell/                 Frame
 │   │   ├── BalconyRail.vue ... Top rail — three signs (Last Chaos, Idea Ledger, Reserved) + Dispatch ▾ trigger
 │   │   ├── TopBar.vue ........ Mission Control / Drydock panel toggles
@@ -231,6 +237,7 @@ mezzanine/
 │   │   └── ...
 │   └── assets/mezzanine.css .. Auxiliary CSS (almost empty — UnoCSS does the work)
 ├── tests/                      Mirrors src/ slices — all *.spec.ts live here
+│   ├── ascent/ ................ useAscent (flow states) + AscentPrompt (render / actions / balcony voice)
 │   ├── balcony/ ............... BalconySign + BriefingLibrary + useBalconySigns + useBriefingLibrary + useDispatch
 │   ├── wizard/ ................ useWizard + FirstRunWizard + Steps (StepLaboratory / StepBinary / StepChronicle)
 │   ├── mission/ ............... MissionControl + sections + useMissionControl
@@ -284,6 +291,7 @@ The deployment plan lives in
 | Arc 1 — The Holotable | VS Code `gadgets/lab-monitor-3d/` absorbed into the Mezzanine as a `[Holotable]` panel; new `holotable/` slice on both sides (Rust substrate + Vue host); 1835-line WebGL engine lifted intact; `[Holotable]` button added to TopBar; cross-host ratification deferred to Windows (no cargo here) | ✅ Static-green 2026-05-26 — frontend gates: oxlint 0/0, vue-tsc clean, vitest 242/242 (+14 new), v8 coverage 97.03% lines / 91.76% branches / 98.48% functions, vite build clean (scene chunked at 31kB). Rust side `cargo check` + `cargo test` pending Windows; static review confirms the substrate follows `commands/balcony.rs` exactly. Per RD-3, `gadgets/lab-monitor-3d/` is NOT tombstoned here — that waits for Arc #00053. Experiment log: `documents/experiment-logs/00051-the-holotable.md`. |
 | Arc 2 — The Observer | VS Code `gadgets/pixel-lab/` absorbed into the Mezzanine as an `[Observer]` panel; new `observer/` slice on both sides; shared `chronicle/reader.rs` infrastructure (consumed by Arc 3); `ChronicleTurn` + `TurnDirection` promoted from `roster::live` to `chronicle::types` for cross-module deserialization; 2554-line Canvas 2D engine lifted from `gadgets/pixel-lab/webview/lab.js` (IIFE→ES module, VS Code messaging stripped, MINION_OFFSETS cap retired); 43 ported activity-inference tests + 15 useObserver tests; `[Observer]` (OB) added as new rightmost TopBar button; bidirectional roster/sprite selection sync; push-always chronicle subscription (contrast: Holotable is investor-pull); cross-host ratification deferred to Windows | ✅ Static-green 2026-05-26 — frontend gates: oxlint 0/0, vue-tsc clean, vitest 312/312 (+70 new), v8 coverage 96.56% lines / 91.65% branches / 98.21% functions, vite build clean (scene chunked at 37kB). Rust side `cargo check` + `cargo test` pending Windows; the new `chronicle::reader` tests use `tauri::test::mock_app` under the dev-only `test` feature added to `Cargo.toml`. Per #00052 RD-3, `gadgets/pixel-lab/` is NOT tombstoned here — that waits for Arc #00053. Experiment log: `documents/experiment-logs/00052-the-observer.md`. |
 | Arc 3 — The Grind | VS Code `gadgets/idle-lab/` absorbed into the Mezzanine as a `[Grind]` panel; new `grind/` slice on both sides (Rust economy + Vue engine + HUD + renderer); 1084-line `game-core.js` rewritten as `gameCore.ts` (ES module, all 8 building tiers / 10 upgrades / 15 milestones / prestige / offline progress intact); economy reframed per RD-2 — the *lab* earns, not the investor (chronicle line / dispatch / clean recall / mission duration replace keystroke / save / file open); G-0 spec recorded inline (CHRONICLE_LINE_RP=0.5, CHRONICLE_RATE_CAP=4.0/s, DISPATCH_RP=25, RECALL_CLEAN_RP=100); 16-node theorem tree (the 12 originals + new Dispatch branch: Tireless Bench / Recall Discipline / Briefing Library / Many Hands); `[Grind]` (GR) added as new rightmost TopBar button; ChronicleReader extended with `tokio::sync::broadcast` for in-process Rust consumers (the EconomyManager subscribes); `grind-rp-grant` Tauri event for frontend; G-6 cleanup tail executed (three submodule tombstones + three Sentinel retirements + root CLAUDE.md gadget table 5→2); cross-host ratification deferred to Windows | ✅ Static-green 2026-05-26 — frontend gates: oxlint 0 errors, vue-tsc clean, vitest 395/395 (+83 new), v8 coverage 96.58% lines / 91.79% branches / 94.37% functions, vite build clean. Rust side `cargo check` + `cargo test` pending Windows; the new `grind::economy::tests` cover all four grant paths, the token-bucket rate limiter, per-scientist independence, dispatch/recall dedup, and wire-shape (kebab-case) serialization. Per RD-3 (executed in G-6), `gadgets/{lab-monitor-3d,pixel-lab,idle-lab}/` are tombstoned with CLAUDE.md headers; their Sentinels are `workflow_dispatch`-only; root CLAUDE.md gadget count is 2 (Mezzanine + Horadric Cube). Experiment log: `documents/experiment-logs/00053-the-grind.md`. |
+| The Ascent (#00056) | The balcony rebuilds itself — `tauri-plugin-updater` + `-process` wired (Cargo/lib.rs/capabilities/tauri.conf); new `ascent/` Vue slice (`types` + `useAscent` singleton + `AscentPrompt`) on the `check()` → `descend()` → `relaunch()` flow; check-and-prompt, never silent (RD-2); boot-check gated on wizard completion; updater keypair minted (pubkey in `tauri.conf.json`, private key escrow investor-gated); release pipeline `.github/workflows/ascent.yml` (tag `v*` → Windows → `tauri-action` sign + publish NSIS + `latest.json`); version lockstep via `scripts/version.mjs` + `version-lockstep.yml`. (The `prefers-reduced-motion` gate this slice's prompt-rise transition needs was landed concurrently by the Warden in `42238e8`; the Ascent rebased onto it rather than duplicate it.) | 🟡 A-1–A-4 static-green 2026-06-02 — oxlint 0 errors, vue-tsc clean, vitest 418/418 (+23 ascent), v8 coverage ascent 100% lines / 98.4% branches (overall 96.72% / 92.35%), `cargo check` + `vite build` clean. A-0 escrow (private key → CI secrets) + A-5 runtime ratification pending; `cargo test` execution still deferred to Linux (Windows test binary hits a pre-existing `STATUS_ENTRYPOINT_NOT_FOUND`). Experiment log: `documents/experiment-logs/00056-the-ascent.md`. |
 
 ## Commands
 
@@ -308,7 +316,9 @@ cargo tauri build   # Tauri production build (Windows target)
 
 - **Does not deploy to a server.** No Railway, no `/up` health check,
   no public URL. The Mezzanine is a desktop binary the investor runs
-  locally.
+  locally. (The Ascent's auto-updater reads a manifest from GitHub
+  Releases — that is *static artifact hosting*, not a service the
+  laboratory operates; no process, no uptime obligation. See #00056 RD-1.)
 - **Does not edit code.** It directs `claude` to edit code. The
   Mezzanine is a *command* surface, not an *editor* surface — that
   distinction is load-bearing for every UI decision.

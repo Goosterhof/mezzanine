@@ -1,0 +1,74 @@
+name: The Ascent — Release
+
+# The balcony rebuilds itself (experiment #00056). Pushing a version tag (v*)
+# wakes a Windows runner, builds + signs the Mezzanine, and publishes the
+# installers plus the updater manifest to a GitHub Release. The installed
+# balcony's updater reads `latest.json` from this release's assets, verifies
+# the bundle signature against the baked-in pubkey, and prompts the investor
+# to descend (RD-1 — GitHub Releases is static artifact hosting, not a service
+# the laboratory operates).
+#
+# Cut a release by tagging the version (after `npm run version:bump`):
+#     git tag v0.2.0 && git push origin v0.2.0
+#
+# Required secrets (escrowed by the investor — RD-4; lose the private key and
+# no future build can produce an update the installed balcony will accept):
+#   TAURI_SIGNING_PRIVATE_KEY          — the minisign private key
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD — its password (empty if none was set)
+
+on:
+    push:
+        tags:
+            - 'v*'
+
+# tauri-action creates the release and uploads assets — it needs write.
+permissions:
+    contents: write
+
+jobs:
+    release:
+        # Windows-with-WSL2 is the only deployment target (#00049 Phase 2D);
+        # the release is built on the platform it runs on.
+        runs-on: windows-latest
+
+        steps:
+            - name: Check out the tagged balcony
+              uses: actions/checkout@v4
+
+            - name: Set up Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+
+            - name: Set up the Rust toolchain
+              uses: dtolnay/rust-toolchain@stable
+
+            # Reuse the Rust build cache between releases — the heavy Tauri
+            # crate graph compiles once and rests in the cache thereafter.
+            - name: Cache the Rust build
+              uses: swatinem/rust-cache@v2
+              with:
+                  workspaces: src-tauri
+
+            - name: Install frontend dependencies
+              run: npm ci
+
+            # tauri-action builds the frontend (beforeBuildCommand), compiles
+            # the Rust binary, bundles both installers (MSI for first install,
+            # NSIS for the updater per RD-3), signs the updater artifact, and —
+            # because tauri.conf.json sets bundle.createUpdaterArtifacts — emits
+            # and uploads `latest.json` pointing at the NSIS bundle. On Windows
+            # only NSIS carries an updater artifact, so the manifest advertises
+            # NSIS unambiguously.
+            - name: Build, sign, and publish the release
+              uses: tauri-apps/tauri-action@v0
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+                  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+              with:
+                  tagName: ${{ github.ref_name }}
+                  releaseName: 'The Mezzanine ${{ github.ref_name }}'
+                  releaseBody: 'A newer balcony stands ready. The installed Mezzanine will offer the descent on next boot.'
+                  releaseDraft: false
+                  prerelease: false

@@ -56,6 +56,12 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        // The Ascent (#00056) — updater checks GitHub Releases for a newer
+        // balcony and verifies the bundle signature before install; process
+        // drives the relaunch into the rebuilt balcony. The runtime flow
+        // lives frontend-side in src/ascent/ (RD-5); these are registration.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             // Resolve the Mezzanine's data home (sibling layout under
             // `~/.zmuuzn-mezzanine/`): transcripts go under the

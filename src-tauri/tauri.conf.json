@@ -31,9 +31,18 @@
         ],
         "security": {"csp": null}
     },
+    "plugins": {
+        "updater": {
+            "endpoints": [
+                "https://github.com/goosterhof/mezzanine/releases/latest/download/latest.json"
+            ],
+            "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERFRUE5MTEyNUQzNTQ4MzAKUldRd1NEVmRFcEhxM2c1Vi9QNStmMktiTFU0eGc5YU9jZ3Z1MkpBdmZENUtvV1RNc0NDNkt6SFMK"
+        }
+    },
     "bundle": {
         "active": true,
         "targets": ["msi", "nsis"],
+        "createUpdaterArtifacts": true,
         "publisher": "Zmuuzn Laboratory",
         "category": "DeveloperTool",
         "shortDescription": "The balcony overlooking the lab floor — dispatch mad scientists onto missions",

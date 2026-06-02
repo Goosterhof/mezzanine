@@ -22,6 +22,12 @@ tauri-plugin-http = "2"
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
+# The Ascent (#00056) — the balcony rebuilds itself. The updater checks
+# GitHub Releases for a newer NSIS bundle and verifies its signature against
+# the baked-in pubkey before installing; process drives the relaunch. The
+# Mezzanine is desktop-only, so these need no mobile-target cfg guard.
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 
 # The Mezzanine's instruments: serde for Tauri payloads, anyhow/thiserror for errors,
 # chrono for chronicle timestamps, log for structured logging, uuid for ScientistId.
