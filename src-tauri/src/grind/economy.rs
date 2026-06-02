@@ -249,7 +249,13 @@ pub fn spawn_chronicle_subscriber<R: Runtime>(
     mut receiver: broadcast::Receiver<ChronicleEvent>,
     app: AppHandle<R>,
 ) {
-    tokio::spawn(async move {
+    // tauri::async_runtime::spawn, not tokio::spawn: this is called from the
+    // Tauri `.setup()` hook (lib.rs), which runs on the main thread OUTSIDE a
+    // Tokio runtime — a bare `tokio::spawn` there panics with "there is no
+    // reactor running". Tauri's helper spawns onto its managed runtime and is
+    // safe to call from any context. (Surfaced on first Windows launch after
+    // the Grind absorption; the slice had only ever been static-green.)
+    tauri::async_runtime::spawn(async move {
         loop {
             match receiver.recv().await {
                 Ok(event) => {

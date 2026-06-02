@@ -118,7 +118,12 @@ impl ChronicleReader {
         let path = transcript_path(&self.base_dir, scientist_id);
         let broadcast_tx = self.broadcast_tx.clone();
 
-        tokio::spawn(async move {
+        // tauri::async_runtime::spawn, not tokio::spawn: today this runs inside
+        // an async command handler (a runtime is present), but the helper is
+        // context-agnostic — it keeps start_watching safe if a future caller
+        // invokes it from a non-async context (e.g. setup), matching the fix
+        // applied to the Grind's chronicle subscriber.
+        tauri::async_runtime::spawn(async move {
             run_tail_loop(scientist_id, path, app, broadcast_tx, cancel_rx).await;
         });
 
