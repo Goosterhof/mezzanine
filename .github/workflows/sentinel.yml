@@ -1,0 +1,101 @@
+# ============================================================================
+# THE SENTINEL — Mezzanine Containment Protocols (repo-local)
+# ============================================================================
+# Runs on every push to main and every PR against main in THIS repo — the
+# gadget gates its own pull requests instead of waiting for the parent lab to
+# bump the submodule pointer. Mirrors the experiment submodules, which each
+# self-gate. The parent's `.github/workflows/sentinel-mezzanine.yml` remains
+# as an integration backstop on pointer bumps.
+#
+# Two jobs:
+#   * containment    — frontend (Vue/TS) on Ubuntu: typecheck, lint, format, test
+#   * rust-substrate — backend (Rust) on Ubuntu:    fmt, clippy, build, test
+#
+# A Windows-runner job for `cargo tauri build` (Tauri's full bundling) is the
+# cross-host ratification step that re-validates the Windows substrate + WSL2
+# bridge; the Linux-side rust-substrate job guards the Rust code from
+# regressions in the meantime.
+# ============================================================================
+
+name: Sentinel — Mezzanine
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  containment:
+    name: Frontend — Typecheck + Lint + Format + Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Test
+        run: npm run test
+
+  rust-substrate:
+    name: Rust — Fmt + Clippy + Build + Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src-tauri
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Tauri Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo registry + target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Format check
+        run: cargo fmt --check
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Build
+        run: cargo build --all-targets
+
+      - name: Test
+        run: cargo test
