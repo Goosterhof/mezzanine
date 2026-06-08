@@ -69,9 +69,12 @@ impl RosterManager {
         chronicle_base: PathBuf,
         app: AppHandle<R>,
     ) -> MezzanineResult<Scientist> {
+        // Build the spec from the mission BEFORE the string is moved into
+        // the Scientist record — the mission doubles as claude's opening
+        // prompt (substrate threads it through as a positional arg).
+        let spec = SessionSpec::for_target(lab_root, &target, distro, binary, &mission);
         let scientist = Scientist::new(target.clone(), mission);
         let id = scientist.id;
-        let spec = SessionSpec::for_target(lab_root, &target, distro, binary);
         let live = LiveScientistSession::spawn(&spec, id, chronicle_base, app)?;
         self.scientists.insert(id, Arc::new(live));
         self.records.insert(id, scientist.clone());

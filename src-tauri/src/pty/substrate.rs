@@ -43,18 +43,31 @@ impl SessionSpec {
     /// path is constructed there rather than re-implementing the join
     /// logic here. `binary` overrides the substrate's default `"claude"`;
     /// the wizard threads its persisted choice through here.
+    ///
+    /// `mission` is the scientist's opening prompt. When non-empty it is
+    /// passed to `claude` as a single positional argument — `claude
+    /// '<mission>'` starts an INTERACTIVE session with the prompt
+    /// auto-submitted as the first turn (this is distinct from `-p`, which
+    /// prints and exits). An empty/whitespace mission yields no args, so
+    /// the scientist gets a plain `claude` session with no seeded prompt.
     pub fn for_target(
         lab_root: &Path,
         target: &Target,
         distro: Option<String>,
         binary: Option<String>,
+        mission: &str,
     ) -> Self {
+        let args = if mission.trim().is_empty() {
+            Vec::new()
+        } else {
+            vec![mission.to_string()]
+        };
         Self {
             working_dir: target.cwd(lab_root),
             binary: binary
                 .filter(|b| !b.trim().is_empty())
                 .unwrap_or_else(|| "claude".to_string()),
-            args: Vec::new(),
+            args,
             distro,
         }
     }
@@ -210,6 +223,7 @@ mod tests {
             &Target::experiment(ExperimentCodename::Crucible),
             None,
             None,
+            "",
         );
         assert_eq!(
             spec.working_dir.to_str().unwrap(),
@@ -226,6 +240,7 @@ mod tests {
             &Target::experiment(ExperimentCodename::Crucible),
             None,
             Some("/opt/claude/bin/claude".to_string()),
+            "",
         );
         assert_eq!(spec.binary, "/opt/claude/bin/claude");
     }
@@ -238,8 +253,45 @@ mod tests {
             &Target::experiment(ExperimentCodename::Crucible),
             None,
             Some("   ".to_string()),
+            "",
         );
         assert_eq!(spec.binary, "claude");
+    }
+
+    #[test]
+    fn for_target_seeds_mission_as_positional_arg() {
+        use crate::roster::target::Target;
+        let spec = SessionSpec::for_target(
+            Path::new("/home/scientist/code/zmuuzn"),
+            &Target::LabRoot,
+            None,
+            None,
+            "@agent-inspector",
+        );
+        assert_eq!(spec.args, vec!["@agent-inspector".to_string()]);
+        // The mission reaches the inner shell command after the binary,
+        // single-quoted — this is what gives claude its opening prompt.
+        assert_eq!(
+            inner_shell_command(&spec),
+            "cd '/home/scientist/code/zmuuzn' && exec 'claude' '@agent-inspector'",
+        );
+    }
+
+    #[test]
+    fn for_target_empty_mission_yields_plain_claude() {
+        use crate::roster::target::Target;
+        let spec = SessionSpec::for_target(
+            Path::new("/home/scientist/code/zmuuzn"),
+            &Target::LabRoot,
+            None,
+            None,
+            "   ",
+        );
+        assert!(spec.args.is_empty());
+        assert_eq!(
+            inner_shell_command(&spec),
+            "cd '/home/scientist/code/zmuuzn' && exec 'claude'",
+        );
     }
 
     // ---- Windows substrate criterion 1 ------------------------------------
@@ -255,6 +307,7 @@ mod tests {
             &Target::experiment(ExperimentCodename::Crucible),
             Some("Ubuntu".to_string()),
             None,
+            "",
         );
         let cmd = build_command(&spec);
         let debug = format!("{cmd:?}");

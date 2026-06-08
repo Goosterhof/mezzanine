@@ -1,35 +1,11 @@
 <script setup lang="ts">
-import {ref, watch} from 'vue';
-
-import type {Target} from '../roster/types';
-
-import BriefingLibrary from './BriefingLibrary.vue';
-import TargetPicker from './TargetPicker.vue';
+import {MINIONS} from './minions';
 import {useDispatch} from './useDispatch';
 
 const dispatch = useDispatch();
-const briefRef = ref<HTMLTextAreaElement | null>(null);
 
-watch(
-    () => dispatch.open.value,
-    (open) => {
-        if (open) {
-            void Promise.resolve().then(() => briefRef.value?.focus());
-        }
-    },
-);
-
-function pickTarget(target: Target): void {
-    dispatch.setTarget(target);
-}
-
-function onBriefInput(event: Event): void {
-    const el = event.target as HTMLTextAreaElement;
-    dispatch.setBrief(el.value);
-}
-
-function onTemplate(id: string | null): void {
-    dispatch.selectTemplate(id);
+function pickMinion(slug: string | null): void {
+    dispatch.selectMinion(slug);
 }
 
 function onSubmit(): void {
@@ -67,6 +43,10 @@ function onKeydown(event: KeyboardEvent): void {
                 <div>
                     <div class="mz-stamp-label">Dispatch</div>
                     <h2 class="font-display text-mz-text text-lg tracking-wide">Send a scientist to the lab floor</h2>
+                    <p class="mt-1 text-xs text-mz-text-mute">
+                        Targeting <span class="text-mz-text">The Lab</span> — pick a minion, or none for a plain
+                        session.
+                    </p>
                 </div>
                 <button
                     type="button"
@@ -79,22 +59,44 @@ function onKeydown(event: KeyboardEvent): void {
                 </button>
             </header>
 
-            <TargetPicker :selected="dispatch.target.value" @select="pickTarget" />
-
-            <BriefingLibrary :selected-id="dispatch.templateId.value" @select="onTemplate" />
-
             <div>
-                <label class="mz-stamp-label block mb-1.5" for="dispatch-brief">Brief</label>
-                <textarea
-                    id="dispatch-brief"
-                    ref="briefRef"
-                    :value="dispatch.brief.value"
-                    rows="6"
-                    class="w-full mz-input resize-none"
-                    placeholder="What is the mission? Free-form — the scientist receives this as the opening prompt."
-                    data-dispatch-brief
-                    @input="onBriefInput"
-                ></textarea>
+                <label class="mz-stamp-label block mb-1.5">Minion</label>
+                <div class="grid gap-1.5" role="radiogroup" aria-label="Choose a minion">
+                    <button
+                        type="button"
+                        role="radio"
+                        :aria-checked="dispatch.minionSlug.value === null"
+                        data-dispatch-minion="none"
+                        class="flex items-center justify-between px-3 py-2 text-sm border transition-colors duration-100"
+                        :class="
+                            dispatch.minionSlug.value === null
+                                ? 'border-mz-brass text-mz-text bg-mz-edge-soft/60'
+                                : 'border-mz-edge text-mz-text-mute hover:border-mz-rule hover:text-mz-text'
+                        "
+                        @click="pickMinion(null)"
+                    >
+                        <span class="font-display tracking-wide">No minion</span>
+                        <span class="font-mono text-xs op-60">plain session</span>
+                    </button>
+                    <button
+                        v-for="minion in MINIONS"
+                        :key="minion.slug"
+                        type="button"
+                        role="radio"
+                        :aria-checked="dispatch.minionSlug.value === minion.slug"
+                        :data-dispatch-minion="minion.slug"
+                        class="flex items-center justify-between px-3 py-2 text-sm border transition-colors duration-100"
+                        :class="
+                            dispatch.minionSlug.value === minion.slug
+                                ? 'border-mz-brass text-mz-text bg-mz-edge-soft/60'
+                                : 'border-mz-edge text-mz-text-mute hover:border-mz-rule hover:text-mz-text'
+                        "
+                        @click="pickMinion(minion.slug)"
+                    >
+                        <span class="font-display tracking-wide">{{ minion.label }}</span>
+                        <span class="font-mono text-xs op-60">@agent-{{ minion.slug }}</span>
+                    </button>
+                </div>
                 <p v-if="dispatch.lastError.value" data-dispatch-error class="mt-2 text-xs text-mz-pulse-crashed">
                     {{ dispatch.lastError.value }}
                 </p>
