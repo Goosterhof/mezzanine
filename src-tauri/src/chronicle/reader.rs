@@ -304,20 +304,6 @@ fn emit_complete_lines<R: Runtime>(
     }
 }
 
-/// Bridge into the worker for tests — emit lines from a pre-populated
-/// string and observe the residue. Wired in this file rather than a
-/// `#[cfg(test)]` block on the function so the live loop logic can stay
-/// monolithic.
-#[cfg(test)]
-pub(crate) fn emit_complete_lines_for_test<R: Runtime>(
-    pending: &mut String,
-    scientist_id: ScientistId,
-    app: &AppHandle<R>,
-    broadcast_tx: &broadcast::Sender<ChronicleEvent>,
-) {
-    emit_complete_lines(pending, scientist_id, app, broadcast_tx);
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
