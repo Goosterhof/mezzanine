@@ -218,8 +218,7 @@ fn append_turn(
         direction,
         payload: payload.to_string(),
     };
-    let line = serde_json::to_string(&turn)
-        .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?;
+    let line = serde_json::to_string(&turn).map_err(std::io::Error::other)?;
     let mut file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)

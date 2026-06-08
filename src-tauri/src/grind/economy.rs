@@ -39,7 +39,7 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tauri::{AppHandle, Emitter, Runtime};
 use tokio::sync::broadcast;
 
@@ -60,12 +60,18 @@ pub mod config {
     pub const RECALL_CLEAN_RP: f64 = 100.0;
 
     /// RP per second accrued for scientists in MissionState::Working.
+    /// G-0 spec for the mission-duration accrual path, not yet wired.
+    #[allow(dead_code)]
     pub const WORKING_RP_PER_SEC: f64 = 0.5;
 
     /// RP per second accrued for scientists in MissionState::Awaiting.
+    /// G-0 spec for the mission-duration accrual path, not yet wired.
+    #[allow(dead_code)]
     pub const AWAITING_RP_PER_SEC: f64 = 0.1;
 
     /// Interval at which the EconomyManager polls mission-duration accrual.
+    /// G-0 spec for the mission-duration accrual path, not yet wired.
+    #[allow(dead_code)]
     pub const MISSION_DURATION_TICK_SECS: u64 = 60;
 }
 

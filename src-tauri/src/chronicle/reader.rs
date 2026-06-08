@@ -30,7 +30,6 @@ use parking_lot::Mutex;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Runtime};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, SeekFrom};
 use tokio::sync::{broadcast, oneshot};
@@ -147,11 +146,13 @@ impl ChronicleReader {
 
     /// How many tails are currently active. Used by tests and by the
     /// Wound Census for parity checks.
+    #[allow(dead_code)] // intentional observability API; only the test/census paths call it today
     pub fn active_count(&self) -> usize {
         self.tails.lock().len()
     }
 
     /// True iff a tail task is currently registered for `scientist_id`.
+    #[allow(dead_code)] // intentional observability API; exercised by the reader tests
     pub fn is_watching(&self, scientist_id: ScientistId) -> bool {
         self.tails.lock().contains_key(&scientist_id)
     }
@@ -319,6 +320,8 @@ pub(crate) fn emit_complete_lines_for_test<R: Runtime>(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::*;
 
     fn temp_base(suffix: &str) -> PathBuf {

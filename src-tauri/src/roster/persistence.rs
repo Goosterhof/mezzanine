@@ -59,8 +59,7 @@ pub fn write_snapshot(base: &Path, snapshot: &RosterSnapshot) -> std::io::Result
     }
     let path = snapshot_path(base);
     let tmp = path.with_extension("json.tmp");
-    let json = serde_json::to_vec_pretty(snapshot)
-        .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?;
+    let json = serde_json::to_vec_pretty(snapshot).map_err(std::io::Error::other)?;
     std::fs::write(&tmp, json)?;
     std::fs::rename(&tmp, &path)?;
     Ok(())

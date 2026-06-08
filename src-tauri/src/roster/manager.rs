@@ -55,6 +55,7 @@ impl RosterManager {
     /// the created Scientist record (with the freshly-minted id). The
     /// `binary` override threads the wizard's persisted choice down to
     /// the substrate; pass `None` to use the substrate default (`claude`).
+    #[allow(clippy::too_many_arguments)] // dispatch genuinely needs the full session context; a param struct would only relocate it
     pub fn dispatch<R: Runtime>(
         &mut self,
         target: Target,
