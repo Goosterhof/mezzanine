@@ -99,10 +99,7 @@ mod tests {
 
     #[test]
     fn posix_join_handles_nested_relative() {
-        let out = to_posix_lab_path(
-            Path::new("/home/g/code/zmuuzn"),
-            "documents/idea-ledgers",
-        );
+        let out = to_posix_lab_path(Path::new("/home/g/code/zmuuzn"), "documents/idea-ledgers");
         assert_eq!(out, "/home/g/code/zmuuzn/documents/idea-ledgers");
     }
 
@@ -126,10 +123,7 @@ mod tests {
 
     #[test]
     fn posix_join_normalizes_backslash_in_relative() {
-        let out = to_posix_lab_path(
-            Path::new("/home/g/code/zmuuzn"),
-            "documents\\idea-ledgers",
-        );
+        let out = to_posix_lab_path(Path::new("/home/g/code/zmuuzn"), "documents\\idea-ledgers");
         assert_eq!(out, "/home/g/code/zmuuzn/documents/idea-ledgers");
     }
 

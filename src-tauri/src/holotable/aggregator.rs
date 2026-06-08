@@ -219,7 +219,10 @@ fn build_experiments(git: &LabGitState, health: &LabHealth) -> Vec<ExperimentNod
         .collect()
 }
 
-fn find_experiment_submodule<'a>(subs: &'a [SubmoduleState], slug: &str) -> Option<&'a SubmoduleState> {
+fn find_experiment_submodule<'a>(
+    subs: &'a [SubmoduleState],
+    slug: &str,
+) -> Option<&'a SubmoduleState> {
     // The slug → path mapping is built from the codename. The Crucible's
     // submodule lives at `experiments/zmuuzn-strava`, not at
     // `experiments/zmuuzn-crucible` — so we can't compose the path from
@@ -232,17 +235,17 @@ fn find_experiment_submodule<'a>(subs: &'a [SubmoduleState], slug: &str) -> Opti
     subs.iter().find(|s| s.path == target_path)
 }
 
-fn describe_experiment(ping: &super::health_check::HealthPing, sub: Option<&SubmoduleState>) -> String {
+fn describe_experiment(
+    ping: &super::health_check::HealthPing,
+    sub: Option<&SubmoduleState>,
+) -> String {
     if let Some(s) = sub {
         if !s.initialized {
             return "Pod not initialized — still in cryosleep".to_string();
         }
     }
     if ping.healthy {
-        format!(
-            "Breathing easy — responded in {}ms",
-            ping.response_time_ms
-        )
+        format!("Breathing easy — responded in {}ms", ping.response_time_ms)
     } else if let Some(code) = ping.status_code {
         format!("Door opened, room is sick — HTTP {code}")
     } else if !ping.error.is_empty() {
@@ -386,7 +389,12 @@ mod tests {
             staged_count: 1,
             submodules: vec![],
         };
-        let state = build(git, LabHealth { experiments: vec![] });
+        let state = build(
+            git,
+            LabHealth {
+                experiments: vec![],
+            },
+        );
         assert_eq!(state.tower.health, HealthState::Amber);
         assert!(state.tower.detail.contains("open experiments"));
     }
@@ -394,7 +402,12 @@ mod tests {
     #[test]
     fn unknown_branch_paints_tower_unknown() {
         let git = LabGitState::default();
-        let state = build(git, LabHealth { experiments: vec![] });
+        let state = build(
+            git,
+            LabHealth {
+                experiments: vec![],
+            },
+        );
         assert_eq!(state.tower.health, HealthState::Unknown);
     }
 
@@ -458,16 +471,34 @@ mod tests {
 
     #[test]
     fn mezzanine_gadget_is_marked_as_self() {
-        let state = build(LabGitState::default(), LabHealth { experiments: vec![] });
-        let mz = state.gadgets.iter().find(|g| g.label == "mezzanine").unwrap();
+        let state = build(
+            LabGitState::default(),
+            LabHealth {
+                experiments: vec![],
+            },
+        );
+        let mz = state
+            .gadgets
+            .iter()
+            .find(|g| g.label == "mezzanine")
+            .unwrap();
         assert!(mz.is_self);
         assert!(mz.detail.contains("You are here"));
     }
 
     #[test]
     fn lab_monitor_3d_gadget_voices_absorption() {
-        let state = build(LabGitState::default(), LabHealth { experiments: vec![] });
-        let h = state.gadgets.iter().find(|g| g.label == "lab-monitor-3d").unwrap();
+        let state = build(
+            LabGitState::default(),
+            LabHealth {
+                experiments: vec![],
+            },
+        );
+        let h = state
+            .gadgets
+            .iter()
+            .find(|g| g.label == "lab-monitor-3d")
+            .unwrap();
         assert!(!h.is_self);
         assert!(h.detail.to_lowercase().contains("absorbed"));
     }

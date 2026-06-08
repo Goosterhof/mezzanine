@@ -69,5 +69,4 @@ mod tests {
         let w = ChronicleWriter::new(path.clone());
         assert_eq!(w.base_dir(), path.as_path());
     }
-
 }

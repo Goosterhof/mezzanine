@@ -148,11 +148,12 @@ mod tests {
         // the parent repo, not as standalone GitHub repos. Earlier registry
         // entries that pointed at Goosterhof/<gadget> 404'd on every Drydock
         // refresh; the umbrella entry surfaces their PRs instead.
-        let slugs: Vec<String> = lab_repos()
-            .into_iter()
-            .map(|r| r.repo_full_name)
-            .collect();
-        for ghost in ["Goosterhof/pixel-lab", "Goosterhof/lab-monitor-3d", "Goosterhof/idle-lab"] {
+        let slugs: Vec<String> = lab_repos().into_iter().map(|r| r.repo_full_name).collect();
+        for ghost in [
+            "Goosterhof/pixel-lab",
+            "Goosterhof/lab-monitor-3d",
+            "Goosterhof/idle-lab",
+        ] {
             assert!(
                 !slugs.iter().any(|s| s == ghost),
                 "registry must not enumerate non-existent repo {ghost}"

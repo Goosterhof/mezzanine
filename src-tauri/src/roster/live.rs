@@ -182,10 +182,7 @@ fn run_reader_loop<R: Runtime>(
                 }
                 let _ = app.emit(
                     "scientist-output",
-                    ScientistOutputPayload {
-                        scientist,
-                        chunk,
-                    },
+                    ScientistOutputPayload { scientist, chunk },
                 );
             }
             Err(_) => break,
@@ -277,7 +274,11 @@ mod tests {
     fn append_turn_appends_to_existing_file() {
         let dir = temp_dir("append-existing");
         let path = dir.join("test.jsonl");
-        std::fs::write(&path, "{\"ts\":\"prior\",\"direction\":\"in\",\"payload\":\"x\"}\n").unwrap();
+        std::fs::write(
+            &path,
+            "{\"ts\":\"prior\",\"direction\":\"in\",\"payload\":\"x\"}\n",
+        )
+        .unwrap();
         append_turn(&path, TurnDirection::Out, "second").unwrap();
         let contents = std::fs::read_to_string(&path).unwrap();
         let lines: Vec<&str> = contents.lines().collect();

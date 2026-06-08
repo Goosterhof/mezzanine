@@ -150,18 +150,13 @@ mod tests {
             lab_root: Some("/tmp/lab".into()),
             claude_binary: None,
         };
-        assert_eq!(
-            state.resolved_lab_root(),
-            Some(PathBuf::from("/tmp/lab"))
-        );
+        assert_eq!(state.resolved_lab_root(), Some(PathBuf::from("/tmp/lab")));
     }
 
     #[test]
     fn write_creates_parent_dir() {
-        let parent = std::env::temp_dir().join(format!(
-            "mezzanine-wizard-parent-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let parent =
+            std::env::temp_dir().join(format!("mezzanine-wizard-parent-{}", uuid::Uuid::new_v4()));
         let nested = parent.join("nested");
         // nested does not yet exist
         let state = WizardState {

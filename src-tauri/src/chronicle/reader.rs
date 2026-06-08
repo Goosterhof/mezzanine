@@ -236,9 +236,7 @@ async fn run_tail_loop<R: Runtime>(
                         emit_complete_lines(&mut pending, scientist_id, &app, &broadcast_tx);
                     }
                     Err(err) => {
-                        log::warn!(
-                            "ChronicleReader: read failed for {scientist_id} — {err}",
-                        );
+                        log::warn!("ChronicleReader: read failed for {scientist_id} — {err}",);
                     }
                 }
             }
@@ -257,9 +255,7 @@ async fn run_tail_loop<R: Runtime>(
                 }
             }
             Err(err) => {
-                log::warn!(
-                    "ChronicleReader: open failed for {scientist_id} — {err}",
-                );
+                log::warn!("ChronicleReader: open failed for {scientist_id} — {err}",);
             }
         }
     }
@@ -291,9 +287,7 @@ fn emit_complete_lines<R: Runtime>(
                 // nothing to do, the Vue-side Tauri emit below still fires.
                 let _ = broadcast_tx.send(payload.clone());
                 if let Err(err) = app.emit("chronicle-event", payload) {
-                    log::warn!(
-                        "ChronicleReader: emit failed for {scientist_id} — {err}",
-                    );
+                    log::warn!("ChronicleReader: emit failed for {scientist_id} — {err}",);
                 }
             }
             Err(err) => {
@@ -399,7 +393,10 @@ mod tests {
         assert_eq!(full_lines.len(), 2);
         assert!(full_lines[0].contains("\"direction\":\"in\""));
         assert!(full_lines[1].contains("\"direction\":\"out\""));
-        assert_eq!(residue, "{\"ts\":\"t3\",\"direction\":\"in\",\"payload\":\"partial");
+        assert_eq!(
+            residue,
+            "{\"ts\":\"t3\",\"direction\":\"in\",\"payload\":\"partial"
+        );
     }
 
     #[test]
@@ -440,7 +437,10 @@ mod tests {
         // Write three turns to the file, then give the tail enough ticks
         // to read them all.
         use std::io::Write;
-        let mut f = std::fs::OpenOptions::new().append(true).open(&path).unwrap();
+        let mut f = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap();
         writeln!(f, r#"{{"ts":"t1","direction":"in","payload":"first"}}"#).unwrap();
         writeln!(f, r#"{{"ts":"t2","direction":"out","payload":"second"}}"#).unwrap();
         writeln!(f, r#"{{"ts":"t3","direction":"in","payload":"third"}}"#).unwrap();
@@ -477,7 +477,10 @@ mod tests {
         // Now create the file. The next tick will pick it up.
         std::fs::write(&path, "").unwrap();
         use std::io::Write;
-        let mut f = std::fs::OpenOptions::new().append(true).open(&path).unwrap();
+        let mut f = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap();
         writeln!(f, r#"{{"ts":"t","direction":"in","payload":"late"}}"#).unwrap();
         drop(f);
 
@@ -509,7 +512,10 @@ mod tests {
         use std::io::Write;
         for id in &ids {
             let path = transcript_path(&dir, *id);
-            let mut f = std::fs::OpenOptions::new().append(true).open(&path).unwrap();
+            let mut f = std::fs::OpenOptions::new()
+                .append(true)
+                .open(&path)
+                .unwrap();
             writeln!(f, r#"{{"ts":"t","direction":"in","payload":"{id}"}}"#).unwrap();
         }
 

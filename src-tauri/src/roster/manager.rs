@@ -41,11 +41,7 @@ impl RosterManager {
     /// honoured; the investor can recall or leave them).
     pub fn new(snapshot_dir: PathBuf) -> Self {
         let snap = read_snapshot(&snapshot_dir);
-        let records: HashMap<_, _> = snap
-            .scientists
-            .into_iter()
-            .map(|s| (s.id, s))
-            .collect();
+        let records: HashMap<_, _> = snap.scientists.into_iter().map(|s| (s.id, s)).collect();
         Self {
             scientists: HashMap::new(),
             records,

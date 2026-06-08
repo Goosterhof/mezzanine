@@ -38,9 +38,8 @@ pub async fn read_holotable_state(state: State<'_, AppState>) -> MezzanineResult
     let health_future = health_check::ping_all();
 
     let (git_join, health) = tokio::join!(git_handle, health_future);
-    let git = git_join.map_err(|e| {
-        MezzanineError::WslBridge(format!("holotable git read join failed: {e}"))
-    })?;
+    let git = git_join
+        .map_err(|e| MezzanineError::WslBridge(format!("holotable git read join failed: {e}")))?;
 
     Ok(aggregator::build(git, health))
 }
