@@ -1,45 +1,41 @@
 // useDispatch — the slide-down dispatch sheet's state.
 //
-// Holds four pieces of state: whether the sheet is open, the selected
-// Target, the currently selected briefing template (or null for pure
-// free-form), and the free-form brief text. The sheet's submit action
-// calls useRosterBackend().dispatch() with the brief that ends up in the
-// textarea — whether that came from a template prefill or the investor's
-// own typing. The composable owns the prefill semantics so the component
-// stays declarative.
+// "For now" (investor directive 2026-06-08) the dispatch is deliberately
+// minimal: the investor picks one minion (or none) and the scientist is
+// always sent into the lab root. Selecting a minion seeds the claude
+// session's first prompt with `@agent-<slug>`; "no minion" dispatches a
+// plain claude session. The richer target picker + briefing library remain
+// in the slice (`TargetPicker.vue` / `BriefingLibrary.vue`) for when
+// dispatch re-expands, but are no longer wired into the sheet.
 
 import {computed, ref} from 'vue';
 
 import type {Target} from '../roster/types';
-import type {BriefingTemplate} from './types';
 
 import {useRosterBackend} from '../roster/useRosterBackend';
-import {useBriefingLibrary} from './useBriefingLibrary';
+import {missionForMinion} from './minions';
 
 const open = ref(false);
-const target = ref<Target | null>(null);
-const brief = ref('');
-const templateId = ref<string | null>(null);
+const minionSlug = ref<string | null>(null);
 const submitting = ref(false);
 const lastError = ref<string | null>(null);
 
+// Every dispatch targets the lab root for now.
+const LAB_TARGET: Target = {kind: 'lab-root'};
+
 export function useDispatch() {
     const backend = useRosterBackend();
-    const library = useBriefingLibrary();
-
-    function applyTemplatePrefill(tpl: BriefingTemplate): void {
-        brief.value = tpl.openingPrompt;
-    }
 
     return {
         open,
-        target,
-        brief,
-        templateId,
+        minionSlug,
         submitting,
         lastError,
 
-        canSubmit: computed(() => target.value !== null && brief.value.trim().length > 0 && !submitting.value),
+        // A dispatch is always submittable — "no minion" is a valid choice
+        // (a plain claude session) — except while a submit is already in
+        // flight.
+        canSubmit: computed(() => !submitting.value),
 
         show(): void {
             open.value = true;
@@ -53,48 +49,26 @@ export function useDispatch() {
             open.value = !open.value;
         },
 
-        setTarget(next: Target | null): void {
-            target.value = next;
+        /** Select a minion by slug, or pass null for "no minion" (a plain
+         *  session). Idempotent on re-selecting the same minion. */
+        selectMinion(slug: string | null): void {
+            minionSlug.value = slug;
         },
 
-        setBrief(next: string): void {
-            brief.value = next;
-            // Editing the brief manually unbinds the template — the
-            // investor's text is now their own, not the library's.
-            templateId.value = null;
-        },
-
-        /** Select (or unselect) a template by id. Selecting prefills the
-         *  brief with the template's opening prompt; unselecting leaves
-         *  whatever is in the textarea so the investor can keep editing. */
-        selectTemplate(id: string | null): void {
-            if (id === null) {
-                templateId.value = null;
-                return;
-            }
-            const tpl = library.findById(id);
-            if (!tpl) {
-                templateId.value = null;
-                return;
-            }
-            templateId.value = id;
-            applyTemplatePrefill(tpl);
-        },
-
-        /** Dispatch the current selection, clear the form on success, close
-         *  the sheet. Errors land in `lastError` and keep the sheet open
-         *  so the investor can edit and retry. */
+        /** Dispatch the current selection into the lab root. The mission is
+         *  `@agent-<slug>` for a selected minion (claude's opening prompt),
+         *  or '' for a plain session. Clears the selection and closes the
+         *  sheet on success; errors land in `lastError` and keep the sheet
+         *  open so the investor can retry. */
         async submit(): Promise<void> {
-            if (target.value === null || brief.value.trim().length === 0) {
+            if (submitting.value) {
                 return;
             }
             submitting.value = true;
             lastError.value = null;
             try {
-                await backend.dispatch(target.value, brief.value.trim());
-                brief.value = '';
-                target.value = null;
-                templateId.value = null;
+                await backend.dispatch(LAB_TARGET, missionForMinion(minionSlug.value));
+                minionSlug.value = null;
                 open.value = false;
             } catch (error) {
                 lastError.value = error instanceof Error ? error.message : String(error);
@@ -106,9 +80,7 @@ export function useDispatch() {
         /** Test-only. */
         reset(): void {
             open.value = false;
-            target.value = null;
-            brief.value = '';
-            templateId.value = null;
+            minionSlug.value = null;
             submitting.value = false;
             lastError.value = null;
         },

@@ -25,6 +25,5 @@ pub mod reader;
 pub mod types;
 pub mod writer;
 
-pub use reader::{ChronicleEvent, ChronicleReader};
-pub use types::{ChronicleTurn, TurnDirection};
+pub use reader::ChronicleReader;
 pub use writer::ChronicleWriter;

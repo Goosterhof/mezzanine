@@ -41,11 +41,7 @@ impl RosterManager {
     /// honoured; the investor can recall or leave them).
     pub fn new(snapshot_dir: PathBuf) -> Self {
         let snap = read_snapshot(&snapshot_dir);
-        let records: HashMap<_, _> = snap
-            .scientists
-            .into_iter()
-            .map(|s| (s.id, s))
-            .collect();
+        let records: HashMap<_, _> = snap.scientists.into_iter().map(|s| (s.id, s)).collect();
         Self {
             scientists: HashMap::new(),
             records,
@@ -59,6 +55,7 @@ impl RosterManager {
     /// the created Scientist record (with the freshly-minted id). The
     /// `binary` override threads the wizard's persisted choice down to
     /// the substrate; pass `None` to use the substrate default (`claude`).
+    #[allow(clippy::too_many_arguments)] // dispatch genuinely needs the full session context; a param struct would only relocate it
     pub fn dispatch<R: Runtime>(
         &mut self,
         target: Target,
@@ -69,9 +66,12 @@ impl RosterManager {
         chronicle_base: PathBuf,
         app: AppHandle<R>,
     ) -> MezzanineResult<Scientist> {
+        // Build the spec from the mission BEFORE the string is moved into
+        // the Scientist record — the mission doubles as claude's opening
+        // prompt (substrate threads it through as a positional arg).
+        let spec = SessionSpec::for_target(lab_root, &target, distro, binary, &mission);
         let scientist = Scientist::new(target.clone(), mission);
         let id = scientist.id;
-        let spec = SessionSpec::for_target(lab_root, &target, distro, binary);
         let live = LiveScientistSession::spawn(&spec, id, chronicle_base, app)?;
         self.scientists.insert(id, Arc::new(live));
         self.records.insert(id, scientist.clone());

@@ -74,10 +74,9 @@ pub fn run() {
             // even if the migration cannot run (the bench-era directory
             // is still on disk and accessible).
             if let Some(cockpit) = bench_era_chronicle_dir(app) {
-                if let Err(err) = chronicle::migration::migrate_once_from_cockpit(
-                    &cockpit,
-                    &mezzanine_home,
-                ) {
+                if let Err(err) =
+                    chronicle::migration::migrate_once_from_cockpit(&cockpit, &mezzanine_home)
+                {
                     log::warn!(
                         "Mezzanine: chronicle migration failed ({err}) — bench-era transcripts \
                          are still at {} and can be migrated manually",
@@ -225,5 +224,8 @@ fn mezzanine_data_dir<R: tauri::Runtime, M: Manager<R>>(app: &M) -> PathBuf {
 /// path can be resolved. Returns `None` if the home directory cannot be
 /// resolved (the migration is then a no-op).
 fn bench_era_chronicle_dir<R: tauri::Runtime, M: Manager<R>>(app: &M) -> Option<PathBuf> {
-    app.path().home_dir().ok().map(|home| home.join(".zmuuzn-cockpit"))
+    app.path()
+        .home_dir()
+        .ok()
+        .map(|home| home.join(".zmuuzn-cockpit"))
 }

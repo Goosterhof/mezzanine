@@ -72,7 +72,8 @@ shelve). Keep the triage report tight — five lines per finding maximum.",
     BriefingTemplate {
         id: "drydock-pr-review",
         label: "Drydock PR review",
-        description: "Sweep open PRs across lab repos; recommend approve / changes / hold for each.",
+        description:
+            "Sweep open PRs across lab repos; recommend approve / changes / hold for each.",
         target_shape: BriefingTargetShape::LabWide,
         opening_prompt: "\
 Open the Drydock and review the laboratory's outstanding pull requests.
@@ -112,7 +113,8 @@ on the balcony.",
     BriefingTemplate {
         id: "wounds-triage",
         label: "Wounds-at-threshold triage",
-        description: "Read every wound file at or above threshold; recommend a Surgeon dispatch or shelving.",
+        description:
+            "Read every wound file at or above threshold; recommend a Surgeon dispatch or shelving.",
         target_shape: BriefingTargetShape::LabWide,
         opening_prompt: "\
 Triage the laboratory's wound queue.

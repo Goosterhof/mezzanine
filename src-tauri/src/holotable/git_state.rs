@@ -53,7 +53,8 @@ pub struct SubmoduleState {
 /// branch read does not block status, and vice versa).
 pub fn read(lab_root: &Path, distro: Option<&str>) -> LabGitState {
     let branch = read_branch(lab_root, distro);
-    let (dirty, untracked_count, modified_count, staged_count) = read_status_counts(lab_root, distro);
+    let (dirty, untracked_count, modified_count, staged_count) =
+        read_status_counts(lab_root, distro);
     let submodules = read_submodules(lab_root, distro);
     LabGitState {
         branch,
@@ -69,9 +70,7 @@ fn read_branch(lab_root: &Path, distro: Option<&str>) -> String {
     match run_in_lab(lab_root, "git", &["branch", "--show-current"], distro) {
         Ok(stdout) => stdout.trim().to_string(),
         Err(err) => {
-            log::warn!(
-                "Holotable: branch read degraded — {err}; floor will show empty branch"
-            );
+            log::warn!("Holotable: branch read degraded — {err}; floor will show empty branch");
             String::new()
         }
     }
@@ -81,9 +80,7 @@ fn read_status_counts(lab_root: &Path, distro: Option<&str>) -> (bool, u32, u32,
     match run_in_lab(lab_root, "git", &["status", "--porcelain"], distro) {
         Ok(stdout) => parse_porcelain(&stdout),
         Err(err) => {
-            log::warn!(
-                "Holotable: status read degraded — {err}; floor will show clean tree"
-            );
+            log::warn!("Holotable: status read degraded — {err}; floor will show clean tree");
             (false, 0, 0, 0)
         }
     }
