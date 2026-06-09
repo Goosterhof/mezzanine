@@ -105,7 +105,7 @@ function check() {
         console.log(`\nThe balcony's four manifests agree: v${[...distinct][0]}.`);
         return;
     }
-    console.error('\nVersion drift: the three manifests disagree. Run `npm run version:bump <version>`.');
+    console.error('\nVersion drift: the four manifests disagree. Run `npm run version:bump <version>`.');
     process.exit(1);
 }
 
