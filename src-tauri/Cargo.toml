@@ -1,6 +1,6 @@
 [package]
 name = "mezzanine"
-version = "0.2.3"
+version = "0.2.4"
 description = "The Mezzanine — the balcony overlooking the lab floor; dispatch mad scientists onto missions"
 authors = ["Gerard Oosterhof <gerard@kendo.dev>"]
 edition = "2021"
