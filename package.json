@@ -1,6 +1,6 @@
 {
     "name": "mezzanine",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "private": true,
     "description": "The Mezzanine — the balcony overlooking the lab floor. Dispatch mad scientists onto missions: each scientist a persistent claude pty, each mission a brief from the Briefing Library or written free-form.",
     "type": "module",
