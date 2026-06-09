@@ -175,7 +175,18 @@ async fn run_tail_loop<R: Runtime>(
     broadcast_tx: broadcast::Sender<ChronicleEvent>,
     mut cancel: oneshot::Receiver<()>,
 ) {
-    let mut offset: u64 = 0;
+    // Follow from the END of whatever is already on disk — never replay
+    // history. A freshly dispatched scientist's file does not exist yet, so
+    // the offset is 0 and we capture every byte `claude` writes. But a
+    // RESURRECTED scientist (loaded from roster.json on boot) already carries
+    // its full transcript; starting at 0 would replay the entire history into
+    // the `chronicle-event` bridge AND the Grind's economy broadcast on every
+    // single boot. A 12 MB zombie transcript did exactly that — thousands of
+    // `grind-rp-grant` emits in a burst, "failed to send message to the
+    // webview", a wedged event bridge, and dispatch silently dead (plus RP
+    // re-granted for lines already counted). Seek past what's there; the dead
+    // zombie's pty writes nothing more, so we correctly emit nothing for it.
+    let mut offset: u64 = initial_tail_offset(&path).await;
     let mut pending = String::new();
     let mut missing_logged = false;
     let started_at = std::time::Instant::now();
@@ -259,6 +270,18 @@ async fn run_tail_loop<R: Runtime>(
                 log::warn!("ChronicleReader: open failed for {scientist_id} — {err}",);
             }
         }
+    }
+}
+
+/// The byte offset a fresh tail should start from: the current length of the
+/// transcript if it already exists (follow new appends only), or 0 if it does
+/// not exist yet (a just-dispatched scientist whose `claude` has not written
+/// its first byte — we want every byte from the start). This is what keeps a
+/// resurrected scientist's existing history from being replayed on boot.
+async fn initial_tail_offset(path: &Path) -> u64 {
+    match tokio::fs::metadata(path).await {
+        Ok(meta) => meta.len(),
+        Err(_) => 0,
     }
 }
 
@@ -538,6 +561,84 @@ mod tests {
 
         reader.stop_watching(id);
         assert_eq!(reader.active_count(), 0);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn initial_offset_is_zero_for_missing_file_and_len_for_existing() {
+        let dir = temp_base("offset-init");
+        let id = ScientistId::new();
+        let path = transcript_path(&dir, id);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+
+        // Missing file (fresh dispatch, claude has not written) -> 0.
+        assert_eq!(initial_tail_offset(&path).await, 0);
+
+        // Existing file (resurrected scientist) -> its full byte length, so
+        // the tail follows new appends instead of replaying history.
+        std::fs::write(&path, "line one\nline two\n").unwrap();
+        let len = std::fs::metadata(&path).unwrap().len();
+        assert!(len > 0);
+        assert_eq!(initial_tail_offset(&path).await, len);
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn resurrected_history_is_not_replayed_only_new_appends_emit() {
+        // Regression guard for the boot-flood bug: a scientist resurrected
+        // from roster.json with a large existing transcript must NOT replay
+        // that history into the economy broadcast / chronicle-event bridge.
+        // Before the fix, offset started at 0 and every historical line was
+        // re-broadcast on each boot, flooding the webview emit channel and
+        // wedging dispatch.
+        use tauri::test::{mock_app, MockRuntime};
+
+        let dir = temp_base("no-replay");
+        let app = mock_app();
+        let app_handle: AppHandle<MockRuntime> = app.handle().clone();
+
+        let id = ScientistId::new();
+        let path = transcript_path(&dir, id);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+
+        // Pre-populate the transcript with history, as if resurrected on boot.
+        std::fs::write(
+            &path,
+            "{\"ts\":\"h1\",\"direction\":\"out\",\"payload\":\"history one\"}\n\
+             {\"ts\":\"h2\",\"direction\":\"out\",\"payload\":\"history two\"}\n",
+        )
+        .unwrap();
+
+        let reader = ChronicleReader::new(dir.clone());
+        let mut rx = reader.subscribe();
+        reader.start_watching(id, app_handle.clone());
+
+        // Append one NEW line after watching begins.
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        use std::io::Write;
+        let mut f = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap();
+        writeln!(f, r#"{{"ts":"n1","direction":"out","payload":"new line"}}"#).unwrap();
+        drop(f);
+
+        // The first (and only) event must be the NEW line — never the history.
+        let evt = tokio::time::timeout(std::time::Duration::from_secs(2), rx.recv())
+            .await
+            .expect("timed out waiting for the appended line")
+            .expect("broadcast channel closed");
+        assert_eq!(
+            evt.turn.payload, "new line",
+            "history was replayed — got a pre-existing line instead of the new append",
+        );
+        assert!(
+            rx.try_recv().is_err(),
+            "unexpected extra event queued — resurrected history was replayed",
+        );
+
+        reader.stop_watching(id);
         std::fs::remove_dir_all(&dir).ok();
     }
 }
