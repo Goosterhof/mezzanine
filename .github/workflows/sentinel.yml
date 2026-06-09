@@ -4,8 +4,9 @@
 # Runs on every push to main and every PR against main in THIS repo — the
 # gadget gates its own pull requests instead of waiting for the parent lab to
 # bump the submodule pointer. Mirrors the experiment submodules, which each
-# self-gate. The parent's `.github/workflows/sentinel-mezzanine.yml` remains
-# as an integration backstop on pointer bumps.
+# self-gate. This is the sole gate: the parent's `sentinel-mezzanine.yml` was
+# retired (Decision 019, `aaef163`) — a parent-side `paths: gadgets/mezzanine/**`
+# filter never matches a gitlink pointer bump, so it only ran zero times.
 #
 # Two jobs:
 #   * containment    — frontend (Vue/TS) on Ubuntu: typecheck, lint, format, test

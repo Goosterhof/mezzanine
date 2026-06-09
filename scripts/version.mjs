@@ -1,18 +1,30 @@
 #!/usr/bin/env node
 // Version discipline for the Ascent (#00056, Phase A-4).
 //
-// The Mezzanine's version lives in three manifests that MUST agree, because
-// the updater compares the running version (tauri.conf.json, baked into the
-// binary) against the release manifest. If package.json says 0.2.0 while
-// tauri.conf.json still says 0.1.0, a release tagged v0.2.0 ships a binary
-// that reports 0.1.0 — and the updater would re-offer the same version
+// The Mezzanine's version lives in FOUR tracked manifests that MUST agree,
+// because the updater compares the running version (tauri.conf.json, baked
+// into the binary) against the release manifest. If package.json says 0.2.0
+// while tauri.conf.json still says 0.1.0, a release tagged v0.2.0 ships a
+// binary that reports 0.1.0 — and the updater would re-offer the same version
 // forever, or never. This script is the single source that keeps them locked.
 //
-//   node scripts/version.mjs check          — assert all three agree (CI gate)
-//   node scripts/version.mjs bump 0.2.0      — set all three to 0.2.0
+//   node scripts/version.mjs check          — assert all four agree (CI gate)
+//   node scripts/version.mjs bump 0.2.0      — set all four to 0.2.0
 //
-// No dependencies — plain Node fs + a scoped Cargo.toml edit (the [package]
-// version only, never the inline dependency `version = "2"` tables).
+// The fourth manifest is package-lock.json — it carries the version twice
+// (top-level + the root `packages[""]` entry). It is easy to forget because
+// `bump` historically only touched the three "real" manifests; the lockfile
+// then drifts, and the RELEASE job's `npm ci` fails ("can only install when
+// package.json and package-lock.json are in sync"). Cost a hand-sync before
+// v0.2.3 (2026-06-09). Folding the lockfile into both `bump` and `check`
+// makes the desync impossible to ship: `bump` rewrites it, and the existing
+// version-lockstep CI gate (which runs `check`) now fails the moment it drifts.
+// Cargo.lock is deliberately NOT covered — it is untracked/gitignored and the
+// release's `cargo build` regenerates its [package] version in place.
+//
+// No dependencies — plain Node fs + scoped regex edits (the Cargo.toml
+// [package] version only, never inline dep tables; the package-lock.json
+// "mezzanine" version sites only, never the dependency `"version"` fields).
 
 import {readFileSync, writeFileSync} from 'node:fs';
 import {dirname, resolve} from 'node:path';
@@ -22,6 +34,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PACKAGE_JSON = resolve(ROOT, 'package.json');
 const TAURI_CONF = resolve(ROOT, 'src-tauri/tauri.conf.json');
 const CARGO_TOML = resolve(ROOT, 'src-tauri/Cargo.toml');
+const PACKAGE_LOCK = resolve(ROOT, 'package-lock.json');
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
 
@@ -72,17 +85,24 @@ function readVersions() {
     const pkg = JSON.parse(readFileSync(PACKAGE_JSON, 'utf8'));
     const conf = JSON.parse(readFileSync(TAURI_CONF, 'utf8'));
     const cargo = readCargoVersion(readFileSync(CARGO_TOML, 'utf8'));
-    return {'package.json': pkg.version, 'tauri.conf.json': conf.version, 'Cargo.toml': cargo};
+    const lock = JSON.parse(readFileSync(PACKAGE_LOCK, 'utf8'));
+    return {
+        'package.json': pkg.version,
+        'tauri.conf.json': conf.version,
+        'Cargo.toml': cargo,
+        'package-lock.json': lock.version,
+        'package-lock.json (root pkg)': lock.packages?.['']?.version,
+    };
 }
 
 function check() {
     const versions = readVersions();
     const distinct = new Set(Object.values(versions));
     for (const [file, version] of Object.entries(versions)) {
-        console.log(`  ${file.padEnd(18)} ${version ?? '(not found)'}`);
+        console.log(`  ${file.padEnd(30)} ${version ?? '(not found)'}`);
     }
     if (distinct.size === 1 && !distinct.has(undefined) && !distinct.has(null)) {
-        console.log(`\nThe balcony's three manifests agree: v${[...distinct][0]}.`);
+        console.log(`\nThe balcony's four manifests agree: v${[...distinct][0]}.`);
         return;
     }
     console.error('\nVersion drift: the three manifests disagree. Run `npm run version:bump <version>`.');
@@ -112,7 +132,24 @@ function bump(version) {
     const cargoRaw = readFileSync(CARGO_TOML, 'utf8');
     writeFileSync(CARGO_TOML, writeCargoVersion(cargoRaw, version));
 
-    console.log(`The balcony is now v${version} across all three manifests. Tag it: git tag v${version}`);
+    // package-lock.json carries the version twice — the top-level field and
+    // the root package entry (`packages[""]`). Both sit immediately after a
+    // `"name": "mezzanine",` line and nowhere else in the file (dependency
+    // entries are never named "mezzanine"), so one scoped replace-all hits
+    // exactly those two without a JSON round-trip that would reflow the whole
+    // lockfile (and churn line endings on Windows — see Pattern 018).
+    const lockRaw = readFileSync(PACKAGE_LOCK, 'utf8');
+    const lockPattern = /("name":\s*"mezzanine",\s*"version":\s*)"[^"]+"/g;
+    const lockSites = lockRaw.match(lockPattern);
+    if (!lockSites || lockSites.length !== 2) {
+        throw new Error(
+            `Expected exactly 2 "mezzanine" version sites in package-lock.json, found ${lockSites?.length ?? 0}. ` +
+                'The lockfile shape changed — fix scripts/version.mjs before bumping.',
+        );
+    }
+    writeFileSync(PACKAGE_LOCK, lockRaw.replace(lockPattern, `$1"${version}"`));
+
+    console.log(`The balcony is now v${version} across all four manifests. Tag it: git tag v${version}`);
 }
 
 const [, , mode, arg] = process.argv;
