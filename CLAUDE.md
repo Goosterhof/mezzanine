@@ -34,11 +34,12 @@ panel label this gadget will ever ship.
 
 | Surface | The Mezzanine Voice |
 |---------|---------------------|
-| Empty Roster | *"Balcony quiet. No scientists dispatched."* |
-| No selection | *"Balcony quiet. No scientist selected. Dispatch one from the balcony, or click a roster row."* |
-| Roster row label | *"The Crucible · 'check phpstan' · working · 2m 14s"* |
-| Idle-warning row | *"Idle 1h+"* (dim treatment, signal-coloured pulse) |
-| Recently Recalled tile | *"<target> · <mission> · <recalledAgo>"* (dimmed strip below the Roster) |
+| Empty floor | *"Balcony quiet. No scientists dispatched."* (rendered ON the floor — the absence is felt downstairs; condenses to *"Balcony quiet."* on the 64px strip) |
+| No selection | *"Balcony quiet. No scientist selected. Dispatch one from the balcony, or click a nameplate, or a scientist on the floor."* |
+| Railing nameplate | *"● The Crucible / check phpstan · 2m 14s"* (horizontal plate on the railing, above its sprite) |
+| Idle-warning plate | *"Idle 1h+"* (dim treatment, signal-coloured pulse; replaces the elapsed line) |
+| Crashed plate | *"Mission ended in failure. Recall to clear."* (red dot, hairline crashed border, Recall always visible) |
+| Recently Recalled tile | *"<target> · <mission> · <recalledAgo>"* (dimmed horizontal strip docked at the railing's right end) |
 | Dispatch CTA | *"Dispatch ▾"* |
 | Dispatch sheet header | *"Send a scientist to the lab floor"* |
 | Brief placeholder | *"What is the mission? Free-form — the scientist receives this as the opening prompt."* |
@@ -185,16 +186,18 @@ mezzanine/
 │   ├── version.mjs ........... The Ascent (#00056) — version lockstep across package.json / tauri.conf.json / Cargo.toml / package-lock.json (`check` / `bump` — four manifests must agree)
 │   └── release-readiness.mjs . Advisory PR job — warns when a feat/fix lands without a version bump (Decision 017 / Pattern 024: non-blocking, always exits 0)
 ├── src/
-│   ├── App.vue ............... Top-level shell — BalconyRail + TopBar + Roster + ScientistCanvas + CommandBar + Dispatch + MissionControl + DrydockPanel + FirstRunWizard + AscentPrompt
+│   ├── App.vue ............... The two-storey frame (#00057): Balustrade + RailingNameplates / ScientistCanvas + CommandBar / RailingDivider / LabFloor (permanent — no v-if, no v-show) + the four summonable panels + Dispatch + FirstRunWizard + AscentPrompt. Owns isShortWindow (<820px → 64px floor-strip) and the plumb-line geometry (plumbX / plumbLength / plumbDropping)
 │   ├── main.ts ............... createApp + UnoCSS
 │   ├── ascent/                The Ascent (#00056) — the balcony rebuilds itself
 │   │   ├── types.ts .......... AscentStatus union + UpdateMeta
 │   │   ├── useAscent.ts ...... Singleton — check() / descend() / dismiss(); wraps plugin-updater + plugin-process; _resetForTests()
 │   │   └── AscentPrompt.vue .. Balcony-voiced prompt strip; descend/stay actions + descent progress
-│   ├── shell/                 Frame
-│   │   ├── BalconyRail.vue ... Top rail — three signs (Last Chaos, Idea Ledger, Reserved) + Dispatch ▾ trigger
-│   │   ├── TopBar.vue ........ Mission Control / Drydock panel toggles
-│   │   └── useShell.ts ....... openPanel + togglePanel/closePanel singleton
+│   ├── shell/                 Frame — the Overlook's balcony chrome (#00057)
+│   │   ├── Balustrade.vue .... The single ~76px brass cap (merged BalconyRail + TopBar, both retired): identity, two signs (Reserved tile dropped), MC/DD/HT/GR glyphs (OB retired), Dispatch ▾ trigger
+│   │   ├── RailingNameplates.vue The roster rotated horizontal, mounted on the railing — three-tier overflow, ‹ N more › drawer (reuses ScientistRow verbatim), SELECTION-PROMOTES + CRASH-PINS laws, scrollToPlate
+│   │   ├── RailingNameplate.vue One brass plate: PulseDot + target + mission + elapsed + hover-revealed Recall; crashed/idle-warn treatments; plumb-anchor when selected
+│   │   ├── RailingDivider.vue  Brass-post SVG balustrade between the storeys — hosts the plumb-line (300ms stroke-dashoffset draw-on, reduced-motion instant)
+│   │   └── useShell.ts ....... openPanel + togglePanel/closePanel singleton — PanelId is 'mission-control' | 'drydock' | 'holotable' | 'grind' (no 'observer'; the floor is permanent)
 │   ├── roster/                The dispatched-scientist domain
 │   │   ├── types.ts .......... Scientist / Target / MissionState / TARGET_OPTIONS / targetLabel / targetKey
 │   │   ├── useRoster.ts ...... Singleton roster + recalled-strip + selection state
@@ -202,10 +205,9 @@ mezzanine/
 │   │   ├── useScientistTerminals.ts xterm.js Terminal pool, keyed by ScientistId
 │   │   ├── useIdleWarning.ts . 1h idle threshold, ticks every minute
 │   │   ├── PulseDot.vue ...... 5-state animated indicator + idle-warning treatment
-│   │   ├── ScientistRow.vue .. One roster row: target / mission / state / elapsed / Recall
-│   │   ├── Roster.vue ........ The list of dispatched scientists + Recently Recalled strip
-│   │   ├── RecentlyRecalledStrip.vue  5-minute dim strip below the active Roster
-│   │   └── ScientistCanvas.vue Center xterm.js stack — one wrapper per scientist, only selected visible
+│   │   ├── ScientistRow.vue .. One vertical row: target / mission / state / elapsed / Recall — survives as the railing's overflow-drawer row (Roster.vue retired by #00057)
+│   │   ├── RecentlyRecalledStrip.vue  5-minute dim strip, re-skinned horizontal and docked at the railing's right end (#00057; data/TTL logic untouched)
+│   │   └── ScientistCanvas.vue Upper-storey xterm.js stack — one wrapper per scientist, only selected visible; plays the 280ms wrapper-only rise on selection (xterm text never transformed; FitAddon re-fit on transitionend)
 │   ├── balcony/               Dispatch surface + rail signs (Phase 2B)
 │   │   ├── types.ts .......... BalconySigns / BriefingTemplate mirrors of the Rust serde shapes
 │   │   ├── useDispatch.ts .... Singleton dispatch-sheet state (open / target / template / brief / submit)
@@ -222,6 +224,15 @@ mezzanine/
 │   │   ├── scene.js .......... Lifted 1835-line WebGL engine; exports initScene(opts)
 │   │   ├── HolotableScene.vue . `<canvas>` host — mounts scene, watches state, pause/resume RAF
 │   │   └── HolotablePanel.vue . Slide-down panel — refresh button, voiced error variants
+│   ├── observer/              Arc 2 (#00052) — the activity floor; promoted to the permanent lower storey by #00057
+│   │   ├── types.ts .......... ActivityState / ChronicleEvent / ScientistActivity wire shapes
+│   │   ├── activityInference.ts Transcript-turn → ActivityState inference (lifted from the Pixel Lab)
+│   │   ├── useObserver.ts .... Singleton chronicle-event subscription; per-scientist activity map (push-always)
+│   │   ├── lab-core.js ....... Lifted pure helpers (ESM); ignored by oxlint/oxfmt/vue-tsc
+│   │   ├── scene.js .......... Lifted Canvas 2D pixel engine — controller: setRoster / setSelected / setStrip / getStationPos / getFloorSize / pauseRaf / resumeRaf / destroy; sprite clicks emit selectScientist:<id> (#00057)
+│   │   ├── LabScene.vue ...... `<canvas>` host — pushes roster/selection/strip down; wires onInteraction → roster.select (the Arc 2 seam's first consumer)
+│   │   └── LabFloor.vue ...... THE PERMANENT FLOOR (#00057) — never a toggle; 40vh / 64px strip (never zero); CSS perspective gradient + light pools (opacity = total function of ActivityState); empty voice on the floor; RAF gated by window focus + matchMedia (ObserverPanel.vue retired)
+│   ├── grind/                 Arc 3 (#00053) — the lab economy: gameCore.ts + useGrind + GrindRenderer + GrindHud + GrindPanel (GR glyph)
 │   ├── command/               Always-on input tray
 │   │   └── CommandBar.vue .... Always-focused bottom input → write_to_scientist(selected, text + "\n")
 │   ├── wizard/                First-run wizard (Phase 2C) — three steps, balcony voice
@@ -241,10 +252,12 @@ mezzanine/
 ├── tests/                      Mirrors src/ slices — all *.spec.ts live here
 │   ├── ascent/ ................ useAscent (flow states) + AscentPrompt (render / actions / balcony voice)
 │   ├── balcony/ ............... BalconySign + BriefingLibrary + useBalconySigns + useBriefingLibrary + useDispatch
+│   ├── observer/ .............. LabFloor (floor invariants, pool totality, RAF gating) + useObserver + activityInference + types
+│   ├── roster/ ................ ScientistRow + ScientistCanvas (incl. the rise) + RecentlyRecalledStrip + PulseDot + composables
 │   ├── wizard/ ................ useWizard + FirstRunWizard + Steps (StepLaboratory / StepBinary / StepChronicle)
 │   ├── mission/ ............... MissionControl + sections + useMissionControl
 │   ├── drydock/ ............... DrydockPanel + PrCard + FileDiff + ReviewActions + useDrydock
-│   └── shell/ ................. TopBar + useShell
+│   └── shell/ ................. Balustrade + RailingNameplate + RailingNameplates + RailingDivider + useShell
 ├── uno.config.ts ............. Balcony palette: mz-surface, mz-rail, mz-canvas, mz-pulse-*
 ├── vite.config.ts ............ Vue + UnoCSS plugins, port 1430
 ├── .oxlintrc.json ............ War-room canonical oxlint config (correctness:error, type-aware)
@@ -294,6 +307,7 @@ The deployment plan lives in
 | Arc 2 — The Observer | VS Code `gadgets/pixel-lab/` absorbed into the Mezzanine as an `[Observer]` panel; new `observer/` slice on both sides; shared `chronicle/reader.rs` infrastructure (consumed by Arc 3); `ChronicleTurn` + `TurnDirection` promoted from `roster::live` to `chronicle::types` for cross-module deserialization; 2554-line Canvas 2D engine lifted from `gadgets/pixel-lab/webview/lab.js` (IIFE→ES module, VS Code messaging stripped, MINION_OFFSETS cap retired); 43 ported activity-inference tests + 15 useObserver tests; `[Observer]` (OB) added as new rightmost TopBar button; bidirectional roster/sprite selection sync; push-always chronicle subscription (contrast: Holotable is investor-pull); cross-host ratification deferred to Windows | ✅ Static-green 2026-05-26 — frontend gates: oxlint 0/0, vue-tsc clean, vitest 312/312 (+70 new), v8 coverage 96.56% lines / 91.65% branches / 98.21% functions, vite build clean (scene chunked at 37kB). Rust side `cargo check` + `cargo test` pending Windows at delivery (graduated to the Ubuntu `rust-substrate` sentinel job 2026-06-09 via v0.2.4 — only `cargo tauri build` bundling remains Windows-only); the new `chronicle::reader` tests use `tauri::test::mock_app` under the dev-only `test` feature added to `Cargo.toml`. Per #00052 RD-3, `gadgets/pixel-lab/` is NOT tombstoned here — that waits for Arc #00053. Experiment log: `documents/experiment-logs/00052-the-observer.md`. |
 | Arc 3 — The Grind | VS Code `gadgets/idle-lab/` absorbed into the Mezzanine as a `[Grind]` panel; new `grind/` slice on both sides (Rust economy + Vue engine + HUD + renderer); 1084-line `game-core.js` rewritten as `gameCore.ts` (ES module, all 8 building tiers / 10 upgrades / 15 milestones / prestige / offline progress intact); economy reframed per RD-2 — the *lab* earns, not the investor (chronicle line / dispatch / clean recall / mission duration replace keystroke / save / file open); G-0 spec recorded inline (CHRONICLE_LINE_RP=0.5, CHRONICLE_RATE_CAP=4.0/s, DISPATCH_RP=25, RECALL_CLEAN_RP=100); 16-node theorem tree (the 12 originals + new Dispatch branch: Tireless Bench / Recall Discipline / Briefing Library / Many Hands); `[Grind]` (GR) added as new rightmost TopBar button; ChronicleReader extended with `tokio::sync::broadcast` for in-process Rust consumers (the EconomyManager subscribes); `grind-rp-grant` Tauri event for frontend; G-6 cleanup tail executed (three submodule tombstones + three Sentinel retirements + root CLAUDE.md gadget table 5→2); cross-host ratification deferred to Windows | ✅ Static-green 2026-05-26 — frontend gates: oxlint 0 errors, vue-tsc clean, vitest 395/395 (+83 new), v8 coverage 96.58% lines / 91.79% branches / 94.37% functions, vite build clean. Rust side `cargo check` + `cargo test` pending Windows at delivery (graduated to the Ubuntu `rust-substrate` sentinel job 2026-06-09 via v0.2.4 — only `cargo tauri build` bundling remains Windows-only); the new `grind::economy::tests` cover all four grant paths, the token-bucket rate limiter, per-scientist independence, dispatch/recall dedup, and wire-shape (kebab-case) serialization. Per RD-3 (executed in G-6), `gadgets/{lab-monitor-3d,pixel-lab,idle-lab}/` are tombstoned with CLAUDE.md headers; their Sentinels are `workflow_dispatch`-only; root CLAUDE.md gadget count is 2 (Mezzanine + Horadric Cube). Experiment log: `documents/experiment-logs/00053-the-grind.md`. |
 | The Ascent (#00056) | The balcony rebuilds itself — `tauri-plugin-updater` + `-process` wired (Cargo/lib.rs/capabilities/tauri.conf); new `ascent/` Vue slice (`types` + `useAscent` singleton + `AscentPrompt`) on the `check()` → `descend()` → `relaunch()` flow; check-and-prompt, never silent (RD-2); boot-check gated on wizard completion; updater keypair minted (pubkey in `tauri.conf.json`, private key escrow investor-gated); release pipeline `.github/workflows/ascent.yml` (tag `v*` → Windows → `tauri-action` sign + publish NSIS + `latest.json`); version lockstep via `scripts/version.mjs` + `version-lockstep.yml` (four manifests incl. `package-lock.json`; a non-blocking `release-readiness` advisory PR job was folded into the same workflow post-delivery, `16c4a98`). (The `prefers-reduced-motion` gate this slice's prompt-rise transition needs was landed concurrently by the Warden in `42238e8`; the Ascent rebased onto it rather than duplicate it.) | ✅ DELIVERED 2026-06-02 — A-0–A-5 complete. Static gates green (oxlint 0, vue-tsc, vitest 418/418 +23, ascent coverage 100% lines / 98.4% branches, `cargo check` + `vite build`); A-0 key escrowed in CI; release pipeline NSIS-only (RD-3). **A-5 ratified live**: installed `v0.2.1` saw `v0.2.2`, descended, relaunched into it (investor-confirmed). Latent Grind boot-crash (`tokio::spawn` from `setup()`) found on first real Windows launch + fixed (`tauri::async_runtime::spawn`). `cargo test` execution still deferred to Linux (Windows test binary hits a pre-existing `STATUS_ENTRYPOINT_NOT_FOUND`). Experiment log: `documents/experiment-logs/00056-the-ascent.md`. |
+| The Overlook (#00057) | The two-storey frame — the composition finally agrees with the metaphor. O-1: `BalconyRail` + `TopBar` merged into one ~76px `Balustrade` (Reserved sign dropped, OB glyph retired, `PanelId` loses `'observer'`, `ObserverPanel.vue` deleted, panel `top` offsets re-anchored). O-2: the Roster rotated horizontal as `RailingNameplates`/`RailingNameplate` mounted on the railing (three-tier overflow with SELECTION-PROMOTES + CRASH-PINS laws; `ScientistRow` survives as the overflow-drawer row; `Roster.vue` retired; `RecentlyRecalledStrip` re-skinned horizontal). O-3: `LabFloor.vue` promotes the Observer scene to the permanent lower storey — no v-if/v-show, CSS perspective gradient + light pools (opacity a total function of all 7 `ActivityState`s; error burns red), empty voice on the floor, RAF gated by window focus + matchMedia; `scene.js` controller widened with `getStationPos`/`getFloorSize`; sprite clicks emit `selectScientist:<id>` into the Arc-2 `onInteraction` seam → `roster.select` (bidirectional). O-4: the "Leaning Over the Railing" signature — `RailingDivider` brass-post SVG + plumb-line (300ms `stroke-dashoffset` draw-on, plumb-true to the sprite's station, re-targets on walk/resize/scroll), 280ms wrapper-only xterm rise with FitAddon re-fit on `transitionend`, 64px floor-strip below `window.innerHeight < 820` via `setStrip` projection (`tauri.conf.json` untouched — minimums stay 1080×720). All reduced-motion paths: plumb instant, pools snap, rise opacity-only, sprites static. | ✅ Static-green 2026-06-12 — oxlint 0 errors, oxfmt clean, vue-tsc clean, vitest 469/469 (net +48 on the 421-spec pre-arc suite — 70 specs across the five new spec files: Balustrade 12 / RailingNameplate 13 / RailingNameplates 14 / RailingDivider 6 / LabFloor 25, plus rise + voice additions; BalconyRail/TopBar/ObserverPanel/Roster specs retired with their components), v8 coverage 96.87% lines / 91.99% branches / 95.71% functions / 96.87% statements, vite build clean. No Rust changes; `cargo check` deferred to Windows. Cross-host runtime ratification (Pattern 010) pending on the investor's Windows host — DELIVERED waits for §8 evidence in experiment log #00057. |
 
 ## Commands
 

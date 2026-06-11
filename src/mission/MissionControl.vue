@@ -57,7 +57,7 @@ onUnmounted(() => {
     <aside
         v-show="open"
         data-panel="mission-control"
-        class="absolute top-11 right-0 bottom-0 w-[28rem] bg-mz-panel border-l border-mz-edge shadow-balcony flex flex-col z-20"
+        class="absolute top-19 right-0 bottom-0 w-[28rem] bg-mz-panel border-l border-mz-edge shadow-balcony flex flex-col z-20"
     >
         <header class="flex items-center justify-between px-5 py-3 border-b border-mz-edge flex-shrink-0">
             <div>

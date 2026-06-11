@@ -57,11 +57,20 @@ describe('useShell', () => {
         expect(shell.openPanel.value).toBeNull();
     });
 
-    it('accepts observer as a panel id (arc #00052 absorption)', () => {
+    it('accepts grind as a panel id (arc #00053 absorption)', () => {
         const shell = useShell();
-        shell.togglePanel('observer');
-        expect(shell.openPanel.value).toBe('observer');
-        shell.togglePanel('observer');
+        shell.togglePanel('grind');
+        expect(shell.openPanel.value).toBe('grind');
+        shell.togglePanel('grind');
+        expect(shell.openPanel.value).toBeNull();
+    });
+
+    it('does not carry an observer panel id (the Overlook #00057 — the floor is permanent)', () => {
+        // PanelId is a compile-time union; this assertion documents the
+        // runtime contract: nothing in the shell can open an "observer"
+        // panel because the type no longer admits one. The Observer scene
+        // lives in LabFloor — always present, never summoned.
+        const shell = useShell();
         expect(shell.openPanel.value).toBeNull();
     });
 });

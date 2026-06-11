@@ -1942,6 +1942,14 @@ export function initScene(opts) {
 
         if (zone.id === 'scientist') {
             handleScientistPoke();
+            // The Overlook (#00057): a sprite click is a selection. The
+            // seam parked since Arc 2 finally has its consumer — the Vue
+            // host routes this into roster.select(id) for bidirectional
+            // railing/floor selection.
+            const sci = characters[0];
+            if (sci && sci.scientistId) {
+                sendToExtension({type: 'interaction', action: `selectScientist:${sci.scientistId}`});
+            }
         } else if (zone.id.startsWith('minion:')) {
             // Force show speech bubble
             const mId = zone.id.slice(7);
@@ -1949,6 +1957,10 @@ export function initScene(opts) {
             if (minion) {
                 minion.idleTimer = 31;
                 minion.bubbleAlpha = 1;
+                // Same selection seam as the scientist sprite above.
+                if (minion.scientistId) {
+                    sendToExtension({type: 'interaction', action: `selectScientist:${minion.scientistId}`});
+                }
             }
         } else if (zone.id === 'teslaCoil') {
             for (let i = 0; i < 8; i++) spawnParticle(cx + (Math.random() - 0.5) * 10, cy - 2, 'arc');
@@ -2349,8 +2361,53 @@ export function initScene(opts) {
         }
     }
 
+    // --- Strip Projection (the Overlook #00057) ---
+    // On short windows the floor surrenders height to the terminal but
+    // never disappears: a 64px strip showing the scientists, and only
+    // the scientists — no furniture, no pools, no perspective. The
+    // walk/activity game loop is untouched; only the projection changes.
+    const STRIP_H = 32; // logical px — blitted at exactly 64 CSS px
+    let stripMode = false;
+
+    // The selected scientist (roster.selected mirrored down by the Vue
+    // host via setSelected). Declared here — before render() first runs
+    // on the reduced-motion boot path — so the halo draw never reads it
+    // in the temporal dead zone.
+    let selectedId = null;
+
+    function activeStripCharacters() {
+        return characters.filter((c) => c.scientistId && !c.despawning);
+    }
+
+    function renderStrip() {
+        bx.fillStyle = PAL.bg;
+        bx.fillRect(0, 0, W, STRIP_H);
+        const active = activeStripCharacters();
+        const gap = W / (active.length + 1);
+        active.forEach((c, i) => {
+            const sx = Math.round(gap * (i + 1));
+            const sy = 12;
+            if (c.type === 'scientist') {
+                drawScientist(sx, sy, 0, 1, sx, sy);
+            } else {
+                drawMinion({...c, x: sx, y: sy, bubbleAlpha: 0, spawnPhase: 5, despawning: false});
+            }
+            if (selectedId && c.scientistId === selectedId) {
+                bx.globalAlpha = 0.5;
+                rect(sx - 5, sy + (c.type === 'minion' ? 11 : 17), 18, 2, '#D4A24C');
+                bx.globalAlpha = 1;
+            }
+        });
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(buf, 0, 0, W, STRIP_H, 0, 0, canvas.width, canvas.height);
+    }
+
     // --- Render ---
     function render() {
+        if (stripMode) {
+            renderStrip();
+            return;
+        }
         bx.fillStyle = PAL.bg;
         bx.fillRect(0, 0, W, H);
 
@@ -2381,6 +2438,19 @@ export function initScene(opts) {
         for (const m of visible) {
             if (m.bubbleAlpha > 0) {
                 drawSpeechBubble(m.x + 2, m.y, m.speechText, m.bubbleAlpha);
+            }
+        }
+
+        // The Overlook (#00057): the selected sprite is the brightest
+        // thing on the floor — a soft brass halo at its feet marks where
+        // the plumb-line lands. setSelected() was wired in Arc 2; this
+        // is its first light.
+        if (selectedId) {
+            const sel = characters.find((c) => c.scientistId === selectedId);
+            if (sel) {
+                bx.globalAlpha = 0.35 + (frame % 20 < 10 ? 0.15 : 0);
+                rect(sel.x - 5, sel.y + (sel.type === 'minion' ? 11 : 17), 18, 2, '#D4A24C');
+                bx.globalAlpha = 1;
             }
         }
 
@@ -2534,7 +2604,6 @@ export function initScene(opts) {
     // a grid generator. Recalls remove characters; new dispatches add
     // them. The activity field is the inferred ActivityState
     // (`thinking` / `writing` / etc.) the Observer composable computes.
-    let selectedId = null;
     function setRoster(rosterEntries) {
         const list = Array.isArray(rosterEntries) ? rosterEntries : [];
         // Despawn characters whose scientist is no longer on the roster.
@@ -2600,6 +2669,56 @@ export function initScene(opts) {
         selectedId = scientistId;
     }
 
+    // --- Station Position Seam (the Overlook #00057) ---
+    // The plumb-line consumes the x; the light-pool radial centers
+    // consume the y. Coordinates are logical floor pixels — the Vue
+    // host applies the CSS scale factor via the canvas's
+    // getBoundingClientRect() (see experiment log §11).
+    function getStationPos(scientistId) {
+        const active = activeStripCharacters();
+        const char = active.find((c) => c.scientistId === scientistId);
+        if (stripMode) {
+            const idx = char ? active.indexOf(char) : 0;
+            const gap = W / (active.length + 1);
+            return {x: Math.round(gap * (idx + 1)), y: 12};
+        }
+        if (!char) {
+            return {x: POSITIONS.idle.x, y: POSITIONS.idle.y};
+        }
+        // targetX/targetY hold the character's current station (including
+        // minion offsets and idle waypoints) — the plumb-line re-targets
+        // when the scientist walks; it is never pinned to selection-time x.
+        return {x: char.targetX, y: char.targetY};
+    }
+
+    /** Logical floor dimensions for the active projection — consumers
+     *  divide a getBoundingClientRect() by these to get the CSS scale. */
+    function getFloorSize() {
+        return {w: W, h: stripMode ? STRIP_H : H};
+    }
+
+    // --- Strip Mode (the Overlook #00057, O-4) ---
+    // Engages the 64px strip projection. Resizing the canvas resets the
+    // 2D context state, so pixelation is re-asserted and one frame is
+    // drawn immediately — a paused or reduced-motion loop must not leave
+    // a blank floor behind the resize.
+    function setStrip(on) {
+        const next = Boolean(on);
+        if (next === stripMode) {
+            return;
+        }
+        stripMode = next;
+        if (stripMode) {
+            canvas.height = STRIP_H * 2 * DPR;
+            canvas.style.height = '64px';
+        } else {
+            canvas.height = H * SCALE * DPR;
+            canvas.style.height = `${H * SCALE}px`;
+        }
+        ctx.imageSmoothingEnabled = false;
+        render();
+    }
+
     // --- Lifecycle (pause / resume / destroy) ---
     // The Vue host calls these from the panel's open/close transitions
     // and from `onBeforeUnmount`. Pausing keeps the canvas state intact
@@ -2629,5 +2748,5 @@ export function initScene(opts) {
         __originalGameLoop(timestamp);
     };
 
-    return {setRoster, setSelected, pauseRaf, resumeRaf, destroy};
+    return {setRoster, setSelected, setStrip, getStationPos, getFloorSize, pauseRaf, resumeRaf, destroy};
 }

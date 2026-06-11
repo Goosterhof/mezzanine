@@ -38,7 +38,7 @@ function onSave(): void {
         <section
             v-show="open"
             data-grind-panel
-            class="absolute inset-x-0 top-11 z-20 bg-mz-panel/95 backdrop-blur border-b border-mz-edge shadow-balcony flex flex-col"
+            class="absolute inset-x-0 top-19 z-20 bg-mz-panel/95 backdrop-blur border-b border-mz-edge shadow-balcony flex flex-col"
             style="height: 70vh"
             role="dialog"
             aria-label="The Grind"

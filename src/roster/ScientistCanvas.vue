@@ -62,11 +62,42 @@ function activate(id: ScientistId): void {
     });
 }
 
+// The xterm rise (#00057 §4) — the terminal rises into the investor's
+// storey from behind the railing. The transition is on the WRAPPER:
+// the xterm canvas's internal text is never transformed — the readings
+// stay flat and crisp; the frame moves. FitAddon re-fits on
+// transitionend so cols/rows settle against final geometry, not
+// mid-transition. Under prefers-reduced-motion the rise is opacity-only
+// (no translate — see the scoped @media block below) and near-instant
+// per the global 0.01ms gate.
+function playRise(id: ScientistId): void {
+    const wrapper = wrapperRefs.get(id);
+    if (!wrapper) {
+        return;
+    }
+    wrapper.classList.remove('mz-rise-play');
+    wrapper.classList.add('mz-rise-prep');
+    // Force a reflow so the prep offset paints before the transition arms.
+    void wrapper.offsetHeight;
+    wrapper.classList.add('mz-rise-play');
+    wrapper.classList.remove('mz-rise-prep');
+    const onEnd = (event: TransitionEvent | Event): void => {
+        if (event.target !== wrapper) {
+            return;
+        }
+        wrapper.classList.remove('mz-rise-play');
+        wrapper.removeEventListener('transitionend', onEnd);
+        fitAndPush(id, terminals.get(id));
+    };
+    wrapper.addEventListener('transitionend', onEnd);
+}
+
 watch(
     () => roster.selected.value,
     (id) => {
         if (id) {
             activate(id);
+            playRise(id);
         }
     },
     {flush: 'post'},
@@ -121,7 +152,8 @@ onBeforeUnmount(() => {
             <div class="text-center max-w-md">
                 <div class="mz-stamp-label mb-3">Balcony quiet</div>
                 <p class="text-mz-text-mute font-display text-sm">
-                    No scientist selected. Dispatch one from the balcony, or click a roster row.
+                    No scientist selected. Dispatch one from the balcony, or click a nameplate, or a scientist on the
+                    floor.
                 </p>
             </div>
         </div>
@@ -139,6 +171,24 @@ onBeforeUnmount(() => {
 </template>
 
 <style>
+/* The rise (#00057): wrapper-only — xterm's internal text rendering is
+ * sacred and never transformed. */
+.mz-rise-prep {
+    transform: translateY(24px);
+    opacity: 0;
+}
+.mz-rise-play {
+    transition:
+        transform 280ms ease-out,
+        opacity 280ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+    /* Opacity-only crossfade: the terminal appears; it does not slide. */
+    .mz-rise-prep {
+        transform: none;
+    }
+}
+
 /* xterm.js renders its own canvas inside the wrapper. Pin xterm's viewport
  * to the wrapper so it fills the canvas region without spilling. */
 .xterm,

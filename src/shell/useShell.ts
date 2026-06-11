@@ -7,10 +7,12 @@ import {ref} from 'vue';
 // absent.
 //
 // Arc 2 of the absorption trilogy (#00052) widened this union to include
-// `observer`. Arc 3 (#00053) closes the trilogy with `grind` — the lab
-// economy panel sits beside Mission Control, Drydock, Holotable, and
-// Observer on the TopBar.
-export type PanelId = 'mission-control' | 'drydock' | 'holotable' | 'observer' | 'grind';
+// `observer`; Arc 3 (#00053) closed the trilogy with `grind`. The
+// Overlook (#00057) narrows it again: the Observer is no longer a
+// summonable panel — its scene is the permanent lower storey
+// (`LabFloor.vue`), and a toggle for an always-on surface is a
+// contradiction. Four panels survive on the Balustrade.
+export type PanelId = 'mission-control' | 'drydock' | 'holotable' | 'grind';
 
 const openPanel = ref<PanelId | null>(null);
 

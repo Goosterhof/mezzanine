@@ -42,7 +42,6 @@ export default defineConfig({
                 // (useObserver.ts + activityInference.ts + types.ts) is
                 // what carries the testable surface for v8 coverage.
                 'src/observer/LabScene.vue',
-                'src/observer/ObserverPanel.vue',
                 'src/observer/scene.js',
                 'src/observer/lab-core.js',
                 // The Grind's Canvas 2D renderer (Arc 3 #00053) draws

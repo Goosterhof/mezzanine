@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {onMounted, ref, watch} from 'vue';
+import {nextTick, onMounted, ref, watch} from 'vue';
 
 import AscentPrompt from './ascent/AscentPrompt.vue';
 import {useAscent} from './ascent/useAscent';
@@ -12,18 +12,20 @@ import GrindPanel from './grind/GrindPanel.vue';
 import {useGrind} from './grind/useGrind';
 import HolotablePanel from './holotable/HolotablePanel.vue';
 import MissionControl from './mission/MissionControl.vue';
-import ObserverPanel from './observer/ObserverPanel.vue';
+import LabFloor from './observer/LabFloor.vue';
 import {useObserver} from './observer/useObserver';
-import Roster from './roster/Roster.vue';
 import ScientistCanvas from './roster/ScientistCanvas.vue';
 import {useRoster} from './roster/useRoster';
 import {useRosterBackend} from './roster/useRosterBackend';
-import BalconyRail from './shell/BalconyRail.vue';
-import TopBar from './shell/TopBar.vue';
+import Balustrade from './shell/Balustrade.vue';
+import RailingDivider from './shell/RailingDivider.vue';
+import RailingNameplates from './shell/RailingNameplates.vue';
 import FirstRunWizard from './wizard/FirstRunWizard.vue';
 import {useWizard} from './wizard/useWizard';
 
-const rosterRef = ref<InstanceType<typeof Roster> | null>(null);
+const railingRef = ref<InstanceType<typeof RailingNameplates> | null>(null);
+const labFloorRef = ref<InstanceType<typeof LabFloor> | null>(null);
+const dividerRef = ref<InstanceType<typeof RailingDivider> | null>(null);
 const roster = useRoster();
 const observer = useObserver();
 const wizard = useWizard();
@@ -34,7 +36,75 @@ const wizard = useWizard();
 // outward to the floor below for the first time (§7 — first reach outward).
 let ascentChecked = false;
 
+// The Overlook (#00057) — short-window collapse. Below 820px of window
+// height the floor surrenders its storey to the terminal and becomes a
+// 64px strip (§10 divergence #1: tauri.conf.json minimums stay 1080×720;
+// the strip earns its keep in the 720–819px band). Height is the only
+// collapse trigger — the width branch is unreachable behind minWidth.
+const SHORT_WINDOW_THRESHOLD = 820;
+const isShortWindow = ref(window.innerHeight < SHORT_WINDOW_THRESHOLD);
+
+// --- The plumb-line (#00057 §4) ------------------------------------------
+// plumbX is the selected sprite's station x, CSS-scale-corrected and
+// expressed relative to the RailingDivider's left edge. It re-targets on
+// every selection change, on window resize, on railing scroll (the
+// release-point visuals stay honest), and when the selected scientist's
+// activity changes — the sprite WALKS to a new station and the line
+// follows. It is never pinned to a selection-time x (§11).
+const plumbX = ref<number | null>(null);
+const plumbLength = ref(160);
+const plumbDropping = ref(false);
+let plumbDropTimer: ReturnType<typeof setTimeout> | null = null;
+
+function dividerOrigin(): {left: number; top: number} {
+    const dividerEl = dividerRef.value?.$el as HTMLElement | undefined;
+    const rect = dividerEl?.getBoundingClientRect();
+    return {left: rect?.left ?? 0, top: rect?.top ?? 0};
+}
+
+function recomputePlumb(): void {
+    const id = roster.selected.value;
+    const point = id === null ? null : (labFloorRef.value?.stationToPage(id) ?? null);
+    if (!point) {
+        plumbX.value = null;
+        return;
+    }
+    const origin = dividerOrigin();
+    plumbX.value = point.x - origin.left;
+    plumbLength.value = Math.max(16, point.y - origin.top);
+}
+
+function dropPlumb(): void {
+    if (plumbDropTimer !== null) {
+        clearTimeout(plumbDropTimer);
+    }
+    plumbDropping.value = true;
+    plumbDropTimer = setTimeout(() => {
+        plumbDropping.value = false;
+        plumbDropTimer = null;
+    }, 320);
+}
+
+// Railing scroll keeps the plate's release-point visuals honest — the
+// listener is passive and rAF-throttled (§11).
+let railScrollTicking = false;
+function onRailScroll(): void {
+    if (railScrollTicking) return;
+    railScrollTicking = true;
+    requestAnimationFrame(() => {
+        railScrollTicking = false;
+        recomputePlumb();
+    });
+}
+
+function onWindowResize(): void {
+    isShortWindow.value = window.innerHeight < SHORT_WINDOW_THRESHOLD;
+    recomputePlumb();
+}
+
 onMounted(() => {
+    window.addEventListener('resize', onWindowResize);
+    railingRef.value?.railRef?.addEventListener('scroll', onRailScroll, {passive: true});
     void useRosterBackend().subscribe();
     // The wizard's step 3 folds in the chronicle ack — on first boot the
     // disclosure is acknowledged when the investor opens the balcony.
@@ -55,17 +125,48 @@ onMounted(() => {
     void useGrind().start();
 });
 
-// Sprite-click → roster-row scroll. The Observer's setSelected path
-// updates `useRoster.selected`; this watcher fans the selection out
-// to the Roster component so the matching row scrolls into view.
+// Selection → the signature gesture (#00057 §4, "Leaning Over the
+// Railing"). Sprite clicks on the floor and nameplate clicks on the rail
+// both land in `useRoster.selected`; this watcher fans the selection out:
+// the plate slides into view (inline: 'nearest'), the plumb-line drops at
+// the sprite's station, the light re-centers (LabScene → setSelected),
+// and the terminal rises (ScientistCanvas). On select(null) the gesture
+// unwinds without ceremony — the railing simply lets go.
 watch(
     () => roster.selected.value,
     (id) => {
         if (id !== null) {
-            rosterRef.value?.scrollToRow(id);
+            railingRef.value?.scrollToPlate(id);
         }
+        void nextTick(() => {
+            recomputePlumb();
+            if (id !== null) {
+                dropPlumb();
+            }
+        });
     },
 );
+
+// The selected scientist walks — their activity changes retarget the
+// sprite's station, and the plumb-line follows (§11).
+watch(
+    () => {
+        const id = roster.selected.value;
+        return id === null ? null : observer.activities.value.get(id)?.state;
+    },
+    () => {
+        void nextTick(() => {
+            recomputePlumb();
+        });
+    },
+);
+
+// The strip re-projects every station — recompute against the new geometry.
+watch(isShortWindow, () => {
+    void nextTick(() => {
+        recomputePlumb();
+    });
+});
 
 // The Ascent boot check — gated on wizard completion. `needsWalkthrough` is
 // true while the wizard is checked-and-incomplete; it flips false once the
@@ -85,20 +186,25 @@ watch(
 
 <template>
     <div class="relative flex flex-col h-full bg-mz-surface text-mz-text font-body">
-        <BalconyRail />
-        <TopBar />
-        <div class="flex flex-1 min-h-0">
-            <Roster ref="rosterRef" />
-            <main class="relative flex-1 flex flex-col min-w-0">
-                <ScientistCanvas />
-                <CommandBar />
-            </main>
-        </div>
+        <!-- ① + ② + ③ : the balcony chrome — one merged brass cap + the railing of nameplates -->
+        <Balustrade />
+        <RailingNameplates ref="railingRef" />
+        <!-- ④ + ⑤ : the investor's storey -->
+        <main class="relative flex-1 flex flex-col min-h-0 min-w-0">
+            <ScientistCanvas />
+            <CommandBar />
+        </main>
+        <!-- ⑥ : the edge you lean over — hosts the plumb-line -->
+        <RailingDivider ref="dividerRef" :selected-x="plumbX" :drop-length="plumbLength" :dropping="plumbDropping" />
+        <!-- ⑦ : the floor below — ALWAYS present, never a toggle. No v-if,
+             no v-show: if this mount can disappear, the redesign has not
+             happened (#00057 §3). -->
+        <LabFloor ref="labFloorRef" :collapsed="isShortWindow" />
+        <!-- Summonable panels — four survive; the Observer is RETIRED (the floor is permanent) -->
         <Dispatch />
         <MissionControl />
         <DrydockPanel />
         <HolotablePanel />
-        <ObserverPanel />
         <GrindPanel />
         <FirstRunWizard />
         <AscentPrompt />
