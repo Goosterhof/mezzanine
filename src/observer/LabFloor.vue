@@ -20,6 +20,7 @@ import type {ActivityState} from './types';
 
 import {useRoster} from '../roster/useRoster';
 import LabScene from './LabScene.vue';
+import {floorPointToPage} from './projection';
 import {activityFromMission, useObserver} from './useObserver';
 
 interface Props {
@@ -146,9 +147,10 @@ function recomputePoolPositions(): void {
     for (const s of roster.scientists.value) {
         const pos = sceneRef.value?.getStationPos?.(s.id);
         if (!pos) continue;
+        const page = floorPointToPage(pos, size, canvasRect);
         next.set(s.id, {
-            left: canvasRect.left - hostRect.left + (pos.x / size.w) * canvasRect.width,
-            top: canvasRect.top - hostRect.top + (pos.y / size.h) * canvasRect.height,
+            left: page.x - hostRect.left,
+            top: page.y - hostRect.top,
         });
     }
     poolPositions.value = next;
@@ -223,10 +225,7 @@ function stationToPage(id: ScientistId): {x: number; y: number} | null {
     const pos = sceneRef.value?.getStationPos?.(id);
     if (!geometry || !pos) return null;
     const {canvasRect, size} = geometry;
-    return {
-        x: canvasRect.left + (pos.x / size.w) * canvasRect.width,
-        y: canvasRect.top + (pos.y / size.h) * canvasRect.height,
-    };
+    return floorPointToPage(pos, size, canvasRect);
 }
 
 defineExpose({recomputePoolPositions, stationToPage, sceneRef});

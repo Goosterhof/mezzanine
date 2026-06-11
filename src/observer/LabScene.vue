@@ -5,6 +5,7 @@ import type {ScientistId} from '../roster/types';
 import type {ActivityState} from './types';
 
 import {useRoster} from '../roster/useRoster';
+import {parseSelectScientistAction} from './projection';
 import {activityFromMission, useObserver} from './useObserver';
 
 // The controller surface returned by `initScene` — kept as a local
@@ -86,9 +87,12 @@ onMounted(async () => {
             // The seam parked since Arc 2 has its consumer (#00057): a
             // sprite click on the floor selects the scientist, exactly
             // as a nameplate click on the railing does — bidirectional
-            // selection, one signature gesture.
-            if (msg.action?.startsWith('selectScientist:')) {
-                roster.select(msg.action.slice('selectScientist:'.length));
+            // selection, one signature gesture. The wire format is owned
+            // by the projection module — the same definition scene.js
+            // emits with, so the two ends cannot drift.
+            const id = parseSelectScientistAction(msg.action);
+            if (id !== null) {
+                roster.select(id);
             }
         },
     });

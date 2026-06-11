@@ -41,6 +41,12 @@ export default defineConfig({
                 // jsdom environment cannot run; the composable side
                 // (useObserver.ts + activityInference.ts + types.ts) is
                 // what carries the testable surface for v8 coverage.
+                // The geometric spine (#00057 §12 extraction) is NOT
+                // excluded: stations, strip-row layout, floor size, the
+                // CSS-scale projection, and the selectScientist wire
+                // format live in src/observer/projection.ts, covered by
+                // tests/observer/projection.spec.ts — scene.js keeps
+                // only the Canvas and the RAF loop.
                 'src/observer/LabScene.vue',
                 'src/observer/scene.js',
                 'src/observer/lab-core.js',

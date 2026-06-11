@@ -23,6 +23,11 @@
 // returned controller for the panel's lifetime.
 
 import * as Core from './lab-core.js';
+// The geometric spine — station positions, minion offsets, the strip-row
+// projection, floor size, and the selectScientist wire format — extracted
+// into a pure, unit-tested module (#00057 §12). This file keeps the Canvas
+// and the RAF loop; the arithmetic lives where vitest can reach it.
+import * as Projection from './projection';
 
 export function initScene(opts) {
     'use strict';
@@ -42,6 +47,9 @@ export function initScene(opts) {
     // sprite per dispatched scientist — the cap becomes the roster size,
     // not a hard-coded ceiling.
     const MAX_VISIBLE_MINIONS = 99;
+    // The floor plan handed to the projection module — derived from the
+    // same Core constants as W/H so the two can never disagree.
+    const FLOOR_PLAN = {tile: TILE, w: W, h: H};
 
     // --- Lab Furniture Positions (in pixels) ---
     const LAB = {
@@ -70,23 +78,11 @@ export function initScene(opts) {
     };
 
     // --- Scientist Target Positions (where to walk per activity) ---
-    const POSITIONS = {
-        idle: {x: 9 * TILE, y: 7 * TILE},
-        thinking: {x: 6 * TILE, y: 5 * TILE},
-        writing: {x: 13 * TILE, y: 5 * TILE},
-        reading: {x: 3 * TILE, y: 5 * TILE},
-        running: {x: 10 * TILE, y: 8 * TILE},
-        waiting: {x: 9 * TILE, y: 10 * TILE},
-        error: {x: 15 * TILE, y: 8 * TILE},
-    };
+    // Owned by the projection module since the #00057 §12 extraction.
+    const POSITIONS = Projection.stationTable(TILE);
 
-    // --- Minion Position Offsets (relative to scientist target) ---
-    const MINION_OFFSETS = [
-        {dx: -20, dy: 8},
-        {dx: 20, dy: 8},
-        {dx: -12, dy: 16},
-        {dx: 12, dy: 16},
-    ];
+    // (Minion position offsets live in the projection module —
+    // `Projection.MINION_OFFSETS` — consumed via `minionStation`.)
 
     // --- Minion Coat Colors ---
     const MINION_COLORS = [
@@ -1839,12 +1835,8 @@ export function initScene(opts) {
         const color = MINION_COLORS[colorIndex % MINION_COLORS.length];
         colorIndex++;
 
-        const pos = POSITIONS[activity] ?? POSITIONS.idle;
         const minionIndex = characters.filter((c) => c.type === 'minion').length;
-        const offset = MINION_OFFSETS[minionIndex % MINION_OFFSETS.length];
-
-        const x = Math.max(TILE + 4, Math.min(W - TILE - 10, pos.x + offset.dx));
-        const y = Math.max(TILE * 3 + 4, Math.min(H - TILE * 2 - 14, pos.y + offset.dy));
+        const {x, y} = Projection.minionStation(activity, minionIndex, FLOOR_PLAN);
 
         const char = createCharacter(id, 'minion', x, y, activity, detail, color);
         characters.push(char);
@@ -1948,7 +1940,7 @@ export function initScene(opts) {
             // railing/floor selection.
             const sci = characters[0];
             if (sci && sci.scientistId) {
-                sendToExtension({type: 'interaction', action: `selectScientist:${sci.scientistId}`});
+                sendToExtension({type: 'interaction', action: Projection.selectScientistAction(sci.scientistId)});
             }
         } else if (zone.id.startsWith('minion:')) {
             // Force show speech bubble
@@ -1959,7 +1951,10 @@ export function initScene(opts) {
                 minion.bubbleAlpha = 1;
                 // Same selection seam as the scientist sprite above.
                 if (minion.scientistId) {
-                    sendToExtension({type: 'interaction', action: `selectScientist:${minion.scientistId}`});
+                    sendToExtension({
+                        type: 'interaction',
+                        action: Projection.selectScientistAction(minion.scientistId),
+                    });
                 }
             }
         } else if (zone.id === 'teslaCoil') {
@@ -2137,9 +2132,9 @@ export function initScene(opts) {
         // Minions offset from activity position
         if (char.type === 'minion') {
             const minionIndex = characters.indexOf(char) - 1;
-            const offset = MINION_OFFSETS[minionIndex % MINION_OFFSETS.length];
-            char.targetX = Math.max(TILE + 4, Math.min(W - TILE - 10, pos.x + offset.dx));
-            char.targetY = Math.max(TILE * 3 + 4, Math.min(H - TILE * 2 - 14, pos.y + offset.dy));
+            const station = Projection.minionStation(char.activity, minionIndex, FLOOR_PLAN);
+            char.targetX = station.x;
+            char.targetY = station.y;
         } else if (char.activity === 'idle') {
             // Idle sub-state system: cycle through behaviors
             idleSubstateTimer++;
@@ -2366,7 +2361,7 @@ export function initScene(opts) {
     // never disappears: a 64px strip showing the scientists, and only
     // the scientists — no furniture, no pools, no perspective. The
     // walk/activity game loop is untouched; only the projection changes.
-    const STRIP_H = 32; // logical px — blitted at exactly 64 CSS px
+    const STRIP_H = Projection.STRIP_H; // logical px — blitted at exactly 64 CSS px
     let stripMode = false;
 
     // The selected scientist (roster.selected mirrored down by the Vue
@@ -2383,10 +2378,8 @@ export function initScene(opts) {
         bx.fillStyle = PAL.bg;
         bx.fillRect(0, 0, W, STRIP_H);
         const active = activeStripCharacters();
-        const gap = W / (active.length + 1);
         active.forEach((c, i) => {
-            const sx = Math.round(gap * (i + 1));
-            const sy = 12;
+            const {x: sx, y: sy} = Projection.stripSlot(i, active.length, W);
             if (c.type === 'scientist') {
                 drawScientist(sx, sy, 0, 1, sx, sy);
             } else {
@@ -2652,7 +2645,7 @@ export function initScene(opts) {
                 existing.scientistId = entry.id;
             } else {
                 // spawnMinionCharacter is the existing helper above; it
-                // applies the MINION_OFFSETS/POSITIONS layout. With the
+                // applies the Projection.minionStation layout. With the
                 // cap lifted (MAX_VISIBLE_MINIONS = 99), additional
                 // sprites place on the grid through the modular wrap of
                 // the offset table — acceptable for Arc 2's typical
@@ -2679,8 +2672,7 @@ export function initScene(opts) {
         const char = active.find((c) => c.scientistId === scientistId);
         if (stripMode) {
             const idx = char ? active.indexOf(char) : 0;
-            const gap = W / (active.length + 1);
-            return {x: Math.round(gap * (idx + 1)), y: 12};
+            return Projection.stripSlot(idx, active.length, W);
         }
         if (!char) {
             return {x: POSITIONS.idle.x, y: POSITIONS.idle.y};
@@ -2694,7 +2686,7 @@ export function initScene(opts) {
     /** Logical floor dimensions for the active projection — consumers
      *  divide a getBoundingClientRect() by these to get the CSS scale. */
     function getFloorSize() {
-        return {w: W, h: stripMode ? STRIP_H : H};
+        return Projection.floorSize(stripMode, FLOOR_PLAN);
     }
 
     // --- Strip Mode (the Overlook #00057, O-4) ---
@@ -2709,8 +2701,8 @@ export function initScene(opts) {
         }
         stripMode = next;
         if (stripMode) {
-            canvas.height = STRIP_H * 2 * DPR;
-            canvas.style.height = '64px';
+            canvas.height = Projection.STRIP_CSS_HEIGHT * DPR;
+            canvas.style.height = `${Projection.STRIP_CSS_HEIGHT}px`;
         } else {
             canvas.height = H * SCALE * DPR;
             canvas.style.height = `${H * SCALE}px`;
