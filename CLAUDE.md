@@ -350,7 +350,8 @@ cargo tauri build   # Tauri production build (Windows target)
 
 ## Cross-References
 
-- Current experiment log: `documents/experiment-logs/00049-the-mezzanine.md`
+- Current arc log: `documents/experiment-logs/00057-the-overlook.md` (The Overlook — two-storey frame, static-green 2026-06-12, awaiting Windows runtime ratification)
+- Genesis log: `documents/experiment-logs/00049-the-mezzanine.md`
 - Predecessor log: `documents/experiment-logs/00048-the-workbench.md`
 - Rebrand decision: `.claude/memory/decisions/008-workbench-rebranded-to-mezzanine.md`
 - Source idea ledger: `documents/idea-ledgers/idea-ledger-mezzanine.md` (renamed 2026-05-13 from `idea-ledger-cockpit.md` — pre-Workbench-naming-vote filename)
