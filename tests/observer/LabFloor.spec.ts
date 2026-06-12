@@ -219,6 +219,37 @@ describe('LabFloor — the Overlook #00057', () => {
         expect(getStationPos).toHaveBeenCalledWith('s1');
     });
 
+    it('re-reads station positions after the scene tick — a fresh dispatch cannot strand its pool (#00059)', async () => {
+        // The scene assigns a character's station target inside its own
+        // RAF tick. A recompute that runs only on `nextTick` reads the
+        // *previous* station and the pool glows a station away from the
+        // figure (surfaced by the #00059 runtime ratification). The floor
+        // must schedule a re-read behind two animation frames.
+        const frames: FrameRequestCallback[] = [];
+        const raf = vi.fn<(cb: FrameRequestCallback) => number>((cb) => {
+            frames.push(cb);
+            return frames.length;
+        });
+        vi.stubGlobal('requestAnimationFrame', raf);
+        try {
+            useRoster().upsert(makeScientist('s1'));
+            mount(LabFloor);
+            await nextTick();
+            await nextTick();
+            const readsBeforeFrames = getStationPos.mock.calls.length;
+            expect(readsBeforeFrames).toBeGreaterThan(0);
+            // Drain the scheduled frames — the second pass hides behind
+            // two of them, simulating the scene loop running in between.
+            while (frames.length > 0) {
+                const frame = frames.shift();
+                if (frame) frame(0);
+            }
+            expect(getStationPos.mock.calls.length).toBeGreaterThan(readsBeforeFrames);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     describe('RAF gating — window focus + reduced motion, never a panel', () => {
         it('pauses the scene when the window blurs', async () => {
             mount(LabFloor);

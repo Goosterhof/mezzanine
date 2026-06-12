@@ -165,9 +165,28 @@ function poolStyle(pool: {id: ScientistId; opacity: number; burning: boolean}): 
     };
 }
 
+// The scene assigns a character's station target inside its own RAF
+// tick — a `nextTick` recompute can therefore read the *previous*
+// station (one-frame staleness): the pool then glows over empty paper
+// a station away from the figure until an unrelated resize/selection
+// recompute happens by. Surfaced by the #00059 runtime ratification
+// (the dispatched scientist worked at the desk while their light pool
+// warmed the idle corner). The cure is mechanical: re-read after the
+// scene loop has run — two animation frames guarantee at least one
+// full scene update lands between the reads on every host.
+function schedulePoolRecompute(): void {
+    recomputePoolPositions();
+    if (typeof requestAnimationFrame !== 'function') return;
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            recomputePoolPositions();
+        });
+    });
+}
+
 watch([pools, () => collapsed], () => {
     void nextTick(() => {
-        recomputePoolPositions();
+        schedulePoolRecompute();
     });
 });
 
@@ -197,7 +216,7 @@ onMounted(() => {
     window.addEventListener('focus', onWindowFocus);
     window.addEventListener('resize', onWindowResize);
     void nextTick(() => {
-        recomputePoolPositions();
+        schedulePoolRecompute();
     });
 });
 
