@@ -19,8 +19,13 @@
 // v0.2.3 (2026-06-09). Folding the lockfile into both `bump` and `check`
 // makes the desync impossible to ship: `bump` rewrites it, and the existing
 // version-lockstep CI gate (which runs `check`) now fails the moment it drifts.
-// Cargo.lock is deliberately NOT covered — it is untracked/gitignored and the
-// release's `cargo build` regenerates its [package] version in place.
+// Cargo.lock is NOT bumped by this script, but (as of v0.2.5) it IS tracked —
+// committing it pins the release's dependency tree so CI can't drift onto a
+// broken transitive version (it did: a fresh resolve pulled `tauri-utils 2.9.2`,
+// which fails to compile, while local stayed green on 2.9.1). The lockfile's
+// own `mezzanine` [[package]] version is synced separately via
+// `cargo update --workspace` (or any `cargo build`), not by this script — a
+// one-version lag there is harmless (cargo rewrites it in place on build).
 //
 // No dependencies — plain Node fs + scoped regex edits (the Cargo.toml
 // [package] version only, never inline dep tables; the package-lock.json

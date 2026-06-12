@@ -5,3 +5,7 @@
 # Smokestacks 5c8d508 per Pattern 002 (fix-propagation-across-experiments).
 
 package-lock.json text eol=lf
+
+# Cargo.lock is tracked as of v0.2.5 (see .gitignore note). Pin it to LF too so
+# cargo's Windows CRLF rewrites don't surface phantom diffs on every build.
+src-tauri/Cargo.lock text eol=lf

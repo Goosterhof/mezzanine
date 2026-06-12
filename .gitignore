@@ -26,7 +26,13 @@ coverage
 # Rust / Tauri build artifacts
 src-tauri/target
 src-tauri/gen
-src-tauri/Cargo.lock
+# NOTE: src-tauri/Cargo.lock is intentionally TRACKED (committed), not ignored.
+# The Mezzanine ships as a binary, so the lockfile must pin the exact
+# dependency tree the release builds — Rust's own guidance for applications.
+# It was ignored until v0.2.5, when the release regenerated the lock fresh and
+# drifted onto a broken `tauri-utils 2.9.2` (E0119 conflict with `time`) that
+# never compiles, failing the Ascent build while local stayed green on 2.9.1.
+# Committing the lock makes the release reproducible. See mezzanine-debugging.md.
 
 # Tauri runtime caches
 src-tauri/.cache
