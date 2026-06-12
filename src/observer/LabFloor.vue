@@ -44,8 +44,6 @@ const floorRef = ref<HTMLElement | null>(null);
 const roster = useRoster();
 const observer = useObserver();
 
-const isEmpty = computed(() => roster.scientists.value.length === 0);
-
 // Peek: the strip's "expand the floor" affordance. A temporary look
 // downstairs — the floor reclaims its full height until the pointer
 // leaves. The strip state itself is owned by App.vue's window-height
@@ -269,13 +267,9 @@ defineExpose({recomputePoolPositions, stationToPage, sceneRef});
             ></div>
         </div>
 
-        <!-- The empty-state voice lives HERE, on the floor — the absence
-             is felt downstairs. The strip is never silent and unlabelled. -->
-        <div v-if="isEmpty" class="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <p class="mz-stamp-label text-mz-text-faint" data-floor-empty>
-                {{ showFull ? 'Balcony quiet. No scientists dispatched.' : 'Balcony quiet.' }}
-            </p>
-        </div>
+        <!-- The empty voice migrated INTO the page (#00059 J-3): the
+             canvas writes "Balcony quiet…" in Caveat, centred — the
+             DOM overlay that lived here retired with the pixel engine. -->
 
         <!-- Short-window affordance: a temporary look downstairs -->
         <button

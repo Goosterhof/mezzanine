@@ -24,11 +24,7 @@ interface Display {
 }
 
 function mkEl(): Display {
-    return {
-        textContent: '',
-        style: {},
-        getBoundingClientRect: () => ({width: 800, height: 600, left: 0, top: 0}),
-    };
+    return {textContent: '', style: {}, getBoundingClientRect: () => ({width: 800, height: 600, left: 0, top: 0})};
 }
 
 // A no-op WebGL context: any method is a function; the few calls whose return

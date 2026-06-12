@@ -149,3 +149,25 @@ export function parseSelectScientistAction(action: string | undefined): string |
     const id = action.slice(SELECT_SCIENTIST_PREFIX.length);
     return id.length > 0 ? id : null;
 }
+
+/** The canvas-recall wire format (#00059 J-3) — the `[ recall ]` note in
+ *  a figure's margin caption emits this; `LabScene.vue` parses it into
+ *  `backend.recall(id)`. Same one-definition-two-ends discipline as the
+ *  selection action above: the page and its reader cannot drift. */
+export const RECALL_SCIENTIST_PREFIX = 'recallScientist:';
+
+/** Build the interaction action a `[ recall ]` note click emits. */
+export function recallScientistAction(scientistId: string): string {
+    return `${RECALL_SCIENTIST_PREFIX}${scientistId}`;
+}
+
+/** Parse an interaction action back into the scientist id to recall —
+ *  null when the action is absent, foreign, or carries an empty id (an
+ *  empty recall is a no-op, never a phantom `backend.recall('')`). */
+export function parseRecallScientistAction(action: string | undefined): string | null {
+    if (action === undefined || !action.startsWith(RECALL_SCIENTIST_PREFIX)) {
+        return null;
+    }
+    const id = action.slice(RECALL_SCIENTIST_PREFIX.length);
+    return id.length > 0 ? id : null;
+}

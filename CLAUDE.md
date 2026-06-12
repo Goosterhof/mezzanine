@@ -34,12 +34,13 @@ panel label this gadget will ever ship.
 
 | Surface | The Mezzanine Voice |
 |---------|---------------------|
-| Empty floor | *"Balcony quiet. No scientists dispatched."* (rendered ON the floor — the absence is felt downstairs; condenses to *"Balcony quiet."* on the 64px strip) |
+| Empty floor | *"Balcony quiet. No scientists dispatched."* (written ON the page in Caveat since #00059 — the absence is felt downstairs; condenses to *"Balcony quiet."* on the 64px strip) |
 | No selection | *"Balcony quiet. No scientist selected. Dispatch one from the balcony, or click a nameplate, or a scientist on the floor."* |
-| Railing nameplate | *"● The Crucible / check phpstan · 2m 14s"* (horizontal plate on the railing, above its sprite) |
-| Idle-warning plate | *"Idle 1h+"* (dim treatment, signal-coloured pulse; replaces the elapsed line) |
-| Crashed plate | *"Mission ended in failure. Recall to clear."* (red dot, hairline crashed border, Recall always visible) |
-| Recently Recalled tile | *"<target> · <mission> · <recalledAgo>"* (dimmed horizontal strip docked at the railing's right end) |
+| Margin caption (was the railing nameplate) | *"● The Crucible / check phpstan · 2m 14s"* (hand-written Caveat note under the figure on the page — #00059 moved the venue, not the words) |
+| Idle-warning caption | *"Idle 1h+"* (dim pencil; replaces the elapsed fragment) |
+| Crashed caption | *"Mission ended in failure. Recall to clear."* (red ink, pulsing dot, `[ recall ]` note always visible) |
+| Recall affordance | *"[ recall ]"* (hand-written note in the caption — always on crashed figures, on the selected one otherwise; canvas hit-region → `recallScientist:<id>`) |
+| Recently Recalled tile | *"<target> · <mission> · <recalledAgo>"* (dimmed horizontal strip docked under the Balustrade while populated) |
 | Dispatch CTA | *"Dispatch ▾"* |
 | Dispatch sheet header | *"Send a scientist to the lab floor"* |
 | Brief placeholder | *"What is the mission? Free-form — the scientist receives this as the opening prompt."* |
@@ -186,7 +187,7 @@ mezzanine/
 │   ├── version.mjs ........... The Ascent (#00056) — version lockstep across package.json / tauri.conf.json / Cargo.toml / package-lock.json (`check` / `bump` — four manifests must agree)
 │   └── release-readiness.mjs . Advisory PR job — warns when a feat/fix lands without a version bump (Decision 017 / Pattern 024: non-blocking, always exits 0)
 ├── src/
-│   ├── App.vue ............... The two-storey frame (#00057): Balustrade + RailingNameplates / ScientistCanvas + CommandBar / RailingDivider / LabFloor (permanent — no v-if, no v-show) + the four summonable panels + Dispatch + FirstRunWizard + AscentPrompt. Owns isShortWindow (<820px → 64px floor-strip) and the plumb-line geometry (plumbX / plumbLength / plumbDropping)
+│   ├── App.vue ............... The two-storey frame (#00057, reframed by #00059): Balustrade (+ RecentlyRecalledStrip dock while populated) / ScientistCanvas + CommandBar / RailingDivider / TornPaperEdge / LabFloor (permanent — no v-if, no v-show) + the four summonable panels + Dispatch + FirstRunWizard + AscentPrompt. Owns isShortWindow (<820px → 64px floor-strip) and the plumb-line geometry (plumbX / plumbLength / plumbDropping). The DOM nameplate railing retired in #00059 J-3 — the roster lives only on the page
 │   ├── main.ts ............... createApp + UnoCSS
 │   ├── ascent/                The Ascent (#00056) — the balcony rebuilds itself
 │   │   ├── types.ts .......... AscentStatus union + UpdateMeta
@@ -194,9 +195,8 @@ mezzanine/
 │   │   └── AscentPrompt.vue .. Balcony-voiced prompt strip; descend/stay actions + descent progress
 │   ├── shell/                 Frame — the Overlook's balcony chrome (#00057)
 │   │   ├── Balustrade.vue .... The single ~76px brass cap (merged BalconyRail + TopBar, both retired): identity, two signs (Reserved tile dropped), MC/DD/HT/GR glyphs (OB retired), Dispatch ▾ trigger
-│   │   ├── RailingNameplates.vue The roster rotated horizontal, mounted on the railing — three-tier overflow, ‹ N more › drawer (reuses ScientistRow verbatim), SELECTION-PROMOTES + CRASH-PINS laws, scrollToPlate
-│   │   ├── RailingNameplate.vue One brass plate: PulseDot + target + mission + elapsed + hover-revealed Recall; crashed/idle-warn treatments; plumb-anchor when selected
-│   │   ├── RailingDivider.vue  Brass-post SVG balustrade between the storeys — hosts the plumb-line (300ms stroke-dashoffset draw-on, reduced-motion instant)
+│   │   ├── RailingDivider.vue  Brass-post SVG balustrade between the storeys — hosts the PENCIL plumb-line + sketched nail mark (#00059 J-4; 300ms stroke-dashoffset draw-on, reduced-motion instant; imports PENCIL from ../observer/pen — constants cross the slice boundary, logic does not)
+│   │   ├── TornPaperEdge.vue . The seam between the storeys (#00059 J-4) — static SVG zigzag, fill = PAPER from ../observer/pen, aria-hidden; the plumb-line (z-10) hangs OVER it (z-[5])
 │   │   └── useShell.ts ....... openPanel + togglePanel/closePanel singleton — PanelId is 'mission-control' | 'drydock' | 'holotable' | 'grind' (no 'observer'; the floor is permanent)
 │   ├── roster/                The dispatched-scientist domain
 │   │   ├── types.ts .......... Scientist / Target / MissionState / TARGET_OPTIONS / targetLabel / targetKey
@@ -205,8 +205,7 @@ mezzanine/
 │   │   ├── useScientistTerminals.ts xterm.js Terminal pool, keyed by ScientistId
 │   │   ├── useIdleWarning.ts . 1h idle threshold, ticks every minute
 │   │   ├── PulseDot.vue ...... 5-state animated indicator + idle-warning treatment
-│   │   ├── ScientistRow.vue .. One vertical row: target / mission / state / elapsed / Recall — survives as the railing's overflow-drawer row (Roster.vue retired by #00057)
-│   │   ├── RecentlyRecalledStrip.vue  5-minute dim strip, re-skinned horizontal and docked at the railing's right end (#00057; data/TTL logic untouched)
+│   │   ├── RecentlyRecalledStrip.vue  5-minute dim strip — docked under the Balustrade while populated (#00059 J-3 re-home; data/TTL logic untouched. ScientistRow + the railing plates retired with the DOM roster — every duty migrated to the canvas margin captions)
 │   │   └── ScientistCanvas.vue Upper-storey xterm.js stack — one wrapper per scientist, only selected visible; plays the 280ms wrapper-only rise on selection (xterm text never transformed; FitAddon re-fit on transitionend)
 │   ├── balcony/               Dispatch surface + rail signs (Phase 2B)
 │   │   ├── types.ts .......... BalconySigns / BriefingTemplate mirrors of the Rust serde shapes
@@ -224,15 +223,17 @@ mezzanine/
 │   │   ├── scene.js .......... Lifted 1835-line WebGL engine; exports initScene(opts)
 │   │   ├── HolotableScene.vue . `<canvas>` host — mounts scene, watches state, pause/resume RAF
 │   │   └── HolotablePanel.vue . Slide-down panel — refresh button, voiced error variants
-│   ├── observer/              Arc 2 (#00052) — the activity floor; promoted to the permanent lower storey by #00057
+│   ├── observer/              Arc 2 (#00052) — the activity floor; promoted to the permanent lower storey by #00057; restyled to the Field Journal by #00059
 │   │   ├── types.ts .......... ActivityState / ChronicleEvent / ScientistActivity wire shapes
 │   │   ├── activityInference.ts Transcript-turn → ActivityState inference (lifted from the Pixel Lab)
 │   │   ├── useObserver.ts .... Singleton chronicle-event subscription; per-scientist activity map (push-always)
 │   │   ├── lab-core.js ....... Lifted pure helpers (ESM); ignored by oxlint/oxfmt/vue-tsc
-│   │   ├── projection.ts ..... The geometric spine (#00057 §12 extraction) — station table, minion-offset wall clamps, 64px strip-row slots, floor size, CSS-scale page projection, selectScientist wire format. Pure arithmetic, fully unit-tested (NOT coverage-excluded)
-│   │   ├── scene.js .......... Lifted Canvas 2D pixel engine — controller: setRoster / setSelected / setStrip / getStationPos / getFloorSize / pauseRaf / resumeRaf / destroy; consumes projection.ts for all geometry; sprite clicks emit selectScientist:<id> (#00057)
-│   │   ├── LabScene.vue ...... `<canvas>` host — pushes roster/selection/strip down; parses sprite clicks via parseSelectScientistAction → roster.select (the Arc 2 seam's first consumer)
-│   │   └── LabFloor.vue ...... THE PERMANENT FLOOR (#00057) — never a toggle; 40vh / 64px strip (never zero); CSS perspective gradient + light pools (opacity = total function of ActivityState); empty voice on the floor; RAF gated by window focus + matchMedia (ObserverPanel.vue retired)
+│   │   ├── projection.ts ..... The geometric spine (#00057 §12 extraction) — station table, minion-offset wall clamps, 64px strip-row slots, floor size, CSS-scale page projection, selectScientist + recallScientist:<id> wire formats (#00059 J-3). Pure arithmetic, fully unit-tested (NOT coverage-excluded)
+│   │   ├── pen.ts ............ The ink toolkit (#00059 J-1) — SketchPen (seeded boiling strokes, washes, scribbles, splats) + the page palette (INK / PENCIL / PAPER / RED / MINT / AMBER / SKIN / SHADE). Colour truth lives here; src/shell/ imports constants across the slice boundary
+│   │   ├── figure.ts ......... The Mad Scientist in ink (#00059 J-1) — drawScientist (7-state acting, walk cycle, construction ghosts when selected), figureHeadTop, exported Atelier proportions
+│   │   ├── scene.js .......... The Field Journal renderer (#00059 J-2/J-3/J-4; pixel engine retired) — boiling-ink figures + four ink stations + watercolour washes + Caveat margin captions (crash voice, idle warn, [ recall ] hit-region) + canvas empty voice on a pre-rendered paper blit (full-DPR, 1:1). Controller unchanged: setRoster / setSelected / setStrip / getStationPos / getFloorSize / pauseRaf / resumeRaf / destroy; consumes projection.ts for all geometry; emits selectScientist:<id> + recallScientist:<id>
+│   │   ├── LabScene.vue ...... `<canvas>` host — pushes roster/selection/strip down (entries widened in #00059 J-3 with target / mission / startedAtMs / idleWarn / crashed for the captions); parses parseRecallScientistAction → backend.recall and parseSelectScientistAction → roster.select
+│   │   └── LabFloor.vue ...... THE PERMANENT FLOOR (#00057) — never a toggle; 40vh / 64px strip (never zero); CSS perspective gradient + light pools (opacity = total function of ActivityState); RAF gated by window focus + matchMedia (the DOM empty-voice overlay retired in #00059 J-3 — the canvas speaks)
 │   ├── grind/                 Arc 3 (#00053) — the lab economy: gameCore.ts + useGrind + GrindRenderer + GrindHud + GrindPanel (GR glyph)
 │   ├── command/               Always-on input tray
 │   │   └── CommandBar.vue .... Always-focused bottom input → write_to_scientist(selected, text + "\n")
@@ -249,16 +250,18 @@ mezzanine/
 │   │   └── types.ts .......... ChronicleTurn + TurnDirection — JSONL transcript shape
 │   ├── drydock/               PR review with three enrichment fields (bench-era Phase 3A, untouched)
 │   │   └── ...
-│   └── assets/mezzanine.css .. Auxiliary CSS (almost empty — UnoCSS does the work)
+│   └── assets/
+│       ├── mezzanine.css ..... Auxiliary CSS — @font-face for the self-hosted faces (Caveat 500/700 for the page, Space Grotesk + JetBrains Mono for the chrome; #00059)
+│       └── fonts/ ............ Self-hosted latin woff2 instances + OFL.txt (no CDN — a desktop gadget keeps its hands offline)
 ├── tests/                      Mirrors src/ slices — all *.spec.ts live here
 │   ├── ascent/ ................ useAscent (flow states) + AscentPrompt (render / actions / balcony voice)
 │   ├── balcony/ ............... BalconySign + BriefingLibrary + useBalconySigns + useBriefingLibrary + useDispatch
-│   ├── observer/ .............. LabFloor (floor invariants, pool totality, RAF gating) + projection (the geometric spine — 30 specs) + useObserver + activityInference + types
-│   ├── roster/ ................ ScientistRow + ScientistCanvas (incl. the rise) + RecentlyRecalledStrip + PulseDot + composables
+│   ├── observer/ .............. LabFloor (floor invariants, pool totality, RAF gating, canvas empty voice via recorded mock ctx) + projection (the geometric spine + both wire formats) + pen (seeded-stroke determinism) + figure (7-state totality, ghost geometry) + useObserver + activityInference + types
+│   ├── roster/ ................ ScientistCanvas (incl. the rise) + RecentlyRecalledStrip + PulseDot + composables
 │   ├── wizard/ ................ useWizard + FirstRunWizard + Steps (StepLaboratory / StepBinary / StepChronicle)
 │   ├── mission/ ............... MissionControl + sections + useMissionControl
 │   ├── drydock/ ............... DrydockPanel + PrCard + FileDiff + ReviewActions + useDrydock
-│   └── shell/ ................. Balustrade + RailingNameplate + RailingNameplates + RailingDivider + useShell
+│   └── shell/ ................. Balustrade + RailingDivider (pencil plumb + nail) + TornPaperEdge (PAPER fill, stacking) + useShell
 ├── uno.config.ts ............. Balcony palette: mz-surface, mz-rail, mz-canvas, mz-pulse-*
 ├── vite.config.ts ............ Vue + UnoCSS plugins, port 1430
 ├── .oxlintrc.json ............ War-room canonical oxlint config (correctness:error, type-aware)
@@ -309,6 +312,7 @@ The deployment plan lives in
 | Arc 3 — The Grind | VS Code `gadgets/idle-lab/` absorbed into the Mezzanine as a `[Grind]` panel; new `grind/` slice on both sides (Rust economy + Vue engine + HUD + renderer); 1084-line `game-core.js` rewritten as `gameCore.ts` (ES module, all 8 building tiers / 10 upgrades / 15 milestones / prestige / offline progress intact); economy reframed per RD-2 — the *lab* earns, not the investor (chronicle line / dispatch / clean recall / mission duration replace keystroke / save / file open); G-0 spec recorded inline (CHRONICLE_LINE_RP=0.5, CHRONICLE_RATE_CAP=4.0/s, DISPATCH_RP=25, RECALL_CLEAN_RP=100); 16-node theorem tree (the 12 originals + new Dispatch branch: Tireless Bench / Recall Discipline / Briefing Library / Many Hands); `[Grind]` (GR) added as new rightmost TopBar button; ChronicleReader extended with `tokio::sync::broadcast` for in-process Rust consumers (the EconomyManager subscribes); `grind-rp-grant` Tauri event for frontend; G-6 cleanup tail executed (three submodule tombstones + three Sentinel retirements + root CLAUDE.md gadget table 5→2); cross-host ratification deferred to Windows | ✅ Static-green 2026-05-26 — frontend gates: oxlint 0 errors, vue-tsc clean, vitest 395/395 (+83 new), v8 coverage 96.58% lines / 91.79% branches / 94.37% functions, vite build clean. Rust side `cargo check` + `cargo test` pending Windows at delivery (graduated to the Ubuntu `rust-substrate` sentinel job 2026-06-09 via v0.2.4 — only `cargo tauri build` bundling remains Windows-only); the new `grind::economy::tests` cover all four grant paths, the token-bucket rate limiter, per-scientist independence, dispatch/recall dedup, and wire-shape (kebab-case) serialization. Per RD-3 (executed in G-6), `gadgets/{lab-monitor-3d,pixel-lab,idle-lab}/` are tombstoned with CLAUDE.md headers; their Sentinels are `workflow_dispatch`-only; root CLAUDE.md gadget count is 2 (Mezzanine + Horadric Cube). Experiment log: `documents/experiment-logs/00053-the-grind.md`. |
 | The Ascent (#00056) | The balcony rebuilds itself — `tauri-plugin-updater` + `-process` wired (Cargo/lib.rs/capabilities/tauri.conf); new `ascent/` Vue slice (`types` + `useAscent` singleton + `AscentPrompt`) on the `check()` → `descend()` → `relaunch()` flow; check-and-prompt, never silent (RD-2); boot-check gated on wizard completion; updater keypair minted (pubkey in `tauri.conf.json`, private key escrow investor-gated); release pipeline `.github/workflows/ascent.yml` (tag `v*` → Windows → `tauri-action` sign + publish NSIS + `latest.json`); version lockstep via `scripts/version.mjs` + `version-lockstep.yml` (four manifests incl. `package-lock.json`; a non-blocking `release-readiness` advisory PR job was folded into the same workflow post-delivery, `16c4a98`). (The `prefers-reduced-motion` gate this slice's prompt-rise transition needs was landed concurrently by the Warden in `42238e8`; the Ascent rebased onto it rather than duplicate it.) | ✅ DELIVERED 2026-06-02 — A-0–A-5 complete. Static gates green (oxlint 0, vue-tsc, vitest 418/418 +23, ascent coverage 100% lines / 98.4% branches, `cargo check` + `vite build`); A-0 key escrowed in CI; release pipeline NSIS-only (RD-3). **A-5 ratified live**: installed `v0.2.1` saw `v0.2.2`, descended, relaunched into it (investor-confirmed). Latent Grind boot-crash (`tokio::spawn` from `setup()`) found on first real Windows launch + fixed (`tauri::async_runtime::spawn`). `cargo test` execution still deferred to Linux (Windows test binary hits a pre-existing `STATUS_ENTRYPOINT_NOT_FOUND`). Experiment log: `documents/experiment-logs/00056-the-ascent.md`. |
 | The Overlook (#00057) | The two-storey frame — the composition finally agrees with the metaphor. O-1: `BalconyRail` + `TopBar` merged into one ~76px `Balustrade` (Reserved sign dropped, OB glyph retired, `PanelId` loses `'observer'`, `ObserverPanel.vue` deleted, panel `top` offsets re-anchored). O-2: the Roster rotated horizontal as `RailingNameplates`/`RailingNameplate` mounted on the railing (three-tier overflow with SELECTION-PROMOTES + CRASH-PINS laws; `ScientistRow` survives as the overflow-drawer row; `Roster.vue` retired; `RecentlyRecalledStrip` re-skinned horizontal). O-3: `LabFloor.vue` promotes the Observer scene to the permanent lower storey — no v-if/v-show, CSS perspective gradient + light pools (opacity a total function of all 7 `ActivityState`s; error burns red), empty voice on the floor, RAF gated by window focus + matchMedia; `scene.js` controller widened with `getStationPos`/`getFloorSize`; sprite clicks emit `selectScientist:<id>` into the Arc-2 `onInteraction` seam → `roster.select` (bidirectional). O-4: the "Leaning Over the Railing" signature — `RailingDivider` brass-post SVG + plumb-line (300ms `stroke-dashoffset` draw-on, plumb-true to the sprite's station, re-targets on walk/resize/scroll), 280ms wrapper-only xterm rise with FitAddon re-fit on `transitionend`, 64px floor-strip below `window.innerHeight < 820` via `setStrip` projection (`tauri.conf.json` untouched — minimums stay 1080×720). All reduced-motion paths: plumb instant, pools snap, rise opacity-only, sprites static. | ✅ Static-green 2026-06-12 — oxlint 0 errors, oxfmt clean, vue-tsc clean, vitest 469/469 (net +48 on the 421-spec pre-arc suite — 70 specs across the five new spec files: Balustrade 12 / RailingNameplate 13 / RailingNameplates 14 / RailingDivider 6 / LabFloor 25, plus rise + voice additions; BalconyRail/TopBar/ObserverPanel/Roster specs retired with their components), v8 coverage 96.87% lines / 91.99% branches / 95.71% functions / 96.87% statements, vite build clean. No Rust changes; `cargo check` deferred to Windows. **Hardened same-day (Chaos detonation):** the §12 projection extraction executed — `src/observer/projection.ts` (station table, strip-row slots, wall clamps, floor size, CSS-scale page projection, selectScientist wire format) + 30 specs at 100% line coverage on the module; `scene.js` keeps only Canvas + RAF; gates re-run green at vitest 499/499, coverage 96.93% / 92.04% / 95.88% / 96.93%. **DELIVERED 2026-06-12** — runtime ratified the same day in a live working session on the investor's Windows host (§9 items 3–5 investor-attested item-by-item: plumb-line + rise on nameplate click, bidirectional sprite click, 64px strip on resize; evidence in #00057 §8). |
+| The Field Journal (#00059) | The floor becomes a page — the pixel engine retired wholesale. J-1: `SketchPen` + `drawScientist`/`figureHeadTop` ported from the ratified Atelier mock into `src/observer/{pen,figure}.ts` (TS, `mulberry32` inlined, Atelier proportions exported, ghosts default OFF in production). J-2: `scene.js` renderer swapped — boiling ink at `BOIL_HOLD = 14` over a 60fps walk skeleton, pre-rendered paper blit (full-DPR, 1:1; pixel-era `imageSmoothingEnabled=false` retired with the tiles), four ink stations as permanent fixtures at their POSITIONS anchors, simpler ink minions; controller API unchanged. J-3: Caveat enters the gadget (self-hosted woff2 + OFL, `document.fonts.load` guard before RAF), canvas margin captions (state dot, target, mission · elapsed, crash voice + idle warn verbatim from the voice lock), `[ recall ]` canvas hit-region riding the new `recallScientist:<id>` wire action in `projection.ts`, canvas empty voice; the DOM nameplate railing + `ScientistRow` + `LabFloor`'s empty overlay retired (RecentlyRecalledStrip re-homed under the Balustrade). J-4: pencil plumb-line + sketched nail (PENCIL from the pen), `TornPaperEdge.vue` (fill = PAPER), final strip dressing (figures only, on paper). Signature: the selected figure renders with pencil construction ghosts — being selected is being drawn. Gift: ALL typefaces self-host (Space Grotesk + JetBrains Mono CDN links removed — the gadget keeps its hands offline). | ✅ Static-green 2026-06-13 — oxlint 0 errors, oxfmt clean, vue-tsc clean, vitest 522/522 (net +23 on the 499-spec pre-arc suite: pen 18 + figure 26 + TornPaperEdge 4 + recall wire 5 + canvas-voice 3 new; plate/row specs retired with their components), v8 coverage 97.22% lines / 92.99% branches / 96.02% functions / 97.22% statements, vite build clean (ink scene chunk 20.81 kB — down from the pixel engine's 37 kB). No Rust changes; `cargo check` deferred to Windows. Runtime ratification (§9 incl. the mandatory ≥4-scientist perf gate) pending on the investor's Windows host — flips to DELIVERED only after #00059 §8 carries the evidence. |
 
 ## Commands
 
@@ -350,6 +354,7 @@ cargo tauri build   # Tauri production build (Windows target)
 
 ## Cross-References
 
+- Active arc log: `documents/experiment-logs/00059-the-field-journal.md` (The Field Journal — the floor becomes a page; static-green 2026-06-13, runtime ratification pending)
 - Latest delivered arc log: `documents/experiment-logs/00057-the-overlook.md` (The Overlook — two-storey frame, DELIVERED 2026-06-12)
 - Genesis log: `documents/experiment-logs/00049-the-mezzanine.md`
 - Predecessor log: `documents/experiment-logs/00048-the-workbench.md`

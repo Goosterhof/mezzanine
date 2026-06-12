@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {nextTick, onMounted, ref, watch} from 'vue';
+import {computed, nextTick, onMounted, ref, watch} from 'vue';
 
 import AscentPrompt from './ascent/AscentPrompt.vue';
 import {useAscent} from './ascent/useAscent';
@@ -14,16 +14,16 @@ import HolotablePanel from './holotable/HolotablePanel.vue';
 import MissionControl from './mission/MissionControl.vue';
 import LabFloor from './observer/LabFloor.vue';
 import {useObserver} from './observer/useObserver';
+import RecentlyRecalledStrip from './roster/RecentlyRecalledStrip.vue';
 import ScientistCanvas from './roster/ScientistCanvas.vue';
 import {useRoster} from './roster/useRoster';
 import {useRosterBackend} from './roster/useRosterBackend';
 import Balustrade from './shell/Balustrade.vue';
 import RailingDivider from './shell/RailingDivider.vue';
-import RailingNameplates from './shell/RailingNameplates.vue';
+import TornPaperEdge from './shell/TornPaperEdge.vue';
 import FirstRunWizard from './wizard/FirstRunWizard.vue';
 import {useWizard} from './wizard/useWizard';
 
-const railingRef = ref<InstanceType<typeof RailingNameplates> | null>(null);
 const labFloorRef = ref<InstanceType<typeof LabFloor> | null>(null);
 const dividerRef = ref<InstanceType<typeof RailingDivider> | null>(null);
 const roster = useRoster();
@@ -85,17 +85,11 @@ function dropPlumb(): void {
     }, 320);
 }
 
-// Railing scroll keeps the plate's release-point visuals honest — the
-// listener is passive and rAF-throttled (§11).
-let railScrollTicking = false;
-function onRailScroll(): void {
-    if (railScrollTicking) return;
-    railScrollTicking = true;
-    requestAnimationFrame(() => {
-        railScrollTicking = false;
-        recomputePlumb();
-    });
-}
+// The Recently Recalled strip lost its dock when the railing plates
+// retired (#00059 J-3 — it sat at the rail's right end inside the
+// plate rail). The 5-minute TTL ledger survives; it docks directly
+// under the Balustrade now, and only while it has entries.
+const hasRecalledStrip = computed(() => roster.recalledStrip.value.length > 0);
 
 function onWindowResize(): void {
     isShortWindow.value = window.innerHeight < SHORT_WINDOW_THRESHOLD;
@@ -104,7 +98,6 @@ function onWindowResize(): void {
 
 onMounted(() => {
     window.addEventListener('resize', onWindowResize);
-    railingRef.value?.railRef?.addEventListener('scroll', onRailScroll, {passive: true});
     void useRosterBackend().subscribe();
     // The wizard's step 3 folds in the chronicle ack — on first boot the
     // disclosure is acknowledged when the investor opens the balcony.
@@ -125,19 +118,18 @@ onMounted(() => {
     void useGrind().start();
 });
 
-// Selection → the signature gesture (#00057 §4, "Leaning Over the
-// Railing"). Sprite clicks on the floor and nameplate clicks on the rail
-// both land in `useRoster.selected`; this watcher fans the selection out:
-// the plate slides into view (inline: 'nearest'), the plumb-line drops at
-// the sprite's station, the light re-centers (LabScene → setSelected),
-// and the terminal rises (ScientistCanvas). On select(null) the gesture
-// unwinds without ceremony — the railing simply lets go.
+// Selection → the signature gesture (#00057 §4, reframed by #00059 §4:
+// "The Figure Under Study"). Figure clicks and caption clicks on the
+// page land in `useRoster.selected`; this watcher fans the selection
+// out: the pencil plumb-line drops at the figure's station, the
+// construction ghosts appear under the selected figure (LabScene →
+// setSelected), the light re-centers, and the terminal rises
+// (ScientistCanvas). On select(null) the gesture unwinds without
+// ceremony — the railing simply lets go. (The plate-scroll duty retired
+// with the DOM nameplates in #00059 J-3.)
 watch(
     () => roster.selected.value,
     (id) => {
-        if (id !== null) {
-            railingRef.value?.scrollToPlate(id);
-        }
         void nextTick(() => {
             recomputePlumb();
             if (id !== null) {
@@ -186,16 +178,24 @@ watch(
 
 <template>
     <div class="relative flex flex-col h-full bg-mz-surface text-mz-text font-body">
-        <!-- ① + ② + ③ : the balcony chrome — one merged brass cap + the railing of nameplates -->
+        <!-- ① + ② : the balcony chrome — one merged brass cap. The DOM
+             nameplate railing retired in #00059 J-3: the roster lives
+             only on the page below now. The Recently Recalled ledger
+             survives, docked under the cap while it has entries. -->
         <Balustrade />
-        <RailingNameplates ref="railingRef" />
+        <RecentlyRecalledStrip v-if="hasRecalledStrip" />
         <!-- ④ + ⑤ : the investor's storey -->
         <main class="relative flex-1 flex flex-col min-h-0 min-w-0">
             <ScientistCanvas />
             <CommandBar />
         </main>
-        <!-- ⑥ : the edge you lean over — hosts the plumb-line -->
+        <!-- ⑥ : the edge you lean over — hosts the pencil plumb-line -->
         <RailingDivider ref="dividerRef" :selected-x="plumbX" :drop-length="plumbLength" :dropping="plumbDropping" />
+        <!-- The torn paper seam (#00059 J-4): the brass railing holds the
+             page, the paper tears away below it. Stacking note: the
+             plumb-line (z-10, in RailingDivider) renders ABOVE this edge
+             (z-[5]) — the pencil line hangs over the page. -->
+        <TornPaperEdge />
         <!-- ⑦ : the floor below — ALWAYS present, never a toggle. No v-if,
              no v-show: if this mount can disappear, the redesign has not
              happened (#00057 §3). -->

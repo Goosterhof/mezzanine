@@ -7,11 +7,21 @@
 // its width it holds the two storeys apart — except at exactly one
 // column, where the plumb-line pierces it: the selected scientist.
 //
+// The Field Journal (#00059 J-4) restyled the plumb-line from brass to
+// pencil: the line now belongs to the page below, not the machine
+// above. It hangs from a sketched nail mark at the railing's torn edge
+// — drawn in PENCIL imported from the pen, the renderer's own grey, so
+// the line and the floor's construction ghosts share one graphite
+// (cross-slice constant import blessed in #00059 §6). The 300ms
+// stroke-dashoffset draw-on and the reduced-motion instant path are
+// untouched; only the visual register changed.
+//
 // The plumb-line is plumb-true to the sprite's station x (geometry
-// resolved 2026-06-12 — §4/§6/§11 of the experiment log agree): the
-// selected nameplate's plumb-anchor releases it visually but does not
-// tether it. A plumb-line is vertical by definition. No hand drops it;
-// the reaction IS the lean.
+// resolved 2026-06-12 — §4/§6/§11 of the experiment log agree). A
+// plumb-line is vertical by definition. No hand drops it; the reaction
+// IS the lean.
+
+import {PENCIL} from '../observer/pen';
 
 interface Props {
     /** x-position (px, relative to the divider's left edge) where the
@@ -47,13 +57,27 @@ const {selectedX = null, dropLength = 160, dropping = false} = defineProps<Props
             <rect x="0" y="5" width="100%" height="11" fill="url(#mz-brass-posts)" />
         </svg>
 
-        <!-- The plumb-line: pierces the divider at exactly one column -->
+        <!-- The plumb-line: pierces the divider at exactly one column.
+             Pencil, not brass (#00059 J-4) — it hangs from a sketched
+             nail on the railing's torn edge and renders ABOVE the
+             TornPaperEdge below (z-10 over the edge's z-[5]): the line
+             hangs over the page. -->
         <svg
             v-if="selectedX !== null"
             class="absolute top-0 w-px overflow-visible pointer-events-none z-10"
             :style="{left: `${selectedX}px`, height: `${dropLength}px`}"
             data-plumb-line
         >
+            <!-- the nail it hangs from — a hand-scribbled anchor mark -->
+            <path
+                class="plumb-nail"
+                d="M -3.2 3.1 L 2.8 5.6 L -2.4 6.8 L 3.4 2.6 L -1.8 1.9 L 2.2 7.2"
+                fill="none"
+                :stroke="PENCIL"
+                stroke-width="1.1"
+                stroke-linecap="round"
+                data-plumb-nail
+            />
             <line
                 class="plumb-line"
                 :class="{dropping}"
@@ -61,12 +85,12 @@ const {selectedX = null, dropLength = 160, dropping = false} = defineProps<Props
                 y1="0"
                 x2="0"
                 :y2="dropLength"
-                stroke="#D4A24C"
+                :stroke="PENCIL"
                 stroke-width="1.5"
                 :style="{'--len': `${dropLength}px`}"
             />
-            <!-- Attention landing: a faint glow only at the floor end -->
-            <circle class="plumb-tip" cx="0" :cy="dropLength" r="2" fill="#D4A24C" />
+            <!-- Attention landing: a faint graphite dot at the floor end -->
+            <circle class="plumb-tip" cx="0" :cy="dropLength" r="2" :fill="PENCIL" />
         </svg>
     </div>
 </template>
@@ -87,8 +111,11 @@ const {selectedX = null, dropLength = 160, dropping = false} = defineProps<Props
         stroke-dashoffset: 0;
     }
 }
+.plumb-nail {
+    opacity: 0.55;
+}
 .plumb-tip {
-    filter: drop-shadow(0 0 4px rgba(212, 162, 76, 0.7));
+    filter: drop-shadow(0 0 3px rgba(122, 128, 136, 0.6));
     animation: mz-plumb-tip-pulse 2.4s ease-in-out infinite;
 }
 @keyframes mz-plumb-tip-pulse {

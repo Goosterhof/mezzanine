@@ -4,3 +4,78 @@
  * holds the fragments that don't fit the utility model — primarily the pty
  * output rendering refinements and any future scoped helpers that span
  * multiple components without earning a shortcut. */
+
+/* Caveat — the hand the page is written in (#00059 J-3). Self-hosted
+ * latin instances, OFL-licensed (see src/assets/fonts/OFL.txt); no CDN.
+ * Floor-only: the upstairs chrome keeps Space Grotesk + JetBrains Mono.
+ * scene.js guards the first caption behind document.fonts.load() for
+ * both weights before the RAF starts. */
+@font-face {
+    font-family: 'Caveat';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('./fonts/caveat-500.woff2') format('woff2');
+}
+@font-face {
+    font-family: 'Caveat';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('./fonts/caveat-700.woff2') format('woff2');
+}
+
+/* The balcony chrome's own faces — Space Grotesk (display) + JetBrains
+ * Mono (mono) — self-hosted alongside Caveat (#00059 Gift): the
+ * Mezzanine is a desktop gadget; its typography must not depend on a
+ * CDN being reachable. Latin static instances, OFL-licensed (see
+ * src/assets/fonts/OFL.txt). */
+@font-face {
+    font-family: 'Space Grotesk';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('./fonts/space-grotesk-400.woff2') format('woff2');
+}
+@font-face {
+    font-family: 'Space Grotesk';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('./fonts/space-grotesk-500.woff2') format('woff2');
+}
+@font-face {
+    font-family: 'Space Grotesk';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('./fonts/space-grotesk-600.woff2') format('woff2');
+}
+@font-face {
+    font-family: 'Space Grotesk';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('./fonts/space-grotesk-700.woff2') format('woff2');
+}
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('./fonts/jetbrains-mono-400.woff2') format('woff2');
+}
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('./fonts/jetbrains-mono-500.woff2') format('woff2');
+}
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('./fonts/jetbrains-mono-600.woff2') format('woff2');
+}

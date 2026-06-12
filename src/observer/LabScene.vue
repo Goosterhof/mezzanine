@@ -4,9 +4,28 @@ import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 import type {ScientistId} from '../roster/types';
 import type {ActivityState} from './types';
 
+import {targetLabel} from '../roster/types';
+import {useIdleWarning} from '../roster/useIdleWarning';
 import {useRoster} from '../roster/useRoster';
-import {parseSelectScientistAction} from './projection';
+import {useRosterBackend} from '../roster/useRosterBackend';
+import {parseRecallScientistAction, parseSelectScientistAction} from './projection';
 import {activityFromMission, useObserver} from './useObserver';
+
+// The shape of one roster entry pushed down into the scene. The Field
+// Journal (#00059 J-3) widened it with the caption fields the canvas
+// margin notes carry now the DOM nameplates are retired: target label,
+// mission fragment, dispatch timestamp (the page computes elapsed
+// itself, per frame), the idle warning, and the crashed flag.
+interface SceneRosterEntry {
+    id: ScientistId;
+    activity: ActivityState;
+    detail: string;
+    target: string;
+    mission: string;
+    startedAtMs: number | null;
+    idleWarn: boolean;
+    crashed: boolean;
+}
 
 // The controller surface returned by `initScene` — kept as a local
 // interface because the scene module is plain JS and cannot export TS
@@ -15,7 +34,7 @@ import {activityFromMission, useObserver} from './useObserver';
 // projection), `getStationPos` (plumb-line x + light-pool y), and
 // `getFloorSize` (logical dimensions for CSS-scale correction).
 interface SceneController {
-    setRoster: (entries: Array<{id: ScientistId; activity: ActivityState; detail: string}>) => void;
+    setRoster: (entries: SceneRosterEntry[]) => void;
     setSelected: (id: ScientistId | null) => void;
     setStrip: (on: boolean) => void;
     getStationPos: (id: ScientistId) => {x: number; y: number};
@@ -38,6 +57,8 @@ const containerRef = ref<HTMLDivElement | null>(null);
 
 const roster = useRoster();
 const observer = useObserver();
+const backend = useRosterBackend();
+const idleWarning = useIdleWarning();
 
 let controller: SceneController | null = null;
 let unwatchRoster: (() => void) | null = null;
@@ -49,12 +70,22 @@ let unwatchStrip: (() => void) | null = null;
 // one entry per Roster scientist; the activity falls back to the
 // MissionState mapping when the chronicle stream has not yet produced
 // an inference signal.
-const rosterEntries = computed(() =>
+const rosterEntries = computed<SceneRosterEntry[]>(() =>
     roster.scientists.value.map((s) => {
         const fromChronicle = observer.activities.value.get(s.id);
         const activity: ActivityState = fromChronicle?.state ?? activityFromMission(s.state);
         const detail = fromChronicle?.detail ?? '...';
-        return {id: s.id, activity, detail};
+        const startedAtMs = Date.parse(s.startedAt);
+        return {
+            id: s.id,
+            activity,
+            detail,
+            target: targetLabel(s.target),
+            mission: s.mission,
+            startedAtMs: Number.isNaN(startedAtMs) ? null : startedAtMs,
+            idleWarn: idleWarning.isIdleWarning(s),
+            crashed: s.state === 'crashed',
+        };
     }),
 );
 
@@ -84,12 +115,23 @@ onMounted(async () => {
     controller = mod.initScene({
         canvas: canvasRef.value,
         onInteraction: (msg) => {
+            // The recall pathway (#00059 J-3): the `[ recall ]` note in a
+            // canvas margin caption rides the recallScientist:<id> wire
+            // action — the same duty the retired DOM nameplate's Recall
+            // button carried, same backend.recall(id) destination, new
+            // venue. Checked first: the note sits inside the caption's
+            // selection hit-region and must outrank it.
+            const recallId = parseRecallScientistAction(msg.action);
+            if (recallId !== null) {
+                void backend.recall(recallId);
+                return;
+            }
             // The seam parked since Arc 2 has its consumer (#00057): a
-            // sprite click on the floor selects the scientist, exactly
-            // as a nameplate click on the railing does — bidirectional
-            // selection, one signature gesture. The wire format is owned
-            // by the projection module — the same definition scene.js
-            // emits with, so the two ends cannot drift.
+            // figure click on the page selects the scientist — the same
+            // signature gesture the railing plates once shared. The wire
+            // format is owned by the projection module — the same
+            // definition scene.js emits with, so the two ends cannot
+            // drift.
             const id = parseSelectScientistAction(msg.action);
             if (id !== null) {
                 roster.select(id);
@@ -153,11 +195,9 @@ defineExpose({pauseRaf, resumeRaf, getStationPos, getFloorSize, getCanvasEl});
         ref="containerRef"
         class="relative w-full h-full bg-mz-canvas overflow-hidden flex items-center justify-center"
     >
-        <canvas
-            ref="canvasRef"
-            class="block image-rendering-pixelated"
-            style="image-rendering: pixelated"
-            data-observer-canvas
-        ></canvas>
+        <!-- The page renders at full DPR and blits 1:1 — no pixelated
+             image-rendering hint; that retired with the tile engine
+             (#00059 J-2). The ink stays ink. -->
+        <canvas ref="canvasRef" class="block" data-observer-canvas></canvas>
     </div>
 </template>

@@ -10,7 +10,9 @@ import {
     floorSize,
     isActivityState,
     minionStation,
+    parseRecallScientistAction,
     parseSelectScientistAction,
+    recallScientistAction,
     selectScientistAction,
     stationFor,
     stationTable,
@@ -203,5 +205,29 @@ describe('the selectScientist wire format — one definition, two ends', () => {
 
     it('returns null for an empty id — no phantom roster.select("")', () => {
         expect(parseSelectScientistAction('selectScientist:')).toBeNull();
+    });
+});
+
+describe('the recallScientist wire format — the [ recall ] note\u2019s pathway (#00059 J-3)', () => {
+    it('round-trips a scientist id through build and parse', () => {
+        expect(parseRecallScientistAction(recallScientistAction('42'))).toBe('42');
+        expect(parseRecallScientistAction(recallScientistAction('sci-uuid-7'))).toBe('sci-uuid-7');
+    });
+
+    it('returns null for an absent action', () => {
+        expect(parseRecallScientistAction(undefined)).toBeNull();
+    });
+
+    it('returns null for foreign interaction actions — selection never recalls', () => {
+        expect(parseRecallScientistAction(selectScientistAction('sci-42'))).toBeNull();
+        expect(parseRecallScientistAction('openPanel:holotable')).toBeNull();
+    });
+
+    it('returns null for an empty id — no phantom backend.recall("")', () => {
+        expect(parseRecallScientistAction('recallScientist:')).toBeNull();
+    });
+
+    it('never collides with the selection prefix — the two wires stay distinct', () => {
+        expect(parseSelectScientistAction(recallScientistAction('sci-42'))).toBeNull();
     });
 });

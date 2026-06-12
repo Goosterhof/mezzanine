@@ -1,0 +1,23 @@
+The Mezzanine's self-hosted typefaces (#00059) — all three families are
+the latin static instances served by Google Fonts, vendored here so the
+gadget carries no CDN dependency: a desktop binary keeps its hands even
+when the network is gone.
+
+  caveat-{500,700}.woff2
+      Caveat, by Impallari Type
+      https://fonts.google.com/specimen/Caveat
+      The hand the field-journal floor writes its captions in (J-3).
+
+  space-grotesk-{400,500,600,700}.woff2
+      Space Grotesk, by Florian Karsten
+      https://fonts.google.com/specimen/Space+Grotesk
+      The balcony chrome's display face.
+
+  jetbrains-mono-{400,500,600}.woff2
+      JetBrains Mono, by JetBrains
+      https://fonts.google.com/specimen/JetBrains+Mono
+      The balcony chrome's mono face.
+
+All three families are licensed under the SIL Open Font License,
+Version 1.1. The full license text is available with a FAQ at:
+https://openfontlicense.org

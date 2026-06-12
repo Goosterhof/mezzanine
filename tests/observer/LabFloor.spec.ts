@@ -108,20 +108,8 @@ describe('LabFloor — the Overlook #00057', () => {
         expect(floor.style.height).toBe('64px');
     });
 
-    it('speaks the empty voice on the floor when nobody is dispatched', () => {
+    it('carries no DOM empty-voice overlay — the canvas speaks now (#00059 J-3)', () => {
         const wrapper = mount(LabFloor);
-        expect(wrapper.get('[data-floor-empty]').text()).toBe('Balcony quiet. No scientists dispatched.');
-    });
-
-    it('condenses the empty voice on the strip — never silent and unlabelled', () => {
-        const wrapper = mount(LabFloor, {props: {collapsed: true}});
-        expect(wrapper.get('[data-floor-empty]').text()).toBe('Balcony quiet.');
-    });
-
-    it('drops the empty voice once a scientist is on the floor', async () => {
-        useRoster().upsert(makeScientist('s1'));
-        const wrapper = mount(LabFloor);
-        await nextTick();
         expect(wrapper.find('[data-floor-empty]').exists()).toBe(false);
     });
 
@@ -287,6 +275,126 @@ describe('LabFloor — the Overlook #00057', () => {
             expect(floor.style.minHeight).toBe('64px');
             await wrapper.get('[data-lab-floor]').trigger('mouseleave');
             expect(floor.style.height).toBe('64px');
+        });
+    });
+
+    // The empty voice migrated INTO the page (#00059 J-3): these specs
+    // drive the ink renderer directly with a recording mock context —
+    // jsdom has no Canvas 2D, so the canvas IS the mock — and assert
+    // ctx.fillText received the locked voice strings. No DOM query: the
+    // overlay these words used to live in no longer exists.
+    describe('the empty voice — written on the page itself (#00059 J-3)', () => {
+        interface SceneRosterEntry {
+            id: string;
+            activity: ActivityState;
+            detail: string;
+            target: string;
+            mission: string;
+            startedAtMs: number | null;
+            idleWarn: boolean;
+            crashed: boolean;
+        }
+
+        interface SceneController {
+            setRoster: (entries: SceneRosterEntry[]) => void;
+            setStrip: (on: boolean) => void;
+            destroy: () => void;
+        }
+
+        function makeSceneCanvas(): {canvas: HTMLCanvasElement; writtenText: () => string[]} {
+            const calls: unknown[][] = [];
+            const noop = (): void => {};
+            const ctx = {
+                clearRect: noop,
+                drawImage: noop,
+                beginPath: noop,
+                closePath: noop,
+                moveTo: noop,
+                lineTo: noop,
+                stroke: noop,
+                fill: noop,
+                arc: noop,
+                fillRect: noop,
+                fillText: (...args: unknown[]) => {
+                    calls.push(args);
+                },
+                measureText: (text: string) => ({width: text.length * 7}),
+                save: noop,
+                restore: noop,
+                translate: noop,
+                rotate: noop,
+                strokeStyle: '',
+                fillStyle: '',
+                lineWidth: 0,
+                globalAlpha: 1,
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                font: '',
+                textAlign: 'start',
+                textBaseline: 'alphabetic',
+            };
+            const canvas = {
+                width: 0,
+                height: 0,
+                style: {},
+                getContext: () => ctx,
+                addEventListener: noop,
+                removeEventListener: noop,
+                getBoundingClientRect: () => ({left: 0, top: 0, width: 0, height: 0}),
+            } as unknown as HTMLCanvasElement;
+            return {canvas, writtenText: () => calls.map((args) => String(args[0]))};
+        }
+
+        async function bootScene(): Promise<{controller: SceneController; writtenText: () => string[]}> {
+            const mod = (await import('../../src/observer/scene.js')) as unknown as {
+                initScene: (opts: {canvas: HTMLCanvasElement}) => SceneController;
+            };
+            const {canvas, writtenText} = makeSceneCanvas();
+            const controller = mod.initScene({canvas});
+            return {controller, writtenText};
+        }
+
+        function makeEntry(id: string): SceneRosterEntry {
+            return {
+                id,
+                activity: 'idle',
+                detail: '...',
+                target: 'The Crucible',
+                mission: 'check phpstan',
+                startedAtMs: Date.now(),
+                idleWarn: false,
+                crashed: false,
+            };
+        }
+
+        it('writes "Balcony quiet. No scientists dispatched." on the empty page', async () => {
+            const {controller, writtenText} = await bootScene();
+            controller.setRoster([]);
+            await vi.waitFor(() => {
+                expect(writtenText()).toContain('Balcony quiet. No scientists dispatched.');
+            });
+            controller.destroy();
+        });
+
+        it('condenses to "Balcony quiet." on the empty strip', async () => {
+            const {controller, writtenText} = await bootScene();
+            controller.setRoster([]);
+            controller.setStrip(true);
+            await vi.waitFor(() => {
+                expect(writtenText()).toContain('Balcony quiet.');
+            });
+            controller.destroy();
+        });
+
+        it('drops the empty voice once a scientist is on the page — the caption speaks instead', async () => {
+            const {controller, writtenText} = await bootScene();
+            controller.setRoster([makeEntry('s1')]);
+            await vi.waitFor(() => {
+                expect(writtenText()).toContain('The Crucible');
+            });
+            const sinceDispatch = writtenText().slice(writtenText().indexOf('The Crucible'));
+            expect(sinceDispatch).not.toContain('Balcony quiet. No scientists dispatched.');
+            controller.destroy();
         });
     });
 });
