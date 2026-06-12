@@ -74,8 +74,22 @@ export function initScene(opts) {
 
     var gl = canvas.getContext('webgl', {antialias: true, alpha: false});
     if (!gl) {
-        statusDisplay.textContent = 'WebGL not available';
-        return;
+        if (statusDisplay) statusDisplay.textContent = 'WebGL unavailable on this host';
+        // Return a no-op controller that honours the SceneController contract
+        // ({setState, pauseRaf, resumeRaf, destroy}). Returning `undefined`
+        // here once wedged the host: HolotableScene.vue calls
+        // `controller.setState(...)` unconditionally on mount, so an absent
+        // controller threw `Cannot read properties of undefined (reading
+        // 'setState')` — an unhandled rejection inside onMounted that froze
+        // the floor on every WebGL-less host (VMs, RDP sessions, WebView2 with
+        // GPU acceleration disabled). The stub keeps the panel alive and the
+        // header honest instead of hanging it.
+        return {
+            setState: function () {},
+            pauseRaf: function () {},
+            resumeRaf: function () {},
+            destroy: function () {},
+        };
     }
 
     var dpr = window.devicePixelRatio || 1;
@@ -1164,8 +1178,16 @@ export function initScene(opts) {
         for (var i = 0; i < beams.length; i++) {
             var b = beams[i];
 
-            // During summoning, beams connect sequentially
+            // During summoning, beams connect sequentially. Use the
+            // closure-scoped clock directly — `summonElapsed` is a `var`
+            // local to render() (declared after drawBeams is even called),
+            // so referencing it here threw a ReferenceError every frame
+            // under strict mode, aborting render() before the summon ever
+            // completed: the floor froze on "Connecting nervous system…"
+            // over a black canvas while the FPS counter kept ticking.
+            // drawGrid() computes the same elapsed correctly (see above).
             if (summoningActive) {
+                var summonElapsed = time - summonStartTime;
                 var beamProgress = Core.clamp ? Core.clamp((summonElapsed - b.beamDelay) / 0.3, 0, 1) : 1;
                 b.beamT = beamProgress;
                 if (b.beamT <= 0.001) continue; // beam hasn't fired yet

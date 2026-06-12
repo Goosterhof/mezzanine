@@ -16,12 +16,25 @@
 // version is pull-only, matching the balcony's dispatched-model voice.
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 use tauri::State;
 
 use crate::error::{MezzanineError, MezzanineResult};
+use crate::holotable::git_state::LabGitState;
 use crate::holotable::{aggregator, git_state, health_check, DashboardState};
 use crate::state::AppState;
+
+// The git half crosses the WSL2 bridge via `wsl.exe -- bash -lc "… git …"`,
+// and `Command::output()` there has no natural deadline. A cold distro, a
+// held `index.lock`, or git stalling on a credential prompt would block the
+// subprocess indefinitely — and `tokio::join!` would then wait on it
+// forever, stranding the floor's "reading the floor…" spinner with the
+// Refresh button disabled and no recovery. Bounding the git half guarantees
+// the command always returns: on timeout the floor degrades to health-only
+// (the rings still render) instead of hanging the panel. The health half is
+// already bounded by its own 5s per-ping timeout.
+const GIT_READ_TIMEOUT: Duration = Duration::from_secs(20);
 
 #[tauri::command]
 pub async fn read_holotable_state(state: State<'_, AppState>) -> MezzanineResult<DashboardState> {
@@ -31,15 +44,30 @@ pub async fn read_holotable_state(state: State<'_, AppState>) -> MezzanineResult
 
     // Git reads are blocking subprocess I/O — keep them off the runtime
     // by spawning into the blocking pool. Health pings are true async on
-    // reqwest's runtime. tokio::join! waits for both.
+    // reqwest's runtime. tokio::join! waits for both; the git half carries a
+    // deadline so a wedged bridge cannot wedge the floor.
     let git_handle = tokio::task::spawn_blocking(move || {
         git_state::read(&lab_root_for_git, distro_for_git.as_deref())
     });
+    let git_with_deadline = tokio::time::timeout(GIT_READ_TIMEOUT, git_handle);
     let health_future = health_check::ping_all();
 
-    let (git_join, health) = tokio::join!(git_handle, health_future);
-    let git = git_join
-        .map_err(|e| MezzanineError::WslBridge(format!("holotable git read join failed: {e}")))?;
+    let (git_result, health) = tokio::join!(git_with_deadline, health_future);
+    let git = match git_result {
+        Ok(Ok(state)) => state,
+        Ok(Err(join_err)) => {
+            return Err(MezzanineError::WslBridge(format!(
+                "holotable git read join failed: {join_err}"
+            )))
+        }
+        Err(_elapsed) => {
+            log::warn!(
+                "Holotable: git read exceeded {}s — WSL2 may be cold or git is blocked; rendering the floor from health pings only",
+                GIT_READ_TIMEOUT.as_secs()
+            );
+            LabGitState::default()
+        }
+    };
 
     Ok(aggregator::build(git, health))
 }

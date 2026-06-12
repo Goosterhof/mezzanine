@@ -27,25 +27,42 @@ onMounted(async () => {
     if (!canvasRef.value || !containerRef.value) return;
     // Dynamic import keeps the 1835-line WebGL engine out of the main
     // bundle entry. The first time the investor opens the floor, the
-    // chunk loads; subsequent opens reuse the cached module.
-    const sceneModule = (await import('./scene.js')) as {
-        initScene: (opts: Record<string, unknown>) => SceneController;
-    };
-    controller = sceneModule.initScene({
-        canvas: canvasRef.value,
-        container: containerRef.value,
-        tooltip: tooltipRef.value,
-        infoPanel: infoPanelRef.value,
-        branchDisplay: branchRef.value,
-        statusDisplay: statusRef.value,
-        fpsDisplay: fpsRef.value,
-        lastUpdateDisplay: lastUpdateRef.value,
-        onInteraction: () => {
-            // Arc 1 has no consumer for structure clicks. The seam stays
-            // wired so a future arc can dispatch a scientist into the
-            // clicked experiment without touching the lifted engine.
-        },
-    });
+    // chunk loads; subsequent opens reuse the cached module. The whole
+    // start-up is guarded: a failed chunk load or a scene that cannot
+    // initialize must degrade the floor to a static header, never throw an
+    // unhandled rejection out of the lifecycle hook (which used to freeze
+    // the panel on WebGL-less hosts).
+    let created: SceneController | undefined;
+    try {
+        const sceneModule = (await import('./scene.js')) as {
+            initScene: (opts: Record<string, unknown>) => SceneController | undefined;
+        };
+        created = sceneModule.initScene({
+            canvas: canvasRef.value,
+            container: containerRef.value,
+            tooltip: tooltipRef.value,
+            infoPanel: infoPanelRef.value,
+            branchDisplay: branchRef.value,
+            statusDisplay: statusRef.value,
+            fpsDisplay: fpsRef.value,
+            lastUpdateDisplay: lastUpdateRef.value,
+            onInteraction: () => {
+                // Arc 1 has no consumer for structure clicks. The seam stays
+                // wired so a future arc can dispatch a scientist into the
+                // clicked experiment without touching the lifted engine.
+            },
+        });
+    } catch {
+        if (statusRef.value) statusRef.value.textContent = 'Floor engine failed to start';
+        return;
+    }
+    // Defensive: the scene returns `undefined` only if a future edit drops
+    // the no-op-controller contract. Guard so the host never dereferences it.
+    if (!created) {
+        if (statusRef.value) statusRef.value.textContent = 'Floor engine unavailable';
+        return;
+    }
+    controller = created;
     // Push the current state immediately so the scene renders on mount.
     controller.setState(holotable.legacyState.value);
     // Reactively re-push when the composable's state changes.
