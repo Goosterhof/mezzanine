@@ -68,6 +68,37 @@ export function initScene(opts) {
         windowListeners.push({type: type, handler: handler, options: options});
     }
 
+    // --- Reduced-Motion Gate (WCAG 2.3.3 AAA) ---
+    // Honor OS-level prefers-reduced-motion: freeze the WebGL render loop and
+    // leave the last-drawn frame static. The CSS @media preflight in
+    // uno.config.ts does not cover the canvas RAF cadence — this engine drives
+    // its own loop, so it consults window.matchMedia directly. Mirrors
+    // src/observer/scene.js. The GL context is NOT torn down (cheap to leave a
+    // static frame); only the re-schedule is suppressed. The matchMedia
+    // listener is tracked separately so destroy() can detach it.
+    var reducedMotionQuery =
+        typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+            ? window.matchMedia('(prefers-reduced-motion: reduce)')
+            : null;
+    var reducedMotion = reducedMotionQuery ? reducedMotionQuery.matches : false;
+    var onReducedMotionChange = null;
+    if (reducedMotionQuery) {
+        onReducedMotionChange = function (e) {
+            var wasReduced = reducedMotion;
+            reducedMotion = e.matches;
+            if (wasReduced && !reducedMotion && !paused) {
+                // Motion re-enabled and the panel is active: restart the loop.
+                if (rafHandle === null) {
+                    rafHandle = requestAnimationFrame(render);
+                }
+            }
+            // Motion disabled mid-flight: the in-flight render() will see the
+            // flag on its next tick and stop re-scheduling, leaving the last
+            // frame static. No explicit draw needed (the loop already drew it).
+        };
+        reducedMotionQuery.addEventListener('change', onReducedMotionChange);
+    }
+
     // =========================================================================
     // WebGL Setup
     // =========================================================================
@@ -1666,12 +1697,22 @@ export function initScene(opts) {
 
     var particleSpawnTimer = 0;
 
+    // When true, render() runs its body once but does NOT re-schedule a RAF —
+    // used to paint a single static frame under reduced motion.
+    var drawOnce = false;
+
     function render(now) {
-        if (paused) {
+        if (paused || (reducedMotion && !drawOnce)) {
             rafHandle = null;
             return;
         }
-        rafHandle = requestAnimationFrame(render);
+        if (drawOnce) {
+            // One static frame: do not re-arm the loop.
+            drawOnce = false;
+            rafHandle = null;
+        } else {
+            rafHandle = requestAnimationFrame(render);
+        }
 
         var dt = Math.min((now - lastFrameTime) / 1000, 0.1);
         lastFrameTime = now;
@@ -1843,7 +1884,13 @@ export function initScene(opts) {
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     }
 
-    rafHandle = requestAnimationFrame(render);
+    if (reducedMotion) {
+        // Reduced motion: paint a single static frame and leave the loop frozen.
+        drawOnce = true;
+        rafHandle = requestAnimationFrame(render);
+    } else {
+        rafHandle = requestAnimationFrame(render);
+    }
     statusDisplay.textContent = 'Summoning laboratory...';
 
     // =========================================================================
@@ -1898,6 +1945,14 @@ export function initScene(opts) {
         resumeRaf: function () {
             if (!paused) return;
             paused = false;
+            // Under reduced motion, paint a single static frame and stay frozen.
+            if (reducedMotion) {
+                if (rafHandle === null) {
+                    drawOnce = true;
+                    rafHandle = requestAnimationFrame(render);
+                }
+                return;
+            }
             if (rafHandle === null) {
                 rafHandle = requestAnimationFrame(render);
             }
@@ -1918,6 +1973,10 @@ export function initScene(opts) {
                 window.removeEventListener(entry.type, entry.handler, entry.options);
             }
             windowListeners = [];
+            if (reducedMotionQuery && onReducedMotionChange) {
+                reducedMotionQuery.removeEventListener('change', onReducedMotionChange);
+                onReducedMotionChange = null;
+            }
             // Best-effort context release. If the host removes the canvas
             // from the DOM the browser collects this on its own anyway.
             try {
