@@ -158,3 +158,102 @@ describe('holotable scene engine', () => {
         expect(statusDisplay.textContent).toBe('Online');
     });
 });
+
+// --- Reduced-Motion Gate (WR-0090, WCAG 2.3.3 AAA) -------------------------
+// The render loop must freeze when the OS prefers reduced motion. The gate
+// reads window.matchMedia('(prefers-reduced-motion: reduce)') at initScene
+// time; the global tests/setup.ts stubs matchMedia to a non-matching query,
+// so these tests install a controllable stub that reports `matches: true`
+// (and captures the `change` handler the gate subscribes to).
+
+type RmChangeHandler = (e: MediaQueryListEvent) => void;
+
+interface FakeReducedMotionQuery {
+    matches: boolean;
+    handlers: RmChangeHandler[];
+    fire(matches: boolean): void;
+    removed: boolean;
+}
+
+function installReducedMotion(initialMatches: boolean): FakeReducedMotionQuery {
+    const mq: FakeReducedMotionQuery = {
+        matches: initialMatches,
+        handlers: [],
+        removed: false,
+        fire(matches: boolean): void {
+            mq.matches = matches;
+            for (const h of mq.handlers) h({matches} as MediaQueryListEvent);
+        },
+    };
+    window.matchMedia = ((query: string) =>
+        ({
+            matches: mq.matches,
+            media: query,
+            onchange: null,
+            addListener: () => {},
+            removeListener: () => {},
+            addEventListener: (_type: string, handler: RmChangeHandler) => mq.handlers.push(handler),
+            removeEventListener: (_type: string, handler: RmChangeHandler) => {
+                mq.handlers = mq.handlers.filter((h) => h !== handler);
+                mq.removed = true;
+            },
+            dispatchEvent: () => false,
+        }) as unknown as MediaQueryList) as typeof window.matchMedia;
+    return mq;
+}
+
+describe('holotable scene engine — reduced-motion gate', () => {
+    let originalMatchMedia: typeof window.matchMedia;
+
+    beforeEach(() => {
+        originalMatchMedia = window.matchMedia;
+    });
+
+    afterEach(() => {
+        window.matchMedia = originalMatchMedia;
+    });
+
+    it('freezes the render loop under reduced motion (one static frame, never reaches the animated ceremony)', () => {
+        installReducedMotion(true);
+        const {controller, statusDisplay} = buildScene();
+        controller.setState(SAMPLE_STATE);
+        // Pump well past the 3.5s ceremony. Under reduced motion the loop
+        // paints one static frame and stops re-scheduling, so the multi-phase
+        // animated ceremony ("Connecting nervous system...") never advances.
+        const phases: string[] = [];
+        for (let i = 0; i < 60; i++) {
+            rafController.pump(100);
+            if (!phases.includes(statusDisplay.textContent)) phases.push(statusDisplay.textContent);
+        }
+        expect(phases).not.toContain('Connecting nervous system...');
+        expect(statusDisplay.textContent).not.toBe('Online');
+    });
+
+    it('restarts the loop when the OS re-enables motion mid-flight', () => {
+        const mq = installReducedMotion(true);
+        const {controller, statusDisplay} = buildScene();
+        controller.setState(SAMPLE_STATE);
+        for (let i = 0; i < 10; i++) rafController.pump(100);
+        // Sanity: still frozen.
+        expect(statusDisplay.textContent).not.toBe('Online');
+        // OS toggles reduced motion OFF — the gate re-arms the loop.
+        mq.fire(false);
+        for (let i = 0; i < 60; i++) rafController.pump(100);
+        expect(statusDisplay.textContent).toBe('Online');
+    });
+
+    it('runs normally when reduced motion is not preferred', () => {
+        installReducedMotion(false);
+        const {controller, statusDisplay} = buildScene();
+        controller.setState(SAMPLE_STATE);
+        for (let i = 0; i < 60; i++) rafController.pump(100);
+        expect(statusDisplay.textContent).toBe('Online');
+    });
+
+    it('detaches the matchMedia change listener on destroy', () => {
+        const mq = installReducedMotion(false);
+        const {controller} = buildScene();
+        controller.destroy();
+        expect(mq.removed).toBe(true);
+    });
+});

@@ -26,6 +26,35 @@ let rafHandle: number | null = null;
 let paused = false;
 let frame = 0;
 
+// --- Reduced-Motion Gate (WCAG 2.3.3 AAA) ---
+// Honor OS-level prefers-reduced-motion: draw one static frame and skip the
+// RAF re-schedule. The canvas RAF cadence is not covered by the CSS @media
+// preflight in uno.config.ts — the renderer drives its own loop, so it must
+// consult window.matchMedia directly. Mirrors src/observer/scene.js.
+const reducedMotionQuery =
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : null;
+let reducedMotion = reducedMotionQuery ? reducedMotionQuery.matches : false;
+
+function onReducedMotionChange(e: MediaQueryListEvent): void {
+    const wasReduced = reducedMotion;
+    reducedMotion = e.matches;
+    if (wasReduced && !reducedMotion && !paused) {
+        // Motion re-enabled and the panel is active: restart the loop.
+        if (rafHandle === null) {
+            rafHandle = requestAnimationFrame(loop);
+        }
+    } else if (!wasReduced && reducedMotion) {
+        // Motion disabled mid-flight: freeze and leave one static frame.
+        if (rafHandle !== null) {
+            cancelAnimationFrame(rafHandle);
+            rafHandle = null;
+        }
+        draw();
+    }
+}
+
 function tileColor(tier: number): string {
     switch (tier) {
         case 0:
@@ -100,7 +129,7 @@ function draw(): void {
 }
 
 function loop(): void {
-    if (paused) return;
+    if (paused || reducedMotion) return; // Freeze: no further RAF re-schedule.
     frame += 1;
     draw();
     rafHandle = requestAnimationFrame(loop);
@@ -117,17 +146,27 @@ function pauseRaf(): void {
 function resumeRaf(): void {
     if (paused) {
         paused = false;
-        rafHandle = requestAnimationFrame(loop);
+        // Under reduced motion, draw one static frame and stay frozen.
+        if (reducedMotion) {
+            draw();
+        } else if (rafHandle === null) {
+            rafHandle = requestAnimationFrame(loop);
+        }
     }
 }
 
 onMounted(() => {
+    reducedMotionQuery?.addEventListener('change', onReducedMotionChange);
     draw();
-    rafHandle = requestAnimationFrame(loop);
+    // Under reduced motion, the one static frame above is the final state.
+    if (!reducedMotion) {
+        rafHandle = requestAnimationFrame(loop);
+    }
 });
 
 onBeforeUnmount(() => {
     pauseRaf();
+    reducedMotionQuery?.removeEventListener('change', onReducedMotionChange);
 });
 
 // Force a redraw whenever the state changes (purchases land).
