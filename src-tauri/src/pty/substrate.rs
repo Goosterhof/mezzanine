@@ -78,9 +78,11 @@ impl SessionSpec {
 /// On Windows: `wsl.exe -d <distro> -- bash -lc "<inner>"`.
 /// On Unix:    `bash -lc "<inner>"`.
 ///
-/// The inner shell command is always `cd <working_dir> && exec <binary> <args...>` —
+/// The inner shell command is always
+/// `cd <working_dir> && export CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 && exec <binary> <args...>` —
 /// `exec` replaces the bash so signals (Ctrl+C, SIGHUP) reach the wrapped
-/// binary directly instead of dying on the shell wrapper.
+/// binary directly instead of dying on the shell wrapper. The exported flag
+/// pins `claude` to its classic main-screen renderer — see `inner_shell_command`.
 pub fn build_command(spec: &SessionSpec) -> CommandBuilder {
     let inner = inner_shell_command(spec);
 
@@ -108,14 +110,39 @@ pub fn build_command(spec: &SessionSpec) -> CommandBuilder {
     }
 }
 
-/// Compose the inner shell command — `cd <dir> && exec <bin> <args...>`.
+/// Compose the inner shell command —
+/// `cd <dir> && export CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 && exec <bin> <args...>`.
+///
+/// **Why the exported flag.** The Mezzanine renders every dispatched scientist
+/// inside an `@xterm/xterm` canvas (decision 007). When `claude` runs its
+/// flicker-free *fullscreen* renderer — forced lab-wide by `CLAUDE_CODE_NO_FLICKER=1`
+/// in the investor's `~/.claude/settings.json` — it draws on the terminal's
+/// **alternate screen buffer**. In the alt buffer, with no application mouse
+/// tracking active at the prompt, xterm.js translates the mouse wheel into
+/// arrow-key presses; `claude` reads those as input-history navigation, so the
+/// investor scrolls the prompt history instead of the conversation and has no
+/// way to scroll the transcript at all.
+///
+/// `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1` overrides `NO_FLICKER` (verified
+/// against claude 2.1.177: the binary stops emitting `\x1b[?1049h`) and pins
+/// the *classic main-screen renderer*. `claude` then streams the conversation
+/// to the normal buffer, where xterm's own scrollback (5000 lines) holds it and
+/// the wheel scrolls the transcript natively. The trade is the flicker-free
+/// fullscreen rendering — a non-issue in a local canvas-rendered xterm, and the
+/// investor's global terminal keeps `NO_FLICKER` untouched because this flag is
+/// scoped to the Mezzanine-dispatched session only.
+///
+/// The flag must ride the WSL2-side bash command, not the `wsl.exe`
+/// `CommandBuilder` env: env vars set on the Windows-side builder do not cross
+/// into the WSL distro without `WSLENV` plumbing, but an `export` inside the
+/// inner shell runs where `claude` actually lives (AD-1, the WSL2 bridge).
 fn inner_shell_command(spec: &SessionSpec) -> String {
     let working_dir = spec
         .working_dir
         .to_str()
         .expect("substrate: working_dir must be valid UTF-8");
     let mut cmd = format!(
-        "cd {} && exec {}",
+        "cd {} && export CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 && exec {}",
         shell_quote(working_dir),
         shell_quote(&spec.binary),
     );
@@ -211,7 +238,27 @@ mod tests {
         };
         assert_eq!(
             inner_shell_command(&spec),
-            "cd '/tmp/x' && exec 'echo' 'hello'",
+            "cd '/tmp/x' && export CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 && exec 'echo' 'hello'",
+        );
+    }
+
+    #[test]
+    fn inner_shell_command_pins_classic_renderer() {
+        // Regression guard: the alt-screen disable flag must ride the inner
+        // bash command (exported, before exec) so the dispatched `claude`
+        // renders on the main screen and the investor can scroll the
+        // conversation in xterm. Dropping this re-opens the wheel-scrolls-
+        // history wound under the lab-wide CLAUDE_CODE_NO_FLICKER=1 setting.
+        let spec = SessionSpec {
+            working_dir: PathBuf::from("/tmp/x"),
+            binary: "claude".to_string(),
+            args: Vec::new(),
+            distro: None,
+        };
+        let inner = inner_shell_command(&spec);
+        assert!(
+            inner.contains("export CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 && exec "),
+            "expected the alt-screen disable flag exported before exec, got: {inner}",
         );
     }
 
@@ -273,7 +320,7 @@ mod tests {
         // single-quoted — this is what gives claude its opening prompt.
         assert_eq!(
             inner_shell_command(&spec),
-            "cd '/home/scientist/code/zmuuzn' && exec 'claude' '@agent-inspector'",
+            "cd '/home/scientist/code/zmuuzn' && export CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 && exec 'claude' '@agent-inspector'",
         );
     }
 
@@ -290,7 +337,7 @@ mod tests {
         assert!(spec.args.is_empty());
         assert_eq!(
             inner_shell_command(&spec),
-            "cd '/home/scientist/code/zmuuzn' && exec 'claude'",
+            "cd '/home/scientist/code/zmuuzn' && export CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 && exec 'claude'",
         );
     }
 
