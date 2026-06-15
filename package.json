@@ -31,23 +31,23 @@
         "@tauri-apps/plugin-updater": "^2",
         "@xterm/addon-fit": "^0.11.0",
         "@xterm/xterm": "^6.0.0",
-        "vue": "^3.5.13"
+        "vue": "^3.5.35"
     },
     "devDependencies": {
         "@tauri-apps/cli": "^2",
-        "@unocss/preset-attributify": "^66.6.0",
-        "@unocss/preset-icons": "^66.6.0",
+        "@unocss/preset-attributify": "^66.7.0",
+        "@unocss/preset-icons": "^66.7.0",
         "@vitejs/plugin-vue": "^5.2.1",
-        "@vitest/coverage-v8": "^2.1.9",
-        "@vue/test-utils": "^2.4.6",
+        "@vitest/coverage-v8": "^4.1.8",
+        "@vue/test-utils": "^2.4.11",
         "jsdom": "^25.0.1",
         "oxfmt": "^0.46.0",
-        "oxlint": "^1.0.0",
-        "oxlint-tsgolint": "^0.22.1",
+        "oxlint": "^1.68.0",
+        "oxlint-tsgolint": "^0.23.0",
         "typescript": "~5.6.2",
-        "unocss": "^66.6.0",
+        "unocss": "^66.7.0",
         "vite": "^6.0.3",
-        "vitest": "^2.1.8",
-        "vue-tsc": "^2.1.10"
+        "vitest": "^4.1.8",
+        "vue-tsc": "^3.3.4"
     }
 }
