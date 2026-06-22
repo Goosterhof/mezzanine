@@ -129,6 +129,15 @@ function openPr(entry: CrierQueueEntry): void {
     });
 }
 
+// The displayed `#` is the GitHub PR number — the last path segment of the
+// prUrl (.../pull/<N>) — NOT entry.id, which is the bus's OWN request-row id
+// (the bus may carry request #111 for PR #35). Only prUrl carries the real
+// number; entry.id stays the Vue :key alone. Falls back to an em-dash rather
+// than ever rendering a number that resolves to nothing on GitHub.
+function prNumber(entry: CrierQueueEntry): string {
+    return entry.prUrl.split('/').filter(Boolean).pop() ?? '—';
+}
+
 function handleEscape(event: KeyboardEvent): void {
     if (event.key !== 'Escape' || !open.value) {
         return;
@@ -277,15 +286,14 @@ onBeforeUnmount(() => {
                     type="button"
                     class="group block w-full text-left border-b border-mz-edge bg-mz-rail px-5 py-3 cursor-pointer transition-colors duration-100 hover:bg-mz-edge-soft/40 hover:border-l-2 hover:border-l-mz-brass focus-visible:bg-mz-edge-soft/40 focus-visible:outline-none focus-visible:border-l-2 focus-visible:border-l-mz-brass"
                     data-test="crier-queue-row"
-                    :title="`Open ${entry.repo} #${entry.id} on GitHub`"
+                    :title="`Open ${entry.repo} #${prNumber(entry)} on GitHub`"
                     @click="openPr(entry)"
                 >
                     <div class="flex items-center justify-between gap-3">
                         <div class="mz-stamp-label">{{ entry.repo }}</div>
-                        <span class="font-mono text-[10px] text-mz-text-faint shrink-0">#{{ entry.id }}</span>
+                        <span class="font-mono text-[10px] text-mz-text-faint shrink-0">#{{ prNumber(entry) }}</span>
                     </div>
                     <div class="mt-1 font-mono text-[11px] text-mz-text-mute">
-                        {{ entry.repo }} ·
                         <span :class="entry.reviewCount > 0 ? 'text-mz-signal' : ''">
                             {{ entry.reviewCount }} review{{ entry.reviewCount === 1 ? '' : 's' }}
                         </span>

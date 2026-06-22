@@ -83,6 +83,28 @@ describe('CriersWatchPanel', () => {
         expect(wrapper.text()).toContain('#43');
     });
 
+    it('renders the GitHub PR number from prUrl, not the bus request id', async () => {
+        // The bus request id and the PR number diverge in reality — this very
+        // arc rode bus request #111 for PR #35. The displayed `#` must follow
+        // prUrl's pull/<N> segment; the bus id must never surface as a GitHub
+        // number (it resolves to nothing). Also locks the repo-once fix: repo
+        // shows in the stamp-label only, no longer doubled on the body line.
+        stubState({
+            status: 'armed',
+            queue: [
+                {id: 111, prUrl: 'https://github.com/Goosterhof/mezzanine/pull/35', repo: 'mezzanine', reviewCount: 0},
+            ],
+            lastReadAt: null,
+            busError: null,
+        });
+        const wrapper = await openPanel();
+        const row = wrapper.find('[data-test="crier-queue-row"]');
+        expect(row.text()).toContain('#35');
+        expect(row.text()).not.toContain('111');
+        expect(row.attributes('title')).toBe('Open mezzanine #35 on GitHub');
+        expect(row.text().match(/mezzanine/g)).toHaveLength(1);
+    });
+
     it('opens the PR on GitHub when a queue row is clicked', async () => {
         stubState(ARMED);
         const wrapper = await openPanel();
