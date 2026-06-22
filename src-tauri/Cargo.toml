@@ -42,7 +42,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 # The bridge to the lab floor: portable-pty wraps wsl.exe (Windows) or bash (Linux dev)
 # to host the dispatched scientist's claude session inside a real terminal. tokio drives
 # the async I/O pumps that read pty output and forward it to the frontend via Tauri events.
-portable-pty = "0.8"
+portable-pty = "0.9"
 tokio = { version = "1", features = ["full"] }
 parking_lot = "0.12"
 
