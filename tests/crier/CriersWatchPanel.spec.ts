@@ -9,7 +9,7 @@ import CriersWatchPanel from '../../src/crier/CriersWatchPanel.vue';
 import {useCriersWatch} from '../../src/crier/useCriersWatch';
 import {useShell} from '../../src/shell/useShell';
 
-vi.mock('@tauri-apps/plugin-opener', () => ({openUrl: vi.fn(() => Promise.resolve())}));
+vi.mock('@tauri-apps/plugin-opener', () => ({openUrl: vi.fn<() => Promise<void>>(() => Promise.resolve())}));
 
 const mockedInvoke = vi.mocked(invoke);
 const mockedOpenUrl = vi.mocked(openUrl);
