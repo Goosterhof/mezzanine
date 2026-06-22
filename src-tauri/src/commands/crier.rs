@@ -225,8 +225,8 @@ async fn fetch_open_queue(token: &str) -> Result<Vec<CrierQueueEntry>, String> {
         .text()
         .await
         .map_err(|err| format!("GET /open → body read failed: {err}"))?;
-    let body: BusOpenResponse = serde_json::from_str(&raw)
-        .map_err(|err| format!("GET /open → malformed body: {err}"))?;
+    let body: BusOpenResponse =
+        serde_json::from_str(&raw).map_err(|err| format!("GET /open → malformed body: {err}"))?;
 
     Ok(body
         .open

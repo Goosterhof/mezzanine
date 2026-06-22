@@ -369,7 +369,10 @@ mod tests {
         let s = fresh_scientist();
         let id = s.id;
         mgr.insert_record_for_test(s);
-        assert!(mgr.list().iter().any(|x| x.id == id), "freshly inserted id is live");
+        assert!(
+            mgr.list().iter().any(|x| x.id == id),
+            "freshly inserted id is live"
+        );
         mgr.recall(id).unwrap();
         assert!(
             !mgr.list().iter().any(|x| x.id == id),

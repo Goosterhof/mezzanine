@@ -474,12 +474,8 @@ mod tests {
     fn for_crier_produces_flag_args() {
         // Criterion 5: the crier's args are the channel flag + relay server
         // selector — not a mission positional.
-        let spec = SessionSpec::for_crier(
-            Path::new("/home/scientist/code/zmuuzn"),
-            None,
-            None,
-            "tok",
-        );
+        let spec =
+            SessionSpec::for_crier(Path::new("/home/scientist/code/zmuuzn"), None, None, "tok");
         assert_eq!(
             spec.args,
             vec![
@@ -493,12 +489,8 @@ mod tests {
     fn for_crier_inner_command_quotes_flag_tokens_distinctly() {
         // Criterion 6: the flag and the server selector appear as distinct
         // quoted tokens after the binary.
-        let spec = SessionSpec::for_crier(
-            Path::new("/home/scientist/code/zmuuzn"),
-            None,
-            None,
-            "tok",
-        );
+        let spec =
+            SessionSpec::for_crier(Path::new("/home/scientist/code/zmuuzn"), None, None, "tok");
         let inner = inner_shell_command(&spec);
         assert!(
             inner.contains("'--dangerously-load-development-channels'"),
@@ -538,24 +530,16 @@ mod tests {
     fn for_crier_does_not_inject_relay_repos() {
         // Criterion 8: TC_RELAY_REPOS is an explicit .mcp.json key — any
         // injected value is dead, so the crier does not inject it.
-        let spec = SessionSpec::for_crier(
-            Path::new("/home/scientist/code/zmuuzn"),
-            None,
-            None,
-            "tok",
-        );
+        let spec =
+            SessionSpec::for_crier(Path::new("/home/scientist/code/zmuuzn"), None, None, "tok");
         assert!(!spec.env.iter().any(|(k, _)| k == "TC_RELAY_REPOS"));
     }
 
     #[test]
     fn for_crier_working_dir_is_lab_root() {
         // Criterion 9: cwd is the lab root, not an experiment subdir.
-        let spec = SessionSpec::for_crier(
-            Path::new("/home/scientist/code/zmuuzn"),
-            None,
-            None,
-            "tok",
-        );
+        let spec =
+            SessionSpec::for_crier(Path::new("/home/scientist/code/zmuuzn"), None, None, "tok");
         assert_eq!(
             spec.working_dir.to_str().unwrap(),
             "/home/scientist/code/zmuuzn",
@@ -566,7 +550,8 @@ mod tests {
     fn for_crier_full_inner_command_exports_token_before_exec() {
         // The token export rides the inner bash before the exec — the whole
         // point of the env-injection wire (the bash -lc empty-token trap).
-        let spec = SessionSpec::for_crier(Path::new("/home/scientist/code/zmuuzn"), None, None, "T");
+        let spec =
+            SessionSpec::for_crier(Path::new("/home/scientist/code/zmuuzn"), None, None, "T");
         assert_eq!(
             inner_shell_command(&spec),
             "cd '/home/scientist/code/zmuuzn' && export CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 && \
