@@ -12,6 +12,7 @@ import {nextTick} from 'vue';
 
 import {useBalconySigns} from '../../src/balcony/useBalconySigns';
 import {useDispatch} from '../../src/balcony/useDispatch';
+import {useCriersWatch} from '../../src/crier/useCriersWatch';
 import Balustrade from '../../src/shell/Balustrade.vue';
 import {useShell} from '../../src/shell/useShell';
 
@@ -37,6 +38,7 @@ describe('Balustrade — the Overlook #00057', () => {
         useBalconySigns().reset();
         useDispatch().reset();
         useShell().reset();
+        useCriersWatch().reset();
         mockedInvoke.mockReset();
     });
 
@@ -97,13 +99,50 @@ describe('Balustrade — the Overlook #00057', () => {
         expect(wrapper.text()).toContain('Last DELIVERED 2026-05-12');
     });
 
-    it('renders exactly the four surviving panel glyphs — the OB glyph is retired', () => {
+    it('renders the four surviving panel glyphs plus TC — the OB glyph is retired', () => {
         mockedInvoke.mockResolvedValue(SIGNS_EMPTY);
         const wrapper = mount(Balustrade);
         const glyphButtons = wrapper.findAll('button[title]');
-        expect(glyphButtons.map((b) => b.text())).toStrictEqual(['MC', 'DD', 'HT', 'GR']);
+        // The Crier's Watch (#00060) — TC follows GR, before Dispatch.
+        expect(glyphButtons.map((b) => b.text())).toStrictEqual(['MC', 'DD', 'HT', 'GR', 'TC']);
         expect(wrapper.text()).not.toContain('OB');
         expect(wrapper.text()).not.toContain('Observer');
+    });
+
+    it('places the TC glyph between GR and Dispatch (#00060)', () => {
+        mockedInvoke.mockResolvedValue(SIGNS_EMPTY);
+        const wrapper = mount(Balustrade);
+        const labels = wrapper.findAll('button[title]').map((b) => b.text());
+        expect(labels.indexOf('TC')).toBe(labels.indexOf('GR') + 1);
+        expect(wrapper.find('[data-test="balustrade-tc"]').exists()).toBe(true);
+    });
+
+    it("clicking TC toggles The Crier's Watch panel open and closed", async () => {
+        mockedInvoke.mockResolvedValue(SIGNS_EMPTY);
+        const wrapper = mount(Balustrade);
+        const tc = wrapper.get('[data-test="balustrade-tc"]');
+        await tc.trigger('click');
+        expect(useShell().openPanel.value).toBe('criers-watch');
+        await tc.trigger('click');
+        expect(useShell().openPanel.value).toBeNull();
+    });
+
+    it('hides the Patrol Lamp while the crier is off (idle / token-missing)', () => {
+        mockedInvoke.mockResolvedValue(SIGNS_EMPTY);
+        useCriersWatch().state.value = {status: 'idle', queue: [], lastReadAt: null, busError: null, scientistId: null};
+        const wrapper = mount(Balustrade);
+        expect(wrapper.find('[data-patrol-lamp]').exists()).toBe(false);
+    });
+
+    it('shows the Patrol Lamp when the crier is on patrol', () => {
+        mockedInvoke.mockResolvedValue(SIGNS_EMPTY);
+        const crier = useCriersWatch();
+        crier.state.value = {status: 'armed', queue: [], lastReadAt: null, busError: null, scientistId: null};
+        crier.lastNudgeAt.value = null;
+        const wrapper = mount(Balustrade);
+        const lamp = wrapper.find('[data-patrol-lamp]');
+        expect(lamp.exists()).toBe(true);
+        expect(lamp.attributes('data-patrol-lamp')).toBe('watching');
     });
 
     it('clicking a glyph opens the corresponding panel', async () => {

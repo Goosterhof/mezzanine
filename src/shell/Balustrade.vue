@@ -17,11 +17,14 @@ import {computed} from 'vue';
 import BalconySign from '../balcony/BalconySign.vue';
 import {useBalconySigns} from '../balcony/useBalconySigns';
 import {useDispatch} from '../balcony/useDispatch';
+import PatrolLamp from '../crier/PatrolLamp.vue';
+import {useCriersWatch} from '../crier/useCriersWatch';
 import {useShell, type PanelId} from './useShell';
 
 const shell = useShell();
 const dispatch = useDispatch();
 const balconySigns = useBalconySigns();
+const crier = useCriersWatch();
 
 // The four surviving summonable panels. The Observer is deliberately
 // absent — the floor below is not summoned, it is simply there.
@@ -125,6 +128,23 @@ const ideaLedgerSub = computed<string | null>(() => {
             >
                 {{ btn.glyph }}
             </button>
+
+            <!-- The Crier's Watch (#00060) — TC, the relay's watch-post.
+                 The Patrol Lamp (the Gift) sits immediately to its left,
+                 amber by presence and rhythm. -->
+            <div class="flex items-center gap-1.5">
+                <PatrolLamp :status="crier.lampStatus.value" />
+                <button
+                    type="button"
+                    class="mz-button"
+                    :class="{'border-mz-brass text-mz-brass': shell.openPanel.value === 'criers-watch'}"
+                    title="The Crier's Watch"
+                    data-test="balustrade-tc"
+                    @click="shell.togglePanel('criers-watch')"
+                >
+                    TC
+                </button>
+            </div>
 
             <!-- Dispatch — the one warm call-to-action on the cap -->
             <button

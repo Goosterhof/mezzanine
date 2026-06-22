@@ -96,6 +96,14 @@ export default defineConfig({
           0% { background-color: #86EFAC; box-shadow: 0 0 12px rgba(134, 239, 172, 0.7); }
           100% { background-color: #4ADE80; box-shadow: 0 0 6px rgba(74, 222, 128, 0.35); }
         }
+        /* The Crier's Watch (#00060) — the Patrol Lamp's amber heartbeat.
+           A slow opacity breath on a real push (a [crier-doorbell] pushed
+           turn line). The reduced-motion block below already freezes it to
+           a steady amber — the FACT survives, only the rhythm is suppressed. */
+        @keyframes mz-patrol-pulse {
+          0%, 100% { opacity: 0.25; }
+          50% { opacity: 1; }
+        }
         @media (prefers-reduced-motion: reduce) {
           *, *::before, *::after {
             animation-duration: 0.01ms !important;

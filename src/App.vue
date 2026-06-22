@@ -7,6 +7,8 @@ import Dispatch from './balcony/Dispatch.vue';
 import {useBalconySigns} from './balcony/useBalconySigns';
 import {useBriefingLibrary} from './balcony/useBriefingLibrary';
 import CommandBar from './command/CommandBar.vue';
+import CriersWatchPanel from './crier/CriersWatchPanel.vue';
+import {useCriersWatch} from './crier/useCriersWatch';
 import DrydockPanel from './drydock/DrydockPanel.vue';
 import GrindPanel from './grind/GrindPanel.vue';
 import {useGrind} from './grind/useGrind';
@@ -35,6 +37,10 @@ const wizard = useWizard();
 // itself (lab root, claude binary, chronicle ack) before the balcony reaches
 // outward to the floor below for the first time (§7 — first reach outward).
 let ascentChecked = false;
+// The Crier's Watch (#00060) — arm the patrol exactly once, after the
+// wizard clears (it needs lab_root to know the cwd). Mirrors the Ascent's
+// boot-check gate: a fresh install configures itself before the relay arms.
+let crierArmed = false;
 
 // The Overlook (#00057) — short-window collapse. Below 820px of window
 // height the floor surrenders its storey to the terminal and becomes a
@@ -171,6 +177,14 @@ watch(
             ascentChecked = true;
             void useAscent().check();
         }
+        // The patrol goes on watch the moment the balcony is confirmed
+        // configured — the promise of #00060: open the balcony, the crier
+        // is on patrol. A missing token is caught inside armOnBoot and
+        // surfaced as the NO TOKEN state, never a modal.
+        if (cleared && !crierArmed) {
+            crierArmed = true;
+            void useCriersWatch().armOnBoot();
+        }
     },
     {immediate: true},
 );
@@ -206,6 +220,7 @@ watch(
         <DrydockPanel />
         <HolotablePanel />
         <GrindPanel />
+        <CriersWatchPanel />
         <FirstRunWizard />
         <AscentPrompt />
     </div>
