@@ -1,4 +1,5 @@
 import {invoke} from '@tauri-apps/api/core';
+import {openUrl} from '@tauri-apps/plugin-opener';
 import {flushPromises, mount} from '@vue/test-utils';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
@@ -8,7 +9,10 @@ import CriersWatchPanel from '../../src/crier/CriersWatchPanel.vue';
 import {useCriersWatch} from '../../src/crier/useCriersWatch';
 import {useShell} from '../../src/shell/useShell';
 
+vi.mock('@tauri-apps/plugin-opener', () => ({openUrl: vi.fn(() => Promise.resolve())}));
+
 const mockedInvoke = vi.mocked(invoke);
+const mockedOpenUrl = vi.mocked(openUrl);
 
 function stubState(state: CrierWatchState): void {
     mockedInvoke.mockImplementation((cmd: string) =>
@@ -39,6 +43,8 @@ describe('CriersWatchPanel', () => {
         useShell().reset();
         mockedInvoke.mockReset();
         mockedInvoke.mockResolvedValue(undefined);
+        mockedOpenUrl.mockReset();
+        mockedOpenUrl.mockResolvedValue(undefined);
     });
 
     it('is hidden when no panel is open', () => {
@@ -75,6 +81,25 @@ describe('CriersWatchPanel', () => {
         expect(wrapper.text()).toContain('Open Reviews (2)');
         expect(wrapper.text()).toContain('#42');
         expect(wrapper.text()).toContain('#43');
+    });
+
+    it('opens the PR on GitHub when a queue row is clicked', async () => {
+        stubState(ARMED);
+        const wrapper = await openPanel();
+        const rows = wrapper.findAll('[data-test="crier-queue-row"]');
+        await rows[0]!.trigger('click');
+        await flushPromises();
+        expect(mockedOpenUrl).toHaveBeenCalledWith('https://github.com/Goosterhof/zmuuzn-strava/pull/42');
+    });
+
+    it('voices the open affordance on each queue row', async () => {
+        stubState(ARMED);
+        const wrapper = await openPanel();
+        const row = wrapper.find('[data-test="crier-queue-row"]');
+        // The row is an interactive opener, not an inert article.
+        expect(row.element.tagName).toBe('BUTTON');
+        expect(row.classes()).toContain('cursor-pointer');
+        expect(row.text()).toContain('Open on GitHub');
     });
 
     it('tints a non-zero review count with the signal colour', async () => {

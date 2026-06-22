@@ -9,9 +9,12 @@
 // QUEUE register that scrolls internally, and the WATCH GLASS terminal
 // that takes flex-1 and dominates the eye.
 
+import {openUrl} from '@tauri-apps/plugin-opener';
 import {FitAddon} from '@xterm/addon-fit';
 import {Terminal} from '@xterm/xterm';
 import {computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref, watch} from 'vue';
+
+import type {CrierQueueEntry} from './types';
 
 import {useShell} from '../shell/useShell';
 import {useCriersWatch} from './useCriersWatch';
@@ -114,6 +117,17 @@ watch(
         });
     },
 );
+
+// Hand the PR off to the desktop browser. The bus already carries the
+// prUrl end-to-end (bus → CrierQueueEntry → TS); the row just needed a
+// door. opener:default is granted in capabilities/default.json. A failed
+// open is swallowed — the balcony does not nag when the shell declines a
+// hand-off; the URL is still legible in the row.
+function openPr(entry: CrierQueueEntry): void {
+    void openUrl(entry.prUrl).catch(() => {
+        // Shell declined the hand-off — nothing to recover, the row remains.
+    });
+}
 
 function handleEscape(event: KeyboardEvent): void {
     if (event.key !== 'Escape' || !open.value) {
@@ -257,11 +271,14 @@ onBeforeUnmount(() => {
                 >
                     No open reviews on the bus. The watch is quiet.
                 </div>
-                <article
+                <button
                     v-for="entry in queue"
                     :key="entry.id"
-                    class="border-b border-mz-edge bg-mz-rail px-5 py-3"
+                    type="button"
+                    class="group block w-full text-left border-b border-mz-edge bg-mz-rail px-5 py-3 cursor-pointer transition-colors duration-100 hover:bg-mz-edge-soft/40 hover:border-l-2 hover:border-l-mz-brass focus-visible:bg-mz-edge-soft/40 focus-visible:outline-none focus-visible:border-l-2 focus-visible:border-l-mz-brass"
                     data-test="crier-queue-row"
+                    :title="`Open ${entry.repo} #${entry.id} on GitHub`"
+                    @click="openPr(entry)"
                 >
                     <div class="flex items-center justify-between gap-3">
                         <div class="mz-stamp-label">{{ entry.repo }}</div>
@@ -273,7 +290,12 @@ onBeforeUnmount(() => {
                             {{ entry.reviewCount }} review{{ entry.reviewCount === 1 ? '' : 's' }}
                         </span>
                     </div>
-                </article>
+                    <div
+                        class="mt-1.5 font-mono text-[10px] text-mz-text-faint group-hover:text-mz-brass group-focus-visible:text-mz-brass transition-colors duration-100"
+                    >
+                        Open on GitHub →
+                    </div>
+                </button>
             </template>
         </section>
 
