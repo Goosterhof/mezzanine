@@ -28,6 +28,7 @@ const ARMED: CrierWatchState = {
     ],
     lastReadAt: '2026-06-22T14:30:00Z',
     busError: null,
+    scientistId: null,
 };
 
 async function openPanel() {
@@ -96,6 +97,7 @@ describe('CriersWatchPanel', () => {
             ],
             lastReadAt: null,
             busError: null,
+            scientistId: null,
         });
         const wrapper = await openPanel();
         const row = wrapper.find('[data-test="crier-queue-row"]');
@@ -132,7 +134,7 @@ describe('CriersWatchPanel', () => {
     });
 
     it('renders the STOOD DOWN status with an Arm Patrol button (idle)', async () => {
-        stubState({status: 'idle', queue: [], lastReadAt: null, busError: null});
+        stubState({status: 'idle', queue: [], lastReadAt: null, busError: null, scientistId: null});
         const wrapper = await openPanel();
         expect(wrapper.text()).toContain('STOOD DOWN');
         expect(wrapper.find('[data-test="crier-arm"]').exists()).toBe(true);
@@ -142,7 +144,7 @@ describe('CriersWatchPanel', () => {
     });
 
     it('renders the NO TOKEN status with the exact config path (token-missing)', async () => {
-        stubState({status: 'token-missing', queue: [], lastReadAt: null, busError: null});
+        stubState({status: 'token-missing', queue: [], lastReadAt: null, busError: null, scientistId: null});
         const wrapper = await openPanel();
         expect(wrapper.text()).toContain('NO TOKEN');
         expect(wrapper.text()).toContain('~/.config/zmuuzn/town-crier-token');
@@ -155,6 +157,7 @@ describe('CriersWatchPanel', () => {
             queue: [],
             lastReadAt: '2026-06-22T14:30:00Z',
             busError: 'GET /open → timeout after 10s',
+            scientistId: null,
         });
         const wrapper = await openPanel();
         // Relay status and bus reachability are two different facts.

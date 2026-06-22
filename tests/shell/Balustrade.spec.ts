@@ -129,7 +129,7 @@ describe('Balustrade — the Overlook #00057', () => {
 
     it('hides the Patrol Lamp while the crier is off (idle / token-missing)', () => {
         mockedInvoke.mockResolvedValue(SIGNS_EMPTY);
-        useCriersWatch().state.value = {status: 'idle', queue: [], lastReadAt: null, busError: null};
+        useCriersWatch().state.value = {status: 'idle', queue: [], lastReadAt: null, busError: null, scientistId: null};
         const wrapper = mount(Balustrade);
         expect(wrapper.find('[data-patrol-lamp]').exists()).toBe(false);
     });
@@ -137,7 +137,7 @@ describe('Balustrade — the Overlook #00057', () => {
     it('shows the Patrol Lamp when the crier is on patrol', () => {
         mockedInvoke.mockResolvedValue(SIGNS_EMPTY);
         const crier = useCriersWatch();
-        crier.state.value = {status: 'armed', queue: [], lastReadAt: null, busError: null};
+        crier.state.value = {status: 'armed', queue: [], lastReadAt: null, busError: null, scientistId: null};
         crier.lastNudgeAt.value = null;
         const wrapper = mount(Balustrade);
         const lamp = wrapper.find('[data-patrol-lamp]');

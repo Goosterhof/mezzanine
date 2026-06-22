@@ -125,16 +125,22 @@ export function useCriersWatch() {
             terminalSink = sink;
         },
 
-        /** Read the watch state through the bridge. Updates `scientistId`
-         *  from the local status: armed keeps the tracked id, idle/missing
-         *  clears it. */
+        /** Read the watch state through the bridge — the authoritative
+         *  reconcile. Armed binds `scientistId` to the session the Rust side
+         *  tracks (and ensures the output subscription) EVEN IF this frontend
+         *  lifetime never ran `arm()` — a panel reopened after a reload would
+         *  otherwise render ON PATROL over a dead glass with "Take a turn now"
+         *  stuck disabled. Idle / missing clears it. */
         async readState(): Promise<void> {
             loading.value = true;
             error.value = null;
             try {
                 const payload = await invoke<CrierWatchState>('read_crier_watch_state');
                 state.value = payload;
-                if (payload.status !== 'armed') {
+                if (payload.status === 'armed' && payload.scientistId !== null) {
+                    scientistId.value = payload.scientistId;
+                    await ensureOutputSubscription();
+                } else if (payload.status !== 'armed') {
                     scientistId.value = null;
                 }
             } catch (raw) {

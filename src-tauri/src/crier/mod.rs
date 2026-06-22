@@ -22,6 +22,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+use crate::roster::scientist::ScientistId;
+
 /// Lab-root-relative-to-home config path for the crier token. The whole
 /// reason for a file (not `~/.bashrc`): `~/.bashrc` is not sourced in the
 /// non-interactive `bash -lc` shell the Mezzanine spawns, so a token
@@ -83,6 +85,11 @@ pub struct CrierWatchState {
     pub queue: Vec<CrierQueueEntry>,
     pub last_read_at: Option<String>,
     pub bus_error: Option<String>,
+    /// The live crier session id when armed — so a panel that opened AFTER the
+    /// session was armed (or in a different frontend lifetime) can bind its
+    /// watch-glass terminal to the real PTY instead of rendering ON PATROL over
+    /// a dead glass. `None` for the idle / token-missing states.
+    pub scientist_id: Option<ScientistId>,
 }
 
 impl CrierWatchState {
@@ -93,6 +100,7 @@ impl CrierWatchState {
             queue: Vec::new(),
             last_read_at: None,
             bus_error: None,
+            scientist_id: None,
         }
     }
 
@@ -103,6 +111,7 @@ impl CrierWatchState {
             queue: Vec::new(),
             last_read_at: None,
             bus_error: None,
+            scientist_id: None,
         }
     }
 }

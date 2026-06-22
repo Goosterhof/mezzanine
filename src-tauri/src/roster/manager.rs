@@ -122,10 +122,16 @@ impl RosterManager {
         if let Some(live) = self.scientists.remove(&id) {
             live.kill_child();
         }
+        // Ephemeral infrastructure sessions (the crier) are re-armed fresh,
+        // never restored — they must NOT enter the 5-minute misclick-recovery
+        // strip, or a Stand Down would offer to resurrect a session the design
+        // only ever re-arms. `HashSet::remove` returns whether it was tracked.
+        let was_ephemeral = self.ephemeral.remove(&id);
         if let Some(record) = self.records.remove(&id) {
-            self.recall_strip.push(record);
+            if !was_ephemeral {
+                self.recall_strip.push(record);
+            }
         }
-        self.ephemeral.remove(&id);
         self.persist();
         Ok(())
     }
@@ -272,6 +278,25 @@ mod tests {
         let strip = mgr.recently_recalled(Utc::now());
         assert_eq!(strip.len(), 1);
         assert_eq!(strip[0].scientist.id, id);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn recall_does_not_strip_an_ephemeral_crier() {
+        // Standing down the crier must NOT leave it in the recall strip — the
+        // infrastructure session is re-armed fresh, never restored from the
+        // misclick-recovery buffer (Tribunal #35 correctness finding).
+        let dir = temp_dir("ephemeral-recall");
+        let mut mgr = RosterManager::new(dir.clone());
+        let crier = fresh_scientist();
+        let id = crier.id;
+        mgr.insert_ephemeral_record_for_test(crier);
+        assert!(mgr.has_record(id));
+        mgr.recall(id).unwrap();
+        assert!(!mgr.has_record(id));
+        // The strip stays empty — the crier did not land in misclick recovery.
+        let strip = mgr.recently_recalled(Utc::now());
+        assert_eq!(strip.len(), 0);
         std::fs::remove_dir_all(&dir).ok();
     }
 

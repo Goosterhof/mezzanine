@@ -278,7 +278,7 @@ onBeforeUnmount(() => {
                     class="px-5 py-4 text-mz-text-faint font-mono text-[11px] italic"
                     data-test="crier-queue-empty"
                 >
-                    No open reviews on the bus. The watch is quiet.
+                    The bus is calm. Nothing to cry yet — the glass stays warm.
                 </div>
                 <button
                     v-for="entry in queue"

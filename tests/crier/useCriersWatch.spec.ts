@@ -15,6 +15,10 @@ const ARMED_STATE: CrierWatchState = {
     ],
     lastReadAt: '2026-06-22T14:30:00Z',
     busError: null,
+    // null here so the arm()/armOnBoot() tests keep their dispatch-returned id
+    // (readState only adopts a NON-null read id). The recovery path — a read
+    // that carries an id with no prior arm() — has its own test below.
+    scientistId: null,
 };
 
 /** Force the wizard into a "ready + cleared" state so armOnBoot proceeds. */
@@ -44,9 +48,33 @@ describe('useCriersWatch', () => {
     it('clears the scientist id when a read returns a non-armed status', async () => {
         const crier = useCriersWatch();
         crier.scientistId.value = 'sid-1';
-        mockedInvoke.mockResolvedValue({status: 'idle', queue: [], lastReadAt: null, busError: null});
+        mockedInvoke.mockResolvedValue({
+            status: 'idle',
+            queue: [],
+            lastReadAt: null,
+            busError: null,
+            scientistId: null,
+        });
         await crier.readState();
         expect(crier.scientistId.value).toBeNull();
+    });
+
+    it('binds scientistId from an armed read even when arm() never ran this lifetime', async () => {
+        // The recovery path (Tribunal #35): a panel that opens after a reload
+        // sees status==='armed' from the Rust side, which now carries the live
+        // session id. readState must adopt it — otherwise ON PATROL renders
+        // over a dead glass with "Take a turn now" stuck disabled.
+        const crier = useCriersWatch();
+        expect(crier.scientistId.value).toBeNull();
+        mockedInvoke.mockResolvedValue({
+            status: 'armed',
+            queue: [],
+            lastReadAt: '2026-06-22T14:30:00Z',
+            busError: null,
+            scientistId: 'recovered-sid',
+        });
+        await crier.readState();
+        expect(crier.scientistId.value).toBe('recovered-sid');
     });
 
     it('arm dispatches the crier and tracks the returned id', async () => {
@@ -153,7 +181,7 @@ describe('useCriersWatch', () => {
 
     it('derives lampStatus off when idle', () => {
         const crier = useCriersWatch();
-        crier.state.value = {status: 'idle', queue: [], lastReadAt: null, busError: null};
+        crier.state.value = {status: 'idle', queue: [], lastReadAt: null, busError: null, scientistId: null};
         expect(crier.lampStatus.value).toBe('off');
     });
 

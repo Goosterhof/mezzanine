@@ -23,6 +23,10 @@ export interface CrierWatchState {
     queue: CrierQueueEntry[];
     lastReadAt: string | null;
     busError: string | null;
+    /** The live crier session id when armed — lets a panel that opened after
+     *  the session was armed bind its watch glass to the real PTY instead of
+     *  rendering ON PATROL over a dead terminal. `null` when not armed. */
+    scientistId: ScientistId | null;
 }
 
 /** The Patrol Lamp's three rhythms — see PatrolLamp.vue + the Gift. */
@@ -34,6 +38,7 @@ export const EMPTY_WATCH_STATE: CrierWatchState = {
     queue: [],
     lastReadAt: null,
     busError: null,
+    scientistId: null,
 };
 
 /** The crier scientist id type — the same uuid string the roster uses. */

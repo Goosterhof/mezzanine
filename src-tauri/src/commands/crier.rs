@@ -157,20 +157,21 @@ pub async fn read_crier_watch_state(
 ) -> MezzanineResult<CrierWatchState> {
     // Resolve the local status from AppState without touching the network.
     let token = state.crier_token.read().clone();
-    let armed = state.crier_scientist_id.read().is_some();
+    let scientist_id = *state.crier_scientist_id.read();
 
     let Some(token) = token else {
         // No token → NO TOKEN, no bus hit.
         return Ok(CrierWatchState::token_missing());
     };
 
-    if !armed {
+    if scientist_id.is_none() {
         // Token present, patrol stood down → STOOD DOWN.
         return Ok(CrierWatchState::idle());
     }
 
     // Armed → hit the bus for the open queue. The relay status holds
-    // regardless of the bus's reachability.
+    // regardless of the bus's reachability. The tracked session id rides back
+    // so the frontend can bind the glass even if it never ran `arm()` itself.
     let now = chrono::Utc::now().to_rfc3339();
     match fetch_open_queue(&token).await {
         Ok(queue) => Ok(CrierWatchState {
@@ -178,12 +179,14 @@ pub async fn read_crier_watch_state(
             queue,
             last_read_at: Some(now),
             bus_error: None,
+            scientist_id,
         }),
         Err(message) => Ok(CrierWatchState {
             status: CrierStatus::Armed,
             queue: Vec::new(),
             last_read_at: Some(now),
             bus_error: Some(message),
+            scientist_id,
         }),
     }
 }
