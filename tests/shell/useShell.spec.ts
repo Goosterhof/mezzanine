@@ -65,6 +65,21 @@ describe('useShell', () => {
         expect(shell.openPanel.value).toBeNull();
     });
 
+    it("accepts criers-watch as a panel id (The Crier's Watch #00060)", () => {
+        const shell = useShell();
+        shell.togglePanel('criers-watch');
+        expect(shell.openPanel.value).toBe('criers-watch');
+        shell.togglePanel('criers-watch');
+        expect(shell.openPanel.value).toBeNull();
+    });
+
+    it('closePanel closes the criers-watch panel', () => {
+        const shell = useShell();
+        shell.togglePanel('criers-watch');
+        shell.closePanel();
+        expect(shell.openPanel.value).toBeNull();
+    });
+
     it('does not carry an observer panel id (the Overlook #00057 — the floor is permanent)', () => {
         // PanelId is a compile-time union; this assertion documents the
         // runtime contract: nothing in the shell can open an "observer"

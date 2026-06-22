@@ -23,6 +23,7 @@
 mod balcony;
 mod chronicle;
 mod commands;
+mod crier;
 mod drydock;
 mod error;
 mod grind;
@@ -97,6 +98,24 @@ pub fn run() {
             );
             *app_state.claude_binary.write() = persisted_wizard.resolved_claude_binary();
             *app_state.distro.write() = detect_distro();
+            // The Crier's Watch (#00060) — read the town-crier lab token
+            // once at boot from `~/.config/zmuuzn/town-crier-token`. A
+            // missing/empty/unreadable file leaves `crier_token` at `None`:
+            // the patrol simply does not arm and the watch panel surfaces
+            // the NO TOKEN state. No FATAL, no panic — a relay token is not
+            // a precondition for opening the balcony.
+            if let Ok(home) = app.path().home_dir() {
+                match crier::read_token_file(&home) {
+                    Some(token) => {
+                        *app_state.crier_token.write() = Some(token);
+                        log::info!("Mezzanine: crier token loaded — patrol armed on launch");
+                    }
+                    None => log::info!(
+                        "Mezzanine: crier token file not found at {} — patrol disarmed",
+                        crier::token_path(&home).display(),
+                    ),
+                }
+            }
             // If the investor has previously acknowledged the privacy
             // disclosure, unpause the chronicle immediately so the first
             // session starts recording. Until then, the writer is paused
@@ -140,6 +159,12 @@ pub fn run() {
             // Holotable — Arc 1 of the absorption trilogy (experiment log
             // #00051). The floor reads on open and on manual refresh.
             commands::holotable::read_holotable_state,
+            // The Crier's Watch (#00060) — arm / recall the town-crier
+            // relay and read its live watch state (local status + bus
+            // queue).
+            commands::crier::dispatch_crier,
+            commands::crier::recall_crier,
+            commands::crier::read_crier_watch_state,
             // Observer — Arc 2 of the absorption trilogy (experiment log
             // #00052). The chronicle tail starts on dispatch and stops on
             // recall; the Vue side subscribes to "chronicle-event".

@@ -17,6 +17,7 @@
 
 use crate::chronicle::{ChronicleReader, ChronicleWriter};
 use crate::grind::EconomyManager;
+use crate::roster::scientist::ScientistId;
 use crate::roster::RosterManager;
 use parking_lot::RwLock;
 use std::path::PathBuf;
@@ -62,6 +63,20 @@ pub struct AppState {
     /// commands::roster command wrappers; chronicle-line events arrive via
     /// the in-process broadcast that `ChronicleReader::subscribe()` returns.
     pub economy: Arc<EconomyManager>,
+    /// The Crier's Watch (#00060) — the town-crier lab token, read once at
+    /// `setup()` from `~/.config/zmuuzn/town-crier-token`. `None` when the
+    /// file is missing, unreadable, or empty after trimming; the patrol is
+    /// disarmed in that case and the watch panel surfaces the NO TOKEN
+    /// state. Never injected into the relay as `TC_RELAY_TOKEN` — see
+    /// `SessionSpec::for_crier`.
+    pub crier_token: RwLock<Option<String>>,
+    /// The Crier's Watch (#00060) — the id of the currently-armed crier
+    /// scientist, or `None` when patrol is stood down. The singleton guard
+    /// in `commands::crier::dispatch_crier` tracks it here so a second arm
+    /// (the panel's button + the boot auto-arm) does not fork two relay
+    /// listeners. Deliberately NOT persisted to `roster.json` — the crier
+    /// is re-armed fresh on every launch.
+    pub crier_scientist_id: RwLock<Option<ScientistId>>,
 }
 
 impl AppState {
@@ -76,6 +91,8 @@ impl AppState {
             chronicle: Arc::new(ChronicleWriter::new(chronicle_base.clone())),
             chronicle_reader: Arc::new(ChronicleReader::new(chronicle_base)),
             economy: Arc::new(EconomyManager::new()),
+            crier_token: RwLock::new(None),
+            crier_scientist_id: RwLock::new(None),
         }
     }
 }

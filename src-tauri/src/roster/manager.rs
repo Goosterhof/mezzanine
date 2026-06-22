@@ -29,6 +29,14 @@ pub struct RosterManager {
     /// 5-minute strip below the active Roster — recalled scientists
     /// linger here so misclicks have a recovery window.
     recall_strip: RecallStrip,
+    /// Ids that must NOT be written to `roster.json` — infrastructure
+    /// sessions (The Crier's Watch #00060). A persisted crier pointing at a
+    /// dead pty would become a zombie on restore; the crier is always
+    /// re-armed fresh from `setup()` / the panel's Arm button, never
+    /// restored from the snapshot. The record still lives in `records` (the
+    /// crier is a real scientist on the floor) — it is just filtered out at
+    /// snapshot-write time.
+    ephemeral: std::collections::HashSet<ScientistId>,
     /// Directory where `roster.json` is read and written. Resolved from
     /// the Tauri app data dir at construction.
     snapshot_dir: PathBuf,
@@ -46,6 +54,7 @@ impl RosterManager {
             scientists: HashMap::new(),
             records,
             recall_strip: RecallStrip::new(),
+            ephemeral: std::collections::HashSet::new(),
             snapshot_dir,
         }
     }
@@ -70,11 +79,38 @@ impl RosterManager {
         // the Scientist record — the mission doubles as claude's opening
         // prompt (substrate threads it through as a positional arg).
         let spec = SessionSpec::for_target(lab_root, &target, distro, binary, &mission);
-        let scientist = Scientist::new(target.clone(), mission);
+        self.dispatch_with_spec(target, mission, spec, chronicle_base, app, false)
+    }
+
+    /// Dispatch a scientist from a pre-built `SessionSpec`. The Crier's
+    /// Watch (#00060) uses this: the crier's spec comes from
+    /// `SessionSpec::for_crier`, not `for_target`, because the relay's
+    /// invocation is a flag-args shape with no mission positional. The
+    /// `mission` here is the record's display brief only — it does NOT
+    /// seed the spec (the spec is already built). Everything else mirrors
+    /// `dispatch`: spawn the pty, register the record, persist.
+    ///
+    /// When `ephemeral` is true the record is tracked as infrastructure: it
+    /// lives in `records` (so it shows on the floor as a real scientist)
+    /// but is filtered out of the `roster.json` snapshot, so a dead pty is
+    /// never restored on restart. The crier passes `true`.
+    pub fn dispatch_with_spec<R: Runtime>(
+        &mut self,
+        target: Target,
+        mission: String,
+        spec: SessionSpec,
+        chronicle_base: PathBuf,
+        app: AppHandle<R>,
+        ephemeral: bool,
+    ) -> MezzanineResult<Scientist> {
+        let scientist = Scientist::new(target, mission);
         let id = scientist.id;
         let live = LiveScientistSession::spawn(&spec, id, chronicle_base, app)?;
         self.scientists.insert(id, Arc::new(live));
         self.records.insert(id, scientist.clone());
+        if ephemeral {
+            self.ephemeral.insert(id);
+        }
         self.persist();
         Ok(scientist)
     }
@@ -89,6 +125,7 @@ impl RosterManager {
         if let Some(record) = self.records.remove(&id) {
             self.recall_strip.push(record);
         }
+        self.ephemeral.remove(&id);
         self.persist();
         Ok(())
     }
@@ -136,8 +173,15 @@ impl RosterManager {
     }
 
     fn persist(&self) {
+        // Ephemeral (infrastructure) records — the crier — are excluded
+        // from the snapshot so a dead pty is never restored on restart.
         let snap = RosterSnapshot {
-            scientists: self.records.values().cloned().collect(),
+            scientists: self
+                .records
+                .values()
+                .filter(|s| !self.ephemeral.contains(&s.id))
+                .cloned()
+                .collect(),
         };
         if let Err(err) = write_snapshot(&self.snapshot_dir, &snap) {
             log::warn!(
@@ -153,6 +197,18 @@ impl RosterManager {
     #[cfg(test)]
     pub fn insert_record_for_test(&mut self, scientist: Scientist) {
         self.records.insert(scientist.id, scientist);
+    }
+
+    /// Test helper — insert an EPHEMERAL record (the crier) without a live
+    /// pty, then persist. Mirrors the `dispatch_with_spec(.., ephemeral=true)`
+    /// path's snapshot behaviour so the exclusion can be asserted without a
+    /// Tauri AppHandle.
+    #[cfg(test)]
+    pub fn insert_ephemeral_record_for_test(&mut self, scientist: Scientist) {
+        let id = scientist.id;
+        self.records.insert(id, scientist);
+        self.ephemeral.insert(id);
+        self.persist();
     }
 
     /// Test helper — assert the scientist is currently in the active
@@ -297,6 +353,79 @@ mod tests {
             }
             other => panic!("expected SessionNotFound, got: {other:?}"),
         }
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn list_membership_detects_stale_crier_id_after_recall() {
+        // The crier's singleton guard (commands::crier::dispatch_crier)
+        // decides "re-arm fresh" vs "return tracked id" by checking whether
+        // the tracked id is still present in `list()`. This test exercises
+        // that primitive: a record that is inserted, then recalled, no
+        // longer appears in `list()` — so the guard sees a stale id and
+        // arms fresh (criterion 17, the floor-recall path).
+        let dir = temp_dir("stale-crier");
+        let mut mgr = RosterManager::new(dir.clone());
+        let s = fresh_scientist();
+        let id = s.id;
+        mgr.insert_record_for_test(s);
+        assert!(mgr.list().iter().any(|x| x.id == id), "freshly inserted id is live");
+        mgr.recall(id).unwrap();
+        assert!(
+            !mgr.list().iter().any(|x| x.id == id),
+            "a recalled crier id must be absent from list() so the guard arms fresh",
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn ephemeral_crier_record_is_excluded_from_snapshot() {
+        // Criterion 18: the crier session does not appear in roster.json.
+        // It lives in the live records (it is a real scientist on the floor,
+        // visible to list()) but is filtered out at snapshot-write time.
+        let dir = temp_dir("ephemeral-snapshot");
+        let mut mgr = RosterManager::new(dir.clone());
+        let regular = fresh_scientist();
+        let regular_id = regular.id;
+        mgr.insert_record_for_test(regular);
+        mgr.transition(regular_id, MissionState::Working); // forces a persist
+        let crier = Scientist::new(Target::LabRoot, "town-crier relay".into());
+        let crier_id = crier.id;
+        mgr.insert_ephemeral_record_for_test(crier);
+        // list() shows BOTH — the crier is a real scientist on the floor.
+        assert!(mgr.list().iter().any(|s| s.id == crier_id));
+        // But the snapshot on disk excludes the crier.
+        let snap = crate::roster::persistence::read_snapshot(&dir);
+        assert!(snap.scientists.iter().any(|s| s.id == regular_id));
+        assert!(
+            !snap.scientists.iter().any(|s| s.id == crier_id),
+            "the crier must not be persisted to roster.json",
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn restart_with_no_crier_in_snapshot_does_not_restore_one() {
+        // Criterion 19: a Mezzanine restart with a roster.json that holds no
+        // crier entry does not resurrect a crier session. Since the crier is
+        // never persisted, a fresh manager reading the snapshot finds only
+        // the regular scientists.
+        let dir = temp_dir("no-crier-restore");
+        let crier_id;
+        {
+            let mut mgr = RosterManager::new(dir.clone());
+            let regular = fresh_scientist();
+            mgr.insert_record_for_test(regular);
+            let crier = Scientist::new(Target::LabRoot, "town-crier relay".into());
+            crier_id = crier.id;
+            mgr.insert_ephemeral_record_for_test(crier);
+        }
+        // Restart — the new manager reads the snapshot.
+        let mgr2 = RosterManager::new(dir.clone());
+        assert!(
+            !mgr2.list().iter().any(|s| s.id == crier_id),
+            "no crier should be restored from the snapshot",
+        );
         std::fs::remove_dir_all(&dir).ok();
     }
 

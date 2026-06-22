@@ -11,8 +11,10 @@ import {ref} from 'vue';
 // Overlook (#00057) narrows it again: the Observer is no longer a
 // summonable panel — its scene is the permanent lower storey
 // (`LabFloor.vue`), and a toggle for an always-on surface is a
-// contradiction. Four panels survive on the Balustrade.
-export type PanelId = 'mission-control' | 'drydock' | 'holotable' | 'grind';
+// contradiction. Four panels survived the Overlook; The Crier's Watch
+// (#00060) adds the fifth — TC, the relay's watch-post — rightmost,
+// signalling "system panel, not experiment panel."
+export type PanelId = 'mission-control' | 'drydock' | 'holotable' | 'grind' | 'criers-watch';
 
 const openPanel = ref<PanelId | null>(null);
 

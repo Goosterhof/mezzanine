@@ -19,6 +19,7 @@
 pub mod artifacts;
 pub mod balcony;
 pub mod chronicle;
+pub mod crier;
 pub mod files;
 pub mod github;
 pub mod grind;
