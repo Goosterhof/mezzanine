@@ -36,7 +36,7 @@
     "devDependencies": {
         "@tauri-apps/cli": "^2",
         "@unocss/preset-attributify": "^66.7.0",
-        "@unocss/preset-icons": "^66.7.0",
+        "@unocss/preset-icons": "^66.7.4",
         "@vitejs/plugin-vue": "^6.0.7",
         "@vitest/coverage-v8": "^4.1.8",
         "@vue/test-utils": "^2.4.11",
