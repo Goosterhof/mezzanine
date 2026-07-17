@@ -2,10 +2,7 @@
 import type {DrydockPrFile, FileEnrichment} from './types';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const {file, enrichment} = defineProps<{
-    file: DrydockPrFile;
-    enrichment: FileEnrichment | undefined;
-}>();
+const {file, enrichment} = defineProps<{file: DrydockPrFile; enrichment: FileEnrichment | undefined}>();
 
 function severityBand(score: number | null): string {
     if (score === null) {

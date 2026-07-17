@@ -5,12 +5,7 @@ import type {WoundSummary} from './types';
 
 const {wounds} = defineProps<{wounds: WoundSummary[]}>();
 
-const formatted = computed(() =>
-    wounds.map((wound) => ({
-        ...wound,
-        modifiedLabel: formatModified(wound.modifiedAt),
-    })),
-);
+const formatted = computed(() => wounds.map((wound) => ({...wound, modifiedLabel: formatModified(wound.modifiedAt)})));
 
 function formatModified(iso: string): string {
     if (!iso) {

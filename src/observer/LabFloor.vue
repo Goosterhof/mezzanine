@@ -146,10 +146,7 @@ function recomputePoolPositions(): void {
         const pos = sceneRef.value?.getStationPos?.(s.id);
         if (!pos) continue;
         const page = floorPointToPage(pos, size, canvasRect);
-        next.set(s.id, {
-            left: page.x - hostRect.left,
-            top: page.y - hostRect.top,
-        });
+        next.set(s.id, {left: page.x - hostRect.left, top: page.y - hostRect.top});
     }
     poolPositions.value = next;
 }
