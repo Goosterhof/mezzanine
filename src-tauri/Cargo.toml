@@ -2,7 +2,7 @@
 name = "mezzanine"
 version = "0.2.6"
 description = "The Mezzanine — the balcony overlooking the lab floor; dispatch mad scientists onto missions"
-authors = ["Gerard Oosterhof <gerard@kendo.dev>"]
+authors = ["Gerard Oosterhof <gerard.oosterhof@gmail.com>"]
 edition = "2021"
 rust-version = "1.77"
 
