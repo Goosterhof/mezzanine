@@ -31,22 +31,32 @@ jobs:
         # the release is built on the platform it runs on.
         runs-on: windows-latest
 
+        # Every action in THIS job is pinned to a full commit SHA, not a
+        # floating tag. This job holds the minisign signing private key in its
+        # env — the one credential whose loss or theft is unrecoverable (RD-4:
+        # lose control of the key and every installed balcony trusts an
+        # attacker's update) — so a compromised *release* of a mutable tag
+        # (`@v0`/`@v2`/`@stable`) could exfiltrate it (the tj-actions attack
+        # class). SHA pins make the supplied action bytes immutable; Dependabot
+        # still bumps them (it rewrites the SHA + the trailing version comment).
+        # Keep the pins on any workflow that touches this secret.
+
         steps:
             - name: Check out the tagged balcony
-              uses: actions/checkout@v7
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Set up Node
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
               with:
                   node-version: 24
 
             - name: Set up the Rust toolchain
-              uses: dtolnay/rust-toolchain@stable
+              uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable (pinned)
 
             # Reuse the Rust build cache between releases — the heavy Tauri
             # crate graph compiles once and rests in the cache thereafter.
             - name: Cache the Rust build
-              uses: swatinem/rust-cache@v2
+              uses: swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
               with:
                   workspaces: src-tauri
 
@@ -67,7 +77,7 @@ jobs:
             # `bundle.targets` keeps `msi` for local `cargo tauri build` /
             # first-install distribution; only the auto-update release is NSIS.
             - name: Build, sign, and publish the release
-              uses: tauri-apps/tauri-action@v0
+              uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
