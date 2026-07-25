@@ -49,7 +49,7 @@ if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
             addEventListener: () => {},
             removeEventListener: () => {},
             dispatchEvent: () => false,
-        }) as unknown as MediaQueryList;
+        }) as MediaQueryList;
 }
 
 // Silence the "onScopeDispose() is called when there is no active effect scope"

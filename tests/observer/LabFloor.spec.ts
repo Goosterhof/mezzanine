@@ -278,7 +278,7 @@ describe('LabFloor — the Overlook #00057', () => {
                     addEventListener: () => {},
                     removeEventListener: () => {},
                     dispatchEvent: () => false,
-                }) as unknown as MediaQueryList) as typeof window.matchMedia;
+                }) as MediaQueryList);
             try {
                 mount(LabFloor);
                 await nextTick();

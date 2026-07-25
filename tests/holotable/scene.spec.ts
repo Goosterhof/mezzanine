@@ -198,7 +198,7 @@ function installReducedMotion(initialMatches: boolean): FakeReducedMotionQuery {
                 mq.removed = true;
             },
             dispatchEvent: () => false,
-        }) as unknown as MediaQueryList) as typeof window.matchMedia;
+        }) as unknown as MediaQueryList);
     return mq;
 }
 
