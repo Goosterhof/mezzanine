@@ -73,9 +73,7 @@ describe('GrindRenderer reduced-motion gate', () => {
         let handle = 0;
         rafSpy = vi.fn<(cb: FrameRequestCallback) => number>(() => ++handle);
         globalThis.requestAnimationFrame = rafSpy as unknown as typeof globalThis.requestAnimationFrame;
-        globalThis.cancelAnimationFrame = vi.fn<
-            (handle: number) => void
-        >() as unknown as typeof globalThis.cancelAnimationFrame;
+        globalThis.cancelAnimationFrame = vi.fn<(handle: number) => void>();
     });
 
     afterEach(() => {

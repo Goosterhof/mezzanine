@@ -268,7 +268,7 @@ describe('LabFloor — the Overlook #00057', () => {
 
         it('does not resume under prefers-reduced-motion — the scene holds its static frame', async () => {
             const original = window.matchMedia;
-            window.matchMedia = ((query: string) =>
+            window.matchMedia = (query: string) =>
                 ({
                     matches: query.includes('prefers-reduced-motion'),
                     media: query,
@@ -278,7 +278,7 @@ describe('LabFloor — the Overlook #00057', () => {
                     addEventListener: () => {},
                     removeEventListener: () => {},
                     dispatchEvent: () => false,
-                }) as unknown as MediaQueryList) as typeof window.matchMedia;
+                }) as MediaQueryList;
             try {
                 mount(LabFloor);
                 await nextTick();
