@@ -38,7 +38,7 @@
         "@unocss/preset-attributify": "^66.7.4",
         "@unocss/preset-icons": "^66.7.4",
         "@vitejs/plugin-vue": "^6.0.7",
-        "@vitest/coverage-v8": "^4.1.10",
+        "@vitest/coverage-v8": "^4.1.11",
         "@vue/test-utils": "^2.4.11",
         "jsdom": "^29.1.1",
         "oxfmt": "^0.62.0",
