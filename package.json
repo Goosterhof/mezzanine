@@ -31,7 +31,7 @@
         "@tauri-apps/plugin-updater": "^2",
         "@xterm/addon-fit": "^0.11.0",
         "@xterm/xterm": "^6.0.0",
-        "vue": "^3.5.41"
+        "vue": "^3.5.42"
     },
     "devDependencies": {
         "@tauri-apps/cli": "^2.11.4",
@@ -39,7 +39,7 @@
         "@unocss/preset-icons": "^66.8.1",
         "@vitejs/plugin-vue": "^6.0.7",
         "@vitest/coverage-v8": "^4.1.11",
-        "@vue/test-utils": "^2.4.11",
+        "@vue/test-utils": "^2.5.0",
         "jsdom": "^29.1.1",
         "oxfmt": "^0.62.0",
         "oxlint": "^1.79.0",
