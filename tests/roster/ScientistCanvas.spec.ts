@@ -1,9 +1,9 @@
 import {invoke} from '@tauri-apps/api/core';
 import {mount} from '@vue/test-utils';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {nextTick} from 'vue';
 
-import type {Scientist} from '../../src/roster/types';
+import type {Colleague, Scientist} from '../../src/roster/types';
 
 import ScientistCanvas from '../../src/roster/ScientistCanvas.vue';
 import {useIdleWarning} from '../../src/roster/useIdleWarning';
@@ -11,145 +11,136 @@ import {useRoster} from '../../src/roster/useRoster';
 import {useRosterBackend} from '../../src/roster/useRosterBackend';
 import {useScientistTerminals} from '../../src/roster/useScientistTerminals';
 
-const mockedInvoke = vi.mocked(invoke);
-
-function makeScientist(id: string, mission = 'check phpstan'): Scientist {
+function scientist(id: string, colleague: Colleague): Scientist {
     return {
         id,
-        target: {kind: 'experiment', codename: 'crucible'},
-        mission,
+        colleague,
+        target: {kind: 'lab-root'},
+        mission: '',
         state: 'working',
-        startedAt: '2026-05-12T11:00:00Z',
-        lastStateChange: '2026-05-12T11:00:00Z',
+        startedAt: '2026-09-16T18:00:00Z',
+        lastStateChange: '2026-09-16T18:00:00Z',
     };
 }
+const settle = async () => {
+    await nextTick();
+    await nextTick();
+};
 
-describe('ScientistCanvas — Phase 2A', () => {
+describe('ScientistCanvas — both colleagues visible', () => {
+    let wrapper: ReturnType<typeof mount<typeof ScientistCanvas>>;
     beforeEach(() => {
         useRoster().reset();
         useIdleWarning()._resetForTests();
         useScientistTerminals().reset();
         useRosterBackend()._resetSubscriptionForTests();
-        mockedInvoke.mockReset();
-        mockedInvoke.mockResolvedValue(undefined);
+        vi.mocked(invoke).mockReset().mockResolvedValue(undefined);
     });
-
-    it('renders the balcony-quiet empty state when no scientist is selected', () => {
-        const wrapper = mount(ScientistCanvas);
-        expect(wrapper.text()).toContain('Balcony quiet');
-        expect(wrapper.text()).toContain('No scientist selected');
-    });
-
-    it('renders the header with the target label and mission when a scientist is selected', async () => {
-        const roster = useRoster();
-        const s = makeScientist('a');
-        roster.upsert(s);
-        roster.select('a');
-        const wrapper = mount(ScientistCanvas, {attachTo: document.body});
-        await nextTick();
-        expect(wrapper.text()).toContain('The Crucible');
-        expect(wrapper.text()).toContain('check phpstan');
+    afterEach(() => {
         wrapper.unmount();
+        vi.unstubAllGlobals();
     });
+    function open() {
+        wrapper = mount(ScientistCanvas, {attachTo: document.body});
+        return wrapper;
+    }
+    function both() {
+        useRoster().upsert(scientist('claude', 'mad-scientist'));
+        useRoster().upsert(scientist('codex', 'heretic'));
+        useRoster().select('claude');
+    }
 
-    it('header mission falls back to em dash when mission is empty', async () => {
-        const roster = useRoster();
-        const s = makeScientist('a', '');
-        roster.upsert(s);
-        roster.select('a');
-        const wrapper = mount(ScientistCanvas, {attachTo: document.body});
-        await nextTick();
-        expect(wrapper.text()).toContain('—');
-        wrapper.unmount();
+    it('reserves a named pane for each colleague before either starts', () => {
+        open();
+        expect(wrapper.findAll('[data-terminal-pane]').map((p) => p.attributes('data-terminal-pane'))).toStrictEqual([
+            'mad-scientist',
+            'heretic',
+        ]);
+        expect(wrapper.findAll('button').every((b) => b.attributes('disabled') !== undefined)).toBe(true);
     });
-
-    it('renders one wrapper div per dispatched scientist, only the selected one visible', async () => {
-        const roster = useRoster();
-        roster.upsert(makeScientist('a'));
-        roster.upsert(makeScientist('b'));
-        roster.select('a');
-        const wrapper = mount(ScientistCanvas, {attachTo: document.body});
-        await nextTick();
-        const wrappers = wrapper.findAll('section .relative > div');
-        expect(wrappers).toHaveLength(2);
-        wrapper.unmount();
-    });
-
-    it('switches the visible wrapper when the selected scientist changes', async () => {
-        const roster = useRoster();
-        roster.upsert(makeScientist('a', 'first mission'));
-        roster.upsert(makeScientist('b', 'second mission'));
-        roster.select('a');
-        const wrapper = mount(ScientistCanvas, {attachTo: document.body});
-        await nextTick();
-        expect(wrapper.text()).toContain('first mission');
-        roster.select('b');
-        await nextTick();
-        await nextTick();
-        // After switching, header should reflect the new selection's mission.
-        expect(wrapper.text()).toContain('second mission');
-        wrapper.unmount();
-    });
-
-    it('amends the no-selection prompt for the Overlook selection affordances', () => {
-        const wrapper = mount(ScientistCanvas);
-        expect(wrapper.text()).toContain('click a nameplate, or a scientist on the floor');
-        expect(wrapper.text()).not.toContain('roster row');
-    });
-
-    describe('the xterm rise (#00057 §4)', () => {
-        // One mount helper so selectedWrapper shares the exact wrapper
-        // type — `ReturnType<typeof mount>` resolves to the default
-        // VueWrapper instantiation and trips no-unsafe-argument.
-        function mountCanvas() {
-            return mount(ScientistCanvas, {attachTo: document.body});
+    it('opens both terminals immediately, including the unselected colleague', async () => {
+        both();
+        open();
+        await settle();
+        for (const id of ['claude', 'codex']) {
+            const terminal = useScientistTerminals().get(id).terminal;
+            expect(terminal.element?.parentElement).toBe(wrapper.get(`[data-terminal="${id}"]`).element);
         }
-
-        function selectedWrapper(wrapper: ReturnType<typeof mountCanvas>, id: string): HTMLElement {
-            const roster = useRoster();
-            const index = roster.scientists.value.findIndex((s) => s.id === id);
-            const el = wrapper.findAll('section .relative > div')[index]?.element as HTMLElement | undefined;
-            if (!el) {
-                throw new Error(`no wrapper for scientist ${id}`);
-            }
-            return el;
+    });
+    it('keeps the scientist left and Heretic right when they arrive in reverse order', async () => {
+        useRoster().upsert(scientist('codex', 'heretic'));
+        open();
+        await settle();
+        useRoster().upsert(scientist('claude', 'mad-scientist'));
+        await settle();
+        expect(wrapper.findAll('[data-terminal]').map((p) => p.attributes('data-terminal'))).toStrictEqual([
+            'claude',
+            'codex',
+        ]);
+    });
+    it('selects the clicked pane for the shared command input', async () => {
+        both();
+        open();
+        await settle();
+        await wrapper.get('[data-terminal-pane="heretic"]').trigger('pointerdown');
+        expect(useRoster().selected.value).toBe('codex');
+        expect(wrapper.get('[data-terminal-pane="heretic"] button').text()).toContain('Typing here');
+    });
+    it('selects a terminal reached through keyboard focus', async () => {
+        both();
+        open();
+        await settle();
+        await wrapper.get('[data-terminal-pane="heretic"]').trigger('focusin');
+        expect(useRoster().selected.value).toBe('codex');
+    });
+    it('keeps both terminal elements and scrollback when selection changes', async () => {
+        both();
+        open();
+        await settle();
+        const elements = ['claude', 'codex'].map((id) => useScientistTerminals().get(id).terminal.element);
+        useRoster().select('codex');
+        await settle();
+        useRoster().select(null);
+        await settle();
+        expect(['claude', 'codex'].map((id) => useScientistTerminals().get(id).terminal.element)).toStrictEqual(
+            elements,
+        );
+        expect(wrapper.findAll('[data-terminal]')).toHaveLength(2);
+        for (const pane of wrapper.findAll('[data-terminal]')) {
+            expect((pane.element as HTMLElement).style.visibility).not.toBe('hidden');
         }
-
-        it('plays the rise on the newly-selected wrapper — wrapper class, never xterm internals', async () => {
-            const roster = useRoster();
-            roster.upsert(makeScientist('a'));
-            roster.upsert(makeScientist('b'));
-            roster.select('a');
-            const wrapper = mountCanvas();
-            await nextTick();
-            roster.select('b');
-            await nextTick();
-            await nextTick();
-            const risen = selectedWrapper(wrapper, 'b');
-            expect(risen.classList.contains('mz-rise-play')).toBe(true);
-            expect(risen.classList.contains('mz-rise-prep')).toBe(false);
-            wrapper.unmount();
-        });
-
-        it('settles on transitionend: the rise class drops and the terminal re-fits', async () => {
-            const roster = useRoster();
-            roster.upsert(makeScientist('a'));
-            roster.upsert(makeScientist('b'));
-            roster.select('a');
-            const wrapper = mountCanvas();
-            await nextTick();
-            roster.select('b');
-            await nextTick();
-            await nextTick();
-            const risen = selectedWrapper(wrapper, 'b');
-            const slot = useScientistTerminals().get('b');
-            const fitSpy = vi.spyOn(slot.fit, 'fit');
-            risen.dispatchEvent(new Event('transitionend'));
-            expect(risen.classList.contains('mz-rise-play')).toBe(false);
-            // FitAddon re-fit fires on transitionend — cols/rows settle
-            // against final geometry, not mid-transition.
-            expect(fitSpy).toHaveBeenCalled();
-            wrapper.unmount();
-        });
+    });
+    it('re-fits both PTYs when the shared canvas resizes', async () => {
+        let resize: () => void = vi.fn<() => void>();
+        vi.stubGlobal(
+            'ResizeObserver',
+            class {
+                constructor(callback: () => void) {
+                    resize = callback;
+                }
+                observe() {}
+                disconnect() {}
+            },
+        );
+        both();
+        open();
+        await settle();
+        const spies = ['claude', 'codex'].map((id) => vi.spyOn(useScientistTerminals().get(id).fit, 'fit'));
+        resize();
+        for (const spy of spies) expect(spy).toHaveBeenCalled();
+    });
+    it('replaces a restarted bench without detaching the other terminal', async () => {
+        both();
+        open();
+        await settle();
+        const left = useScientistTerminals().get('claude').terminal.element;
+        useRoster().remove('codex');
+        useRoster().upsert(scientist('codex-new', 'heretic'));
+        await settle();
+        expect(wrapper.find('[data-terminal="codex"]').exists()).toBe(false);
+        expect(useScientistTerminals().get('codex-new').terminal.element?.parentElement).toBe(
+            wrapper.get('[data-terminal="codex-new"]').element,
+        );
+        expect(useScientistTerminals().get('claude').terminal.element).toBe(left);
     });
 });

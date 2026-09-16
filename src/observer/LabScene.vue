@@ -4,7 +4,7 @@ import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 import type {ScientistId} from '../roster/types';
 import type {ActivityState} from './types';
 
-import {targetLabel} from '../roster/types';
+import {colleagueLabel, targetLabel} from '../roster/types';
 import {useIdleWarning} from '../roster/useIdleWarning';
 import {useRoster} from '../roster/useRoster';
 import {useRosterBackend} from '../roster/useRosterBackend';
@@ -18,6 +18,7 @@ import {activityFromMission, useObserver} from './useObserver';
 // itself, per frame), the idle warning, and the crashed flag.
 interface SceneRosterEntry {
     id: ScientistId;
+    colleague?: string | null;
     activity: ActivityState;
     detail: string;
     target: string;
@@ -78,9 +79,10 @@ const rosterEntries = computed<SceneRosterEntry[]>(() =>
         const startedAtMs = Date.parse(s.startedAt);
         return {
             id: s.id,
+            colleague: s.colleague,
             activity,
             detail,
-            target: targetLabel(s.target),
+            target: s.colleague ? colleagueLabel(s.colleague) : targetLabel(s.target),
             mission: s.mission,
             startedAtMs: Number.isNaN(startedAtMs) ? null : startedAtMs,
             idleWarn: idleWarning.isIdleWarning(s),

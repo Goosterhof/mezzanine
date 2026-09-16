@@ -1,12 +1,8 @@
 // useDispatch — the slide-down dispatch sheet's state.
 //
-// "For now" (investor directive 2026-06-08) the dispatch is deliberately
-// minimal: the investor picks one minion (or none) and the scientist is
-// always sent into the lab root. Selecting a minion seeds the claude
-// session's first prompt with `@agent-<slug>`; "no minion" dispatches a
-// plain claude session. The richer target picker + briefing library remain
-// in the slice (`TargetPicker.vue` / `BriefingLibrary.vue`) for when
-// dispatch re-expands, but are no longer wired into the sheet.
+// A brief goes to the one Mad Scientist, opening that bench if needed.
+// Minion selection seeds an @agent-<slug> message in the existing terminal;
+// no selection simply opens/selects it. No mission creates another scientist.
 
 import {computed, ref} from 'vue';
 

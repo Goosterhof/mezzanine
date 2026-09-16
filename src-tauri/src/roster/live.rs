@@ -122,6 +122,10 @@ impl LiveScientistSession {
         })
     }
 
+    pub fn is_alive(&self) -> bool {
+        matches!(self.child.lock().try_wait(), Ok(None))
+    }
+
     pub fn resize(&self, cols: u16, rows: u16) -> MezzanineResult<()> {
         let size = PtySize {
             cols,
@@ -159,6 +163,12 @@ impl LiveScientistSession {
     pub fn kill_child(&self) {
         let mut c = self.child.lock();
         let _ = c.kill();
+    }
+}
+
+impl Drop for LiveScientistSession {
+    fn drop(&mut self) {
+        self.kill_child();
     }
 }
 

@@ -53,7 +53,7 @@ describe('CommandBar — Phase 2A', () => {
         await input.setValue('hello');
         await input.trigger('keydown.enter');
         await Promise.resolve();
-        expect(mockedInvoke).toHaveBeenCalledWith('write_to_scientist', {id: 'a', input: 'hello\n'});
+        expect(mockedInvoke).toHaveBeenCalledWith('write_to_scientist', {id: 'a', input: 'hello\r'});
     });
 
     it('Enter clears the input on dispatch', async () => {

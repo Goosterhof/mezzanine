@@ -35,17 +35,17 @@ function onKeydown(event: KeyboardEvent): void {
         data-dispatch-sheet
         class="absolute inset-x-0 top-0 z-30 bg-mz-panel/95 backdrop-blur border-b border-mz-edge shadow-balcony"
         role="dialog"
-        aria-label="Dispatch a scientist"
+        aria-label="Brief the Mad Scientist"
         @keydown="onKeydown"
     >
         <div class="max-w-4xl mx-auto px-8 py-6 grid gap-5">
             <header class="flex items-center justify-between">
                 <div>
-                    <div class="mz-stamp-label">Dispatch</div>
-                    <h2 class="font-display text-mz-text text-lg tracking-wide">Send a scientist to the lab floor</h2>
+                    <div class="mz-stamp-label">Brief</div>
+                    <h2 class="font-display text-mz-text text-lg tracking-wide">Give the Mad Scientist a brief</h2>
                     <p class="mt-1 text-xs text-mz-text-mute">
-                        Targeting <span class="text-mz-text">The Lab</span> — pick a minion, or none for a plain
-                        session.
+                        Pick a minion brief for the Mad Scientist’s existing session. Speak directly to either colleague
+                        in their terminal.
                     </p>
                 </div>
                 <button
@@ -76,7 +76,7 @@ function onKeydown(event: KeyboardEvent): void {
                         @click="pickMinion(null)"
                     >
                         <span class="font-display tracking-wide">No minion</span>
-                        <span class="font-mono text-xs op-60">plain session</span>
+                        <span class="font-mono text-xs op-60">open the bench</span>
                     </button>
                     <button
                         v-for="minion in MINIONS"
@@ -111,7 +111,7 @@ function onKeydown(event: KeyboardEvent): void {
                     :disabled="!dispatch.canSubmit.value"
                     @click="onSubmit"
                 >
-                    {{ dispatch.submitting.value ? 'Dispatching…' : 'Dispatch' }}
+                    {{ dispatch.submitting.value ? 'Sending…' : 'Send brief' }}
                 </button>
             </footer>
         </div>

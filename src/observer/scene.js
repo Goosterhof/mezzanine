@@ -347,7 +347,7 @@ export function initScene(opts) {
 
         // 12/10 logical px-per-second — the pixel engine's walking pace,
         // re-expressed on the 60fps skeleton (it ticked at 10fps).
-        const speed = (char.type === 'minion' ? 1.0 : 1.2) * (10 / 60);
+        const speed = (char.type === 'minion' && !char.colleague ? 1.0 : 1.2) * (10 / 60);
         if (dist > 1.5) {
             char.x += (dx / dist) * speed;
             char.y += (dy / dist) * speed;
@@ -387,12 +387,12 @@ export function initScene(opts) {
     }
 
     function figureScale(char) {
-        const base = char.type === 'minion' ? MINION_S : SCI_S;
+        const base = char.type === 'minion' && !char.colleague ? MINION_S : SCI_S;
         return base * Math.min(1, Math.max(0, char.spawnPhase / 5));
     }
 
     function groundYFor(char) {
-        return (char.y + (char.type === 'minion' ? MINION_FEET : SCIENTIST_FEET)) * K;
+        return (char.y + (char.type === 'minion' && !char.colleague ? MINION_FEET : SCIENTIST_FEET)) * K;
     }
 
     /** The minion in ink — a deliberately simpler figure than the full
@@ -706,15 +706,16 @@ export function initScene(opts) {
             const pose = {
                 x: sx,
                 groundY: gy,
-                s: c.type === 'minion' ? sStrip * 0.72 : sStrip,
+                s: c.type === 'minion' && !c.colleague ? sStrip * 0.72 : sStrip,
                 activity: c.activity,
                 walking: false,
                 facing: 1,
                 t: actingTime(i),
                 frame: actingFrame(i),
                 ghosts: c.scientistId === selectedId,
+                heretic: c.colleague === 'heretic',
             };
-            if (c.type === 'minion') {
+            if (c.type === 'minion' && !c.colleague) {
                 drawMinionFigure(pose);
             } else {
                 drawScientist(pen, pose);
@@ -767,8 +768,9 @@ export function initScene(opts) {
                 t: actingTime(idx),
                 frame: actingFrame(idx),
                 ghosts: c.scientistId === selectedId,
+                heretic: c.colleague === 'heretic',
             };
-            if (c.type === 'minion') {
+            if (c.type === 'minion' && !c.colleague) {
                 drawMinionFigure(pose);
             } else {
                 drawScientist(pen, pose);
@@ -845,14 +847,14 @@ export function initScene(opts) {
                 cx = (slot.x / LW) * W;
                 gy = H * 0.88;
                 s = (H * 0.82) / 170;
-                if (c.type === 'minion') s *= 0.72;
+                if (c.type === 'minion' && !c.colleague) s *= 0.72;
             } else {
                 cx = c.x * K;
                 gy = groundYFor(c);
                 s = figureScale(c);
             }
             if (s <= 0) continue;
-            const top = c.type === 'minion' ? gy - 90 * s : figureHeadTop(gy, s) - 6 * s;
+            const top = c.type === 'minion' && !c.colleague ? gy - 90 * s : figureHeadTop(gy, s) - 6 * s;
             const halfW = 30 * s;
             if (pt.x >= cx - halfW && pt.x <= cx + halfW && pt.y >= top && pt.y <= gy + 8 * s) {
                 return c;
@@ -914,6 +916,7 @@ export function initScene(opts) {
         char.activity = entry.activity;
         char.detail = entry.detail;
         char.scientistId = entry.id;
+        char.colleague = entry.colleague;
         char.target = entry.target ?? '';
         char.mission = entry.mission ?? '';
         char.startedAtMs = typeof entry.startedAtMs === 'number' ? entry.startedAtMs : null;
@@ -952,7 +955,7 @@ export function initScene(opts) {
         }
         // Bind / create one character per roster scientist.
         for (const [index, entry] of list.entries()) {
-            if (index === 0) {
+            if (entry.colleague === 'mad-scientist' || (!entry.colleague && index === 0)) {
                 bindEntry(characters[0], entry);
                 continue;
             }

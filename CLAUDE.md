@@ -1,13 +1,60 @@
 # CLAUDE.md — The Mezzanine
 
-The Mezzanine is the investor's command balcony — a Tauri v2 desktop
-gadget where the investor stands above the lab floor and dispatches mad
-scientists onto missions. Each scientist is a persistent `claude` pty
-session, dispatched into a target (any experiment, gadget, package, or
-the lab root) with a free-form brief. The Roster lists who is out and on
-what. Selecting a row opens that scientist's xterm canvas; the command
-bar feeds the selection. Recall closes the scientist cleanly; the
-chronicle survives on disk.
+The Mezzanine is the investor's command balcony: **one Mad Scientist
+(Claude) and one Heretic (Codex)**. Both benches open after the first-run
+wizard clears. Their independent xterm terminals remain side by side, Mad
+Scientist on the left and Heretic on the right. Clicking a pane, its nameplate
+or its floor figure selects the command bar's recipient without hiding the
+other terminal. Both panes keep their own scrollback. The Heretic appears as an
+equal-sized ink figure with amber glasses and a scarf.
+
+## The Two Colleagues (2026-09-16)
+
+This model supersedes the dispatch-many descriptions in the historical
+roadmap below. `open_colleague` holds the roster write lock, reuses a live
+session for the named identity, and replaces an exited session on retry.
+The app starts fresh interactive CLI conversations on entry; it does not
+resume the prior model conversation. Chronicles survive. Old anonymous
+roster records are archived as `roster-retired-<uuid>.json` before removal;
+ordinary colleague restarts do not produce extra archives.
+
+- `src/roster/ColleagueBenches.vue` and `useColleagues.ts` own the two
+  nameplates, independent launch errors, retry and Speaking Tube status.
+- `App.vue` starts both only after wizard completion and terminal event
+  subscription. Closing the window explicitly kills the live terminals.
+- `Brief ▾` sends the chosen minion brief to the existing Mad Scientist.
+  It never creates a third scientist. The separate Claude Town-Crier
+  patrol and its controls are retired from the live app; Town-Crier
+  remains an independent laboratory service, not our private mailbox.
+- Both CLIs run at the configured laboratory root through the existing
+  Windows→WSL bridge. Claude honors the existing binary override; Codex
+  resolves `codex` in the same login-shell PATH and uses `--no-alt-screen`.
+  Neither launch changes the investor's permission or model settings.
+- Claude uses the root `.mcp.json` Speaking Tube registration, channel
+  opt-in and launch-scoped root/database/connection-ID environment vars.
+  Codex receives the same absolute mailbox path as MCP CLI overrides.
+  Its opening turn reads its own `CODEX_THREAD_ID` and calls `tube_connect`.
+  That listener belongs to the MCP session and stops when it closes.
+- The tube panel reads session-ID-specific heartbeats; it does not infer
+  connectivity from a running CLI or a known identity. `connecting` stays
+  visible until attachment. Queue failures show an error and retry; dead
+  heartbeats become offline. Codex delivery occurs between turns, not as
+  a demonstrated interruption of active work. Acknowledgement is separate.
+
+**Requirements:** Node 24+ and `npm ci --prefix gadgets/speaking-tube` in
+the lab checkout; signed-in Claude and Codex CLIs in the laboratory PATH;
+Codex with `queue` support (tested CLI 0.154.0). The desktop build and the
+parent lab's updated Speaking Tube sources must be deployed together.
+No user-wide hooks or MCP configuration files are rewritten.
+
+**Verification:** the existing frontend and Rust gates remain required.
+New tests cover singleton PTYs, legacy migration, launch quoting, partial
+startup failure, nameplate selection and connection status. The parent
+Speaking Tube suite additionally tests real MCP attachment, queue retry
+and shutdown using a fake Codex executable and temporary mailboxes.
+Browser smoke checks use simulated Tauri responses; they do not certify
+the Windows binary or live model reception. See `TWO-COLLEAGUES.md` for
+verification receipts and remaining native checks.
 
 This repo lives as a submodule at `zmuuzn/gadgets/mezzanine/`. It
 supersedes **The Workbench** — the bench era (six fixed pty tabs, the
@@ -350,7 +397,7 @@ cargo tauri build   # Tauri production build (Windows target)
   locally. (The Ascent's auto-updater reads a manifest from GitHub
   Releases — that is *static artifact hosting*, not a service the
   laboratory operates; no process, no uptime obligation. See #00056 RD-1.)
-- **Does not edit code.** It directs `claude` to edit code. The
+- **Does not edit code.** It directs Claude and Codex to edit code. The
   Mezzanine is a *command* surface, not an *editor* surface — that
   distinction is load-bearing for every UI decision.
 - **Does not duplicate VS Code.** No tree explorer, no diff viewer

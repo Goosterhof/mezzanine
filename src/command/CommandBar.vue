@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import {onMounted, ref} from 'vue';
+import {computed, onMounted, ref} from 'vue';
 
+import {colleagueLabel} from '../roster/types';
 import {useRoster} from '../roster/useRoster';
 import {useRosterBackend} from '../roster/useRosterBackend';
 
@@ -9,6 +10,10 @@ const fieldRef = ref<HTMLInputElement | null>(null);
 
 const roster = useRoster();
 const backend = useRosterBackend();
+const recipient = computed(() => {
+    const colleague = roster.selectedScientist.value?.colleague;
+    return colleague ? colleagueLabel(colleague) : 'Selected scientist';
+});
 
 onMounted(() => {
     fieldRef.value?.focus();
@@ -24,7 +29,7 @@ async function dispatch(): Promise<void> {
         return;
     }
     input.value = '';
-    await backend.writeInput(target, `${text}\n`);
+    await backend.writeInput(target, `${text}\r`);
 }
 </script>
 
@@ -42,6 +47,6 @@ async function dispatch(): Promise<void> {
             data-command-input
             @keydown.enter.prevent="dispatch"
         />
-        <span class="mz-stamp-label ml-4">Selection routes input</span>
+        <span class="mz-stamp-label ml-4">To: {{ recipient }}</span>
     </footer>
 </template>

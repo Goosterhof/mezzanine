@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, ref, watch} from 'vue';
+import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 
 import AscentPrompt from './ascent/AscentPrompt.vue';
 import {useAscent} from './ascent/useAscent';
@@ -7,8 +7,6 @@ import Dispatch from './balcony/Dispatch.vue';
 import {useBalconySigns} from './balcony/useBalconySigns';
 import {useBriefingLibrary} from './balcony/useBriefingLibrary';
 import CommandBar from './command/CommandBar.vue';
-import CriersWatchPanel from './crier/CriersWatchPanel.vue';
-import {useCriersWatch} from './crier/useCriersWatch';
 import DrydockPanel from './drydock/DrydockPanel.vue';
 import GrindPanel from './grind/GrindPanel.vue';
 import {useGrind} from './grind/useGrind';
@@ -16,8 +14,10 @@ import HolotablePanel from './holotable/HolotablePanel.vue';
 import MissionControl from './mission/MissionControl.vue';
 import LabFloor from './observer/LabFloor.vue';
 import {useObserver} from './observer/useObserver';
+import ColleagueBenches from './roster/ColleagueBenches.vue';
 import RecentlyRecalledStrip from './roster/RecentlyRecalledStrip.vue';
 import ScientistCanvas from './roster/ScientistCanvas.vue';
+import {useColleagues} from './roster/useColleagues';
 import {useRoster} from './roster/useRoster';
 import {useRosterBackend} from './roster/useRosterBackend';
 import Balustrade from './shell/Balustrade.vue';
@@ -31,16 +31,16 @@ const dividerRef = ref<InstanceType<typeof RailingDivider> | null>(null);
 const roster = useRoster();
 const observer = useObserver();
 const wizard = useWizard();
+const mounted = ref(false);
 
 // The Ascent (#00056) — fire the boot update-check exactly once, and only
 // after the first-run wizard has cleared. A brand-new install configures
 // itself (lab root, claude binary, chronicle ack) before the balcony reaches
 // outward to the floor below for the first time (§7 — first reach outward).
 let ascentChecked = false;
-// The Crier's Watch (#00060) — arm the patrol exactly once, after the
-// wizard clears (it needs lab_root to know the cwd). Mirrors the Ascent's
-// boot-check gate: a fresh install configures itself before the relay arms.
-let crierArmed = false;
+// Open the two colleagues once setup and terminal subscriptions are ready.
+let colleaguesOpened = false;
+let rosterReady: Promise<unknown> = Promise.resolve();
 
 // The Overlook (#00057) — short-window collapse. Below 820px of window
 // height the floor surrenders its storey to the terminal and becomes a
@@ -104,7 +104,8 @@ function onWindowResize(): void {
 
 onMounted(() => {
     window.addEventListener('resize', onWindowResize);
-    void useRosterBackend().subscribe();
+    rosterReady = useRosterBackend().subscribe();
+    mounted.value = true;
     // The wizard's step 3 folds in the chronicle ack — on first boot the
     // disclosure is acknowledged when the investor opens the balcony.
     void useWizard().loadStatus();
@@ -122,6 +123,11 @@ onMounted(() => {
     // regardless of whether the panel is open. The renderer's RAF
     // pauses when the panel closes; the economy never does.
     void useGrind().start();
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('resize', onWindowResize);
+    if (plumbDropTimer) clearTimeout(plumbDropTimer);
 });
 
 // Selection → the signature gesture (#00057 §4, reframed by #00059 §4:
@@ -171,19 +177,19 @@ watch(isShortWindow, () => {
 // investor opens the balcony (or on boot for a returning investor). Fire the
 // silent boot check the first time the balcony is confirmed configured.
 watch(
-    () => wizard.isReady() && !wizard.needsWalkthrough.value,
+    () => mounted.value && wizard.isReady() && !wizard.needsWalkthrough.value,
     (cleared) => {
         if (cleared && !ascentChecked) {
             ascentChecked = true;
             void useAscent().check();
         }
-        // The patrol goes on watch the moment the balcony is confirmed
-        // configured — the promise of #00060: open the balcony, the crier
-        // is on patrol. A missing token is caught inside armOnBoot and
-        // surfaced as the NO TOKEN state, never a modal.
-        if (cleared && !crierArmed) {
-            crierArmed = true;
-            void useCriersWatch().armOnBoot();
+        if (cleared && !colleaguesOpened) {
+            colleaguesOpened = true;
+            void rosterReady
+                .then(() => useColleagues().openOnEntry())
+                .catch((error: unknown) => {
+                    useColleagues().bootError.value = String(error);
+                });
         }
     },
     {immediate: true},
@@ -197,6 +203,7 @@ watch(
              only on the page below now. The Recently Recalled ledger
              survives, docked under the cap while it has entries. -->
         <Balustrade />
+        <ColleagueBenches />
         <RecentlyRecalledStrip v-if="hasRecalledStrip" />
         <!-- ④ + ⑤ : the investor's storey -->
         <main class="relative flex-1 flex flex-col min-h-0 min-w-0">
@@ -220,7 +227,6 @@ watch(
         <DrydockPanel />
         <HolotablePanel />
         <GrindPanel />
-        <CriersWatchPanel />
         <FirstRunWizard />
         <AscentPrompt />
     </div>

@@ -14,7 +14,7 @@
 import {invoke} from '@tauri-apps/api/core';
 import {listen, type UnlistenFn} from '@tauri-apps/api/event';
 
-import type {MissionState, RecalledScientist, Scientist, ScientistId, Target} from './types';
+import type {Colleague, MissionState, RecalledScientist, Scientist, ScientistId, Target} from './types';
 
 import {useObserver} from '../observer/useObserver';
 import {useRoster} from './useRoster';
@@ -130,20 +130,37 @@ export function useRosterBackend() {
             }
         },
 
-        async dispatch(target: Target, mission: string): Promise<Scientist> {
-            const scientist = await invoke<Scientist>('dispatch_scientist', {target, mission});
+        async openColleague(colleague: Colleague): Promise<Scientist> {
+            const scientist = await invoke<Scientist>('open_colleague', {colleague});
+            for (const old of roster.scientists.value) {
+                if ((!old.colleague || old.colleague === colleague) && old.id !== scientist.id) {
+                    clearQuietTimer(old.id);
+                    terminals.dispose(old.id);
+                    useObserver().forget(old.id);
+                    void invoke('stop_watching_scientist', {scientistId: old.id}).catch(() => {});
+                    roster.remove(old.id);
+                }
+            }
             roster.upsert(scientist);
-            roster.select(scientist.id);
-            // Arc 2 (#00052) — start the per-scientist chronicle tail
-            // immediately on dispatch so the Observer is accurate the
-            // first time the panel opens, regardless of whether it is
-            // open right now. Swallow errors — the dispatch must not
-            // fail because the tail registration hiccupped.
             try {
                 await invoke('start_watching_scientist', {scientistId: scientist.id});
-            } catch (err) {
-                console.warn('start_watching_scientist failed', err);
+            } catch (error) {
+                console.warn('Colleague chronicle could not start', error);
             }
+            if (!roster.selected.value) roster.select(scientist.id);
+            return scientist;
+        },
+
+        async dispatch(target: Target, mission: string): Promise<Scientist> {
+            const scientist = await this.openColleague('mad-scientist');
+            if (mission.trim()) {
+                await this.writeInput(
+                    scientist.id,
+                    `${target.kind === 'lab-root' ? '' : `Target: ${JSON.stringify(target)}\n`}${mission}\r`,
+                );
+            }
+            roster.upsert(scientist);
+            roster.select(scientist.id);
             return scientist;
         },
 

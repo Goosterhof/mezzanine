@@ -25,16 +25,11 @@ function fakeScientist(mission: string): Scientist {
  *  the stub returns a fixed scientist. */
 function stubDispatchOk(): void {
     mockedInvoke.mockImplementation((cmd: string) => {
-        if (cmd === 'dispatch_scientist') {
+        if (cmd === 'open_colleague') {
             return Promise.resolve(fakeScientist('@agent-x'));
         }
         return Promise.resolve(undefined);
     });
-}
-
-function lastDispatchMission(): string | undefined {
-    const call = [...mockedInvoke.mock.calls].reverse().find((c) => c[0] === 'dispatch_scientist');
-    return (call?.[1] as {mission?: string} | undefined)?.mission;
 }
 
 describe('useDispatch — minion-only dispatch', () => {
@@ -70,8 +65,13 @@ describe('useDispatch — minion-only dispatch', () => {
         d.selectMinion('surgeon');
         stubDispatchOk();
         await d.submit();
-        const call = mockedInvoke.mock.calls.find((c) => c[0] === 'dispatch_scientist');
-        expect(call?.[1]).toMatchObject({target: {kind: 'lab-root'}, mission: '@agent-surgeon'});
+        const call = mockedInvoke.mock.calls.find((c) => c[0] === 'open_colleague');
+        expect(call?.[1]).toMatchObject({colleague: 'mad-scientist'});
+        expect(mockedInvoke).toHaveBeenCalledWith('write_to_scientist', {
+            id: fakeScientist('').id,
+            input: '@agent-surgeon\r',
+        });
+        expect(mockedInvoke.mock.calls.some((c) => c[0] === 'dispatch_scientist')).toBe(false);
     });
 
     it('submit dispatches an empty mission for a plain (no-minion) session', async () => {
@@ -80,7 +80,8 @@ describe('useDispatch — minion-only dispatch', () => {
         d.selectMinion(null);
         stubDispatchOk();
         await d.submit();
-        expect(lastDispatchMission()).toBe('');
+        expect(mockedInvoke).toHaveBeenCalledWith('open_colleague', {colleague: 'mad-scientist'});
+        expect(mockedInvoke.mock.calls.some((c) => c[0] === 'write_to_scientist')).toBe(false);
     });
 
     it('submit clears the selection and closes the sheet on success', async () => {
@@ -99,7 +100,7 @@ describe('useDispatch — minion-only dispatch', () => {
         d.show();
         d.selectMinion('inspector');
         mockedInvoke.mockImplementation((cmd: string) => {
-            if (cmd === 'dispatch_scientist') {
+            if (cmd === 'open_colleague') {
                 return Promise.reject(new Error('Backend refused the dispatch.'));
             }
             return Promise.resolve(undefined);

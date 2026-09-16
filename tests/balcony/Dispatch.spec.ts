@@ -27,7 +27,7 @@ describe('Dispatch — minion-only dispatch', () => {
         const wrapper = mount(Dispatch);
         await nextTick();
         expect(wrapper.find('[data-dispatch-sheet]').exists()).toBe(true);
-        expect(wrapper.text()).toContain('Send a scientist to the lab floor');
+        expect(wrapper.text()).toContain('Give the Mad Scientist a brief');
         // The "no minion" row plus one row per minion (Inspector seeds it).
         expect(wrapper.find('[data-dispatch-minion="none"]').exists()).toBe(true);
         expect(wrapper.find('[data-dispatch-minion="inspector"]').exists()).toBe(true);
@@ -92,7 +92,7 @@ describe('Dispatch — minion-only dispatch', () => {
         d.show();
         d.selectMinion('inspector');
         mockedInvoke.mockImplementation((cmd: string) => {
-            if (cmd === 'dispatch_scientist') {
+            if (cmd === 'open_colleague') {
                 return Promise.resolve({
                     id: '11111111-1111-4111-8111-111111111111',
                     target: {kind: 'lab-root'},
@@ -110,7 +110,7 @@ describe('Dispatch — minion-only dispatch', () => {
         await Promise.resolve();
         await Promise.resolve();
         const calls = mockedInvoke.mock.calls.map((c) => c[0]);
-        expect(calls).toContain('dispatch_scientist');
+        expect(calls).toContain('open_colleague');
     });
 
     it('renders the error banner when lastError is set', async () => {

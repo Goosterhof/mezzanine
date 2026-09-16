@@ -11,7 +11,7 @@ use crate::pty::substrate::SessionSpec;
 use crate::roster::live::LiveScientistSession;
 use crate::roster::persistence::{read_snapshot, write_snapshot, RosterSnapshot};
 use crate::roster::recall_strip::{RecallStrip, RecalledScientist};
-use crate::roster::scientist::{MissionState, Scientist, ScientistId};
+use crate::roster::scientist::{Colleague, MissionState, Scientist, ScientistId};
 use crate::roster::target::Target;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
@@ -59,58 +59,82 @@ impl RosterManager {
         }
     }
 
-    /// Dispatch a fresh scientist into `target` with `mission`. Spawns a
-    /// pty in the target's CWD, registers the record, persists. Returns
-    /// the created Scientist record (with the freshly-minted id). The
-    /// `binary` override threads the wizard's persisted choice down to
-    /// the substrate; pass `None` to use the substrate default (`claude`).
-    #[allow(clippy::too_many_arguments)] // dispatch genuinely needs the full session context; a param struct would only relocate it
-    pub fn dispatch<R: Runtime>(
+    /// Open one named bench under the manager's write lock. Repeated or
+    /// concurrent requests return the existing live session, never a clone.
+    #[allow(clippy::too_many_arguments)]
+    pub fn open_colleague<R: Runtime>(
         &mut self,
-        target: Target,
-        mission: String,
+        colleague: Colleague,
         lab_root: &Path,
         distro: Option<String>,
         binary: Option<String>,
         chronicle_base: PathBuf,
         app: AppHandle<R>,
     ) -> MezzanineResult<Scientist> {
-        // Build the spec from the mission BEFORE the string is moved into
-        // the Scientist record — the mission doubles as claude's opening
-        // prompt (substrate threads it through as a positional arg).
-        let spec = SessionSpec::for_target(lab_root, &target, distro, binary, &mission);
-        self.dispatch_with_spec(target, mission, spec, chronicle_base, app, false)
+        self.open_with(colleague, chronicle_base, app, |scientist| {
+            SessionSpec::for_colleague(
+                lab_root,
+                colleague,
+                &scientist.id.to_string(),
+                distro,
+                binary,
+            )
+        })
     }
 
-    /// Dispatch a scientist from a pre-built `SessionSpec`. The Crier's
-    /// Watch (#00060) uses this: the crier's spec comes from
-    /// `SessionSpec::for_crier`, not `for_target`, because the relay's
-    /// invocation is a flag-args shape with no mission positional. The
-    /// `mission` here is the record's display brief only — it does NOT
-    /// seed the spec (the spec is already built). Everything else mirrors
-    /// `dispatch`: spawn the pty, register the record, persist.
-    ///
-    /// When `ephemeral` is true the record is tracked as infrastructure: it
-    /// lives in `records` (so it shows on the floor as a real scientist)
-    /// but is filtered out of the `roster.json` snapshot, so a dead pty is
-    /// never restored on restart. The crier passes `true`.
-    pub fn dispatch_with_spec<R: Runtime>(
+    fn open_with<R: Runtime>(
         &mut self,
-        target: Target,
-        mission: String,
-        spec: SessionSpec,
+        colleague: Colleague,
         chronicle_base: PathBuf,
         app: AppHandle<R>,
-        ephemeral: bool,
+        make_spec: impl FnOnce(&Scientist) -> SessionSpec,
     ) -> MezzanineResult<Scientist> {
-        let scientist = Scientist::new(target, mission);
-        let id = scientist.id;
-        let live = LiveScientistSession::spawn(&spec, id, chronicle_base, app)?;
-        self.scientists.insert(id, Arc::new(live));
-        self.records.insert(id, scientist.clone());
-        if ephemeral {
-            self.ephemeral.insert(id);
+        if let Some(record) = self
+            .records
+            .values()
+            .find(|s| s.colleague == Some(colleague))
+        {
+            if self
+                .scientists
+                .get(&record.id)
+                .is_some_and(|live| live.is_alive())
+            {
+                return Ok(record.clone());
+            }
         }
+        // Back up the old many-scientist roster before retiring stale handles.
+        // Transcripts are never deleted. A failed backup leaves it untouched.
+        let stale: Vec<_> = self
+            .records
+            .values()
+            .filter(|s| s.colleague.is_none() || s.colleague == Some(colleague))
+            .map(|s| s.id)
+            .collect();
+        if self.records.values().any(|s| s.colleague.is_none()) {
+            let archive = self
+                .snapshot_dir
+                .join(format!("roster-retired-{}.json", uuid::Uuid::new_v4()));
+            std::fs::create_dir_all(&self.snapshot_dir)?;
+            std::fs::write(
+                archive,
+                serde_json::to_vec_pretty(&RosterSnapshot {
+                    scientists: self.list(),
+                })?,
+            )?;
+        }
+        for id in stale {
+            if let Some(live) = self.scientists.remove(&id) {
+                live.kill_child();
+            }
+            self.records.remove(&id);
+            self.ephemeral.remove(&id);
+        }
+        let mut scientist = Scientist::new(Target::LabRoot, colleague.label().to_string());
+        scientist.colleague = Some(colleague);
+        let spec = make_spec(&scientist);
+        let live = LiveScientistSession::spawn(&spec, scientist.id, chronicle_base, app)?;
+        self.scientists.insert(scientist.id, Arc::new(live));
+        self.records.insert(scientist.id, scientist.clone());
         self.persist();
         Ok(scientist)
     }
@@ -134,6 +158,14 @@ impl RosterManager {
         }
         self.persist();
         Ok(())
+    }
+
+    /// Close the live terminals while retaining their durable records and transcripts.
+    pub fn shutdown(&mut self) {
+        for live in self.scientists.values() {
+            live.kill_child();
+        }
+        self.scientists.clear();
     }
 
     /// Snapshot of the active roster. Returns owned clones so the caller
@@ -478,5 +510,132 @@ mod tests {
         assert_eq!(roster.len(), 1);
         assert_eq!(roster[0].state, MissionState::Awaiting);
         std::fs::remove_dir_all(&dir).ok();
+    }
+    #[cfg(unix)]
+    fn sleeping_spec(root: &Path) -> SessionSpec {
+        SessionSpec {
+            working_dir: root.to_path_buf(),
+            binary: "sh".into(),
+            args: vec!["-c".into(), "exec sleep 60".into()],
+            env: vec![],
+            distro: None,
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn named_benches_reuse_live_sessions_and_allow_exactly_two_identities() {
+        let root = temp_dir("colleagues");
+        let app = tauri::test::mock_app();
+        let mut manager = RosterManager::new(root.clone());
+        let first = manager
+            .open_with(
+                Colleague::MadScientist,
+                root.clone(),
+                app.handle().clone(),
+                |_| sleeping_spec(&root),
+            )
+            .unwrap();
+        let again = manager
+            .open_with(
+                Colleague::MadScientist,
+                root.clone(),
+                app.handle().clone(),
+                |_| panic!("duplicate launch"),
+            )
+            .unwrap();
+        let heretic = manager
+            .open_with(
+                Colleague::Heretic,
+                root.clone(),
+                app.handle().clone(),
+                |_| sleeping_spec(&root),
+            )
+            .unwrap();
+        assert_eq!(first.id, again.id);
+        assert_ne!(first.id, heretic.id);
+        assert_eq!(manager.list().len(), 2);
+        manager.shutdown();
+        assert!(manager.scientists.is_empty());
+        assert_eq!(read_snapshot(&root).scientists.len(), 2);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn opening_archives_legacy_roster_and_replaces_dead_records_on_restart() {
+        let root = temp_dir("colleague-migration");
+        let old = Scientist::new(Target::LabRoot, "old mission".into());
+        write_snapshot(
+            &root,
+            &RosterSnapshot {
+                scientists: vec![old.clone()],
+            },
+        )
+        .unwrap();
+        let app = tauri::test::mock_app();
+        let mut manager = RosterManager::new(root.clone());
+        let first = manager
+            .open_with(
+                Colleague::Heretic,
+                root.clone(),
+                app.handle().clone(),
+                |_| sleeping_spec(&root),
+            )
+            .unwrap();
+        assert_eq!(manager.list().len(), 1);
+        assert!(!manager.has_record(old.id));
+        let archive = std::fs::read_dir(&root)
+            .unwrap()
+            .filter_map(Result::ok)
+            .find(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("roster-retired-")
+            })
+            .unwrap();
+        let saved: RosterSnapshot =
+            serde_json::from_slice(&std::fs::read(archive.path()).unwrap()).unwrap();
+        assert_eq!(saved.scientists[0].id, old.id);
+        manager.shutdown();
+        let mut restarted = RosterManager::new(root.clone());
+        let second = restarted
+            .open_with(
+                Colleague::Heretic,
+                root.clone(),
+                app.handle().clone(),
+                |_| sleeping_spec(&root),
+            )
+            .unwrap();
+        assert_ne!(first.id, second.id);
+        assert_eq!(restarted.list().len(), 1);
+        assert_eq!(
+            std::fs::read_dir(&root)
+                .unwrap()
+                .filter_map(Result::ok)
+                .filter(|entry| entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("roster-retired-"))
+                .count(),
+            1
+        );
+        restarted.shutdown();
+    }
+
+    #[test]
+    fn failed_legacy_archive_does_not_remove_records() {
+        let root = temp_dir("archive-failure");
+        let file = root.join("not-a-directory");
+        std::fs::write(&file, "preserve").unwrap();
+        let mut manager = RosterManager::new(file);
+        let old = Scientist::new(Target::LabRoot, "history".into());
+        manager.insert_record_for_test(old.clone());
+        let app = tauri::test::mock_app();
+        let result = manager.open_with(Colleague::MadScientist, root, app.handle().clone(), |_| {
+            panic!("must not spawn")
+        });
+        assert!(result.is_err());
+        assert!(manager.has_record(old.id));
     }
 }

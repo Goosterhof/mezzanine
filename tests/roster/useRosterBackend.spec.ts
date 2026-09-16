@@ -76,7 +76,7 @@ describe('useRosterBackend — Phase 2A', () => {
     it('dispatch upserts the scientist into the roster and selects it', async () => {
         const s = makeScientist('a');
         mockedInvoke.mockImplementation((cmd: string) => {
-            if (cmd === 'dispatch_scientist') return Promise.resolve(s);
+            if (cmd === 'open_colleague') return Promise.resolve(s);
             return Promise.resolve(undefined);
         });
         await useRosterBackend().dispatch({kind: 'experiment', codename: 'crucible'}, 'mission');

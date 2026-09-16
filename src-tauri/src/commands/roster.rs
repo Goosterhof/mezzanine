@@ -15,39 +15,30 @@
 use crate::error::{MezzanineError, MezzanineResult};
 use crate::grind::economy::{emit_grant, GrindSource, RpGrant};
 use crate::roster::recall_strip::RecalledScientist;
-use crate::roster::scientist::{MissionState, Scientist, ScientistId};
-use crate::roster::target::Target;
+use crate::roster::scientist::{Colleague, MissionState, Scientist, ScientistId};
 use crate::state::AppState;
 use chrono::Utc;
 use tauri::{AppHandle, Runtime, State};
 
 #[tauri::command]
-pub fn dispatch_scientist<R: Runtime>(
+pub fn open_colleague<R: Runtime>(
     state: State<'_, AppState>,
     app: AppHandle<R>,
-    target: Target,
-    mission: String,
+    colleague: Colleague,
 ) -> MezzanineResult<Scientist> {
-    let lab_root = {
-        let guard = state.lab_root.read();
-        guard.clone().ok_or(MezzanineError::ConfigCorrupt)?
-    };
-    let distro = state.distro.read().clone();
-    let binary = state.claude_binary.read().clone();
-    let chronicle_base = state.chronicle_base.clone();
-    let scientist = state.roster_manager.write().dispatch(
-        target,
-        mission,
+    let lab_root = state
+        .lab_root
+        .read()
+        .clone()
+        .ok_or(MezzanineError::ConfigCorrupt)?;
+    let scientist = state.roster_manager.write().open_colleague(
+        colleague,
         &lab_root,
-        distro,
-        binary,
-        chronicle_base,
+        state.distro.read().clone(),
+        state.claude_binary.read().clone(),
+        state.chronicle_base.clone(),
         app.clone(),
     )?;
-    // The Grind earns on dispatch (#00053 G-1, RD-2). The grant fires
-    // exactly once per scientist id — re-dispatching the same id (which
-    // the roster does not currently permit, but the dedup is defensive)
-    // returns 0.0 and emits nothing.
     let amount = state.economy.on_dispatch(scientist.id);
     if amount > 0.0 {
         emit_grant(
@@ -156,4 +147,39 @@ pub fn transition_scientist(
 ) -> MezzanineResult<()> {
     state.roster_manager.write().transition(id, next);
     Ok(())
+}
+
+/// Read-only view of the session-owned listeners, through the same WSL
+/// boundary as the terminals. The Node read has a five-second Linux-side
+/// deadline; WSL startup itself is outside that bound.
+#[tauri::command]
+pub async fn read_tube_connections(
+    state: State<'_, AppState>,
+) -> MezzanineResult<serde_json::Value> {
+    let root = state
+        .lab_root
+        .read()
+        .clone()
+        .ok_or(MezzanineError::ConfigCorrupt)?;
+    let distro = state.distro.read().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let output = crate::drydock::bridge::run_in_lab(
+            &root,
+            "timeout",
+            &[
+                "5",
+                "node",
+                "gadgets/speaking-tube/src/tube.mjs",
+                "connections",
+                "--identity",
+                "heretic",
+                "--database",
+                "gadgets/speaking-tube/var/mailbox.sqlite",
+            ],
+            distro.as_deref(),
+        )?;
+        Ok(serde_json::from_str(&output)?)
+    })
+    .await
+    .map_err(|e| MezzanineError::WslBridge(e.to_string()))?
 }

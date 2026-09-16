@@ -14,14 +14,15 @@ function onInput(event: Event): void {
         <header>
             <div class="mz-stamp-label">Step 2 of 3 — The Scientist's Hand</div>
             <h3 class="font-display text-mz-text text-lg tracking-wide mt-1">
-                Which <span class="font-mono text-mz-stamp">claude</span> do the scientists carry?
+                Which <span class="font-mono text-mz-stamp">claude</span> does the Mad Scientist carry?
             </h3>
         </header>
         <p class="text-sm text-mz-text-mute font-display leading-relaxed">
-            Every dispatched scientist invokes the same binary. Leave this blank and the substrate calls
-            <span class="font-mono text-mz-stamp">claude</span> from <span class="font-mono text-mz-stamp">$PATH</span>
-            — the laboratory's canonical name. Set an absolute path to pin a specific build (useful when two channels
-            coexist on the same host).
+            The Mad Scientist uses Claude. Leave this blank to use
+            <span class="font-mono text-mz-stamp">claude</span> from
+            <span class="font-mono text-mz-stamp">$PATH</span> in your laboratory environment. The Heretic uses
+            <span class="font-mono text-mz-stamp">codex</span> from the same PATH. Both CLIs must already be installed
+            and signed in; the Speaking Tube needs Node 24+ and its installed dependencies.
         </p>
         <div>
             <label class="mz-stamp-label block mb-1.5" for="wizard-claude-binary">Claude binary</label>
