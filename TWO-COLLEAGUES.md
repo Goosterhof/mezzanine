@@ -43,7 +43,8 @@ Codex notice reception between turns; mid-turn interruption is not claimed.
 
 ## Verification receipts
 
-- Frontend: 578 Vitest tests pass; typecheck, lint, format and Vite build pass.
+- Frontend: 543 Vitest tests pass after removing 35 tests of the retired
+  Town-Crier UI; typecheck, lint, format and Vite build pass.
 - Rust: 233 tests pass, including real PTYs with inert `sleep` children for
   singleton reuse, two independent identities, restart and legacy migration.
   Clippy with `-D warnings` and Linux native build pass.
@@ -79,6 +80,13 @@ confirmed both listeners after that prompt was accepted.
 
 The investor confirmed the installed result on 2026-09-16: “everything is working”,
 and requested PR review by the General.
+
+## Review follow-up
+
+The General reported no blockers and one dead-code cleanup item. Removed the
+unreachable Town-Crier panel, composable, lamp, types and their two spec files,
+plus the retired panel ID, its two shell tests and the stale Balustrade test import. The active terminal and tube behavior is
+unchanged. The refreshed frontend gates pass in the isolated PR checkout.
 
 ## Running the updated app
 

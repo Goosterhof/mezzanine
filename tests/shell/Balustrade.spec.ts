@@ -12,7 +12,6 @@ import {nextTick} from 'vue';
 
 import {useBalconySigns} from '../../src/balcony/useBalconySigns';
 import {useDispatch} from '../../src/balcony/useDispatch';
-import {useCriersWatch} from '../../src/crier/useCriersWatch';
 import Balustrade from '../../src/shell/Balustrade.vue';
 import {useShell} from '../../src/shell/useShell';
 
@@ -38,7 +37,6 @@ describe('Balustrade — the Overlook #00057', () => {
         useBalconySigns().reset();
         useDispatch().reset();
         useShell().reset();
-        useCriersWatch().reset();
         mockedInvoke.mockReset();
     });
 
