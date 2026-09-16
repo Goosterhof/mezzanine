@@ -108,7 +108,7 @@ pub fn run() {
                 match crier::read_token_file(&home) {
                     Some(token) => {
                         *app_state.crier_token.write() = Some(token);
-                        log::info!("Mezzanine: crier token loaded — patrol armed on launch");
+                        log::info!("Mezzanine: crier token loaded for legacy queue reads");
                     }
                     None => log::info!(
                         "Mezzanine: crier token file not found at {} — patrol disarmed",
@@ -139,10 +139,20 @@ pub fn run() {
             app.manage(app_state);
             Ok(())
         })
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                window
+                    .state::<state::AppState>()
+                    .roster_manager
+                    .write()
+                    .shutdown();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             // The Mezzanine's roster surface — dispatch / recall / list /
             // write / resize / transition for dispatched scientists.
-            commands::roster::dispatch_scientist,
+            commands::roster::open_colleague,
+            commands::roster::read_tube_connections,
             commands::roster::recall_scientist,
             commands::roster::list_roster,
             commands::roster::list_recently_recalled,
@@ -162,8 +172,7 @@ pub fn run() {
             // The Crier's Watch (#00060) — arm / recall the town-crier
             // relay and read its live watch state (local status + bus
             // queue).
-            commands::crier::dispatch_crier,
-            commands::crier::recall_crier,
+            // A separate Claude patrol would violate the two-colleague roster.
             commands::crier::read_crier_watch_state,
             // Observer — Arc 2 of the absorption trilogy (experiment log
             // #00052). The chronicle tail starts on dispatch and stops on
@@ -211,17 +220,37 @@ fn detect_lab_root() -> PathBuf {
 
 /// The WSL2 distro name to bridge into via `wsl.exe -d <distro>`.
 ///
-/// `MEZZANINE_WSL_DISTRO` overrides. On Unix this is ignored by the
-/// substrate; on Windows the default is `Ubuntu` (the laboratory's
-/// canonical distro). The first-run wizard will enumerate distros via
-/// `wsl.exe --list --quiet` and let the investor pick.
+/// `MEZZANINE_WSL_DISTRO` overrides. Otherwise ask the default WSL distro
+/// for its name, which is also needed for host-side UNC file reads.
+/// On Unix no bridge is needed.
 fn detect_distro() -> Option<String> {
-    if let Ok(env_distro) = std::env::var("MEZZANINE_WSL_DISTRO") {
+    if let Some(env_distro) = std::env::var("MEZZANINE_WSL_DISTRO")
+        .ok()
+        .filter(|name| !name.trim().is_empty())
+    {
         return Some(env_distro);
     }
-    if cfg!(windows) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        if let Some(output) = std::process::Command::new("wsl.exe")
+            .args(["--exec", "printenv", "WSL_DISTRO_NAME"])
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
+            .output()
+            .ok()
+            .filter(|output| output.status.success())
+        {
+            let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !name.is_empty() {
+                log::info!("Mezzanine: using default WSL distro {name}");
+                return Some(name);
+            }
+        }
+        log::warn!("Mezzanine: unable to detect default WSL distro; falling back to Ubuntu");
         Some("Ubuntu".to_string())
-    } else {
+    }
+    #[cfg(not(windows))]
+    {
         None
     }
 }

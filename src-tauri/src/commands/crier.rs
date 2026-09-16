@@ -29,14 +29,11 @@
 use std::time::Duration;
 
 use serde::Deserialize;
-use tauri::{AppHandle, Runtime, State};
+use tauri::State;
 use tauri_plugin_http::reqwest;
 
 use crate::crier::{CrierQueueEntry, CrierStatus, CrierWatchState};
-use crate::error::{MezzanineError, MezzanineResult};
-use crate::pty::substrate::SessionSpec;
-use crate::roster::scientist::Scientist;
-use crate::roster::target::Target;
+use crate::error::MezzanineResult;
 use crate::state::AppState;
 
 /// The town-crier bus — the same host the relay polls.
@@ -45,88 +42,6 @@ const BUS_OPEN_URL: &str = "https://town-crier-mcp.fly.dev/open";
 /// The outbound bus read carries a deadline so a wedged network half cannot
 /// strand the panel — mirrors the Holotable's per-call HTTP bound.
 const BUS_READ_TIMEOUT: Duration = Duration::from_secs(10);
-
-/// Arm the crier — idempotent singleton dispatch. Returns the armed
-/// scientist record. Errors only on a missing token (TokenMissing surfaces
-/// as a soft state on the frontend, but the dispatch itself returns
-/// `ConfigCorrupt` so `armOnBoot` can catch and set the panel state) or on a
-/// genuine spawn failure.
-#[tauri::command]
-pub fn dispatch_crier<R: Runtime>(
-    state: State<'_, AppState>,
-    app: AppHandle<R>,
-) -> MezzanineResult<Scientist> {
-    // Singleton guard: if a crier is already tracked AND still live in the
-    // roster, return it untouched. A dead-but-tracked id (floor-recall path)
-    // is cleared and re-armed fresh — never returned.
-    {
-        let tracked = *state.crier_scientist_id.read();
-        if let Some(id) = tracked {
-            let still_live = state
-                .roster_manager
-                .read()
-                .list()
-                .iter()
-                .any(|s| s.id == id);
-            if still_live {
-                if let Some(record) = state
-                    .roster_manager
-                    .read()
-                    .list()
-                    .into_iter()
-                    .find(|s| s.id == id)
-                {
-                    return Ok(record);
-                }
-            }
-            // Stale tracker — the session was torn down elsewhere. Clear it
-            // and fall through to arm a fresh crier.
-            *state.crier_scientist_id.write() = None;
-        }
-    }
-
-    let token = state
-        .crier_token
-        .read()
-        .clone()
-        .ok_or(MezzanineError::ConfigCorrupt)?;
-
-    let lab_root = {
-        let guard = state.lab_root.read();
-        guard.clone().ok_or(MezzanineError::ConfigCorrupt)?
-    };
-    let distro = state.distro.read().clone();
-    let binary = state.claude_binary.read().clone();
-    let chronicle_base = state.chronicle_base.clone();
-
-    let spec = SessionSpec::for_crier(&lab_root, distro, binary, &token);
-    let scientist = state.roster_manager.write().dispatch_with_spec(
-        Target::LabRoot,
-        "town-crier relay — laboratory patrol".to_string(),
-        spec,
-        chronicle_base,
-        app,
-        // Ephemeral: the crier is never persisted to roster.json — it is
-        // re-armed fresh on every launch, so a snapshot entry would be a
-        // zombie pointing at a dead pty.
-        true,
-    )?;
-    *state.crier_scientist_id.write() = Some(scientist.id);
-    Ok(scientist)
-}
-
-/// Recall the crier by the tracked id and clear the tracker. A no-op (no
-/// error) when no crier is currently armed.
-#[tauri::command]
-pub fn recall_crier(state: State<'_, AppState>) -> MezzanineResult<()> {
-    let id = { *state.crier_scientist_id.read() };
-    if let Some(id) = id {
-        state.chronicle_reader.stop_watching(id);
-        state.roster_manager.write().recall(id)?;
-        *state.crier_scientist_id.write() = None;
-    }
-    Ok(())
-}
 
 /// The bus's `GET /open` wire shape — `{ open: [ { id, pr_url, repo,
 /// review_count }, … ] }`. The relay reads the same body (`relay.mjs:117`).
@@ -148,9 +63,6 @@ struct BusReviewRequest {
     review_count: u32,
 }
 
-/// Read the combined watch state — local status + (when armed) the live
-/// bus queue. Never returns `Err` for a not-ready / not-armed / bus-down
-/// state; only an internal serde/build fault would.
 #[tauri::command]
 pub async fn read_crier_watch_state(
     state: State<'_, AppState>,

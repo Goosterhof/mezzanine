@@ -1,13 +1,61 @@
 # CLAUDE.md — The Mezzanine
 
-The Mezzanine is the investor's command balcony — a Tauri v2 desktop
-gadget where the investor stands above the lab floor and dispatches mad
-scientists onto missions. Each scientist is a persistent `claude` pty
-session, dispatched into a target (any experiment, gadget, package, or
-the lab root) with a free-form brief. The Roster lists who is out and on
-what. Selecting a row opens that scientist's xterm canvas; the command
-bar feeds the selection. Recall closes the scientist cleanly; the
-chronicle survives on disk.
+The Mezzanine is the investor's command balcony: **one Mad Scientist
+(Claude) and one Heretic (Codex)**. Both benches open after the first-run
+wizard clears. Their independent xterm terminals remain side by side, Mad
+Scientist on the left and Heretic on the right. Clicking a pane, its nameplate
+or its floor figure selects the command bar's recipient without hiding the
+other terminal. Both panes keep their own scrollback. The Heretic appears as an
+equal-sized ink figure with amber glasses and a scarf.
+
+## The Two Colleagues (2026-09-16)
+
+This model supersedes the dispatch-many descriptions in the historical
+roadmap below. `open_colleague` holds the roster write lock, reuses a live
+session for the named identity, and replaces an exited session on retry.
+The app starts fresh interactive CLI conversations on entry; it does not
+resume the prior model conversation. Chronicles survive. Old anonymous
+roster records are archived as `roster-retired-<uuid>.json` before removal;
+ordinary colleague restarts do not produce extra archives.
+
+- `src/roster/ColleagueBenches.vue` and `useColleagues.ts` own the two
+  nameplates, independent launch errors, retry and Speaking Tube status.
+- `App.vue` starts both only after wizard completion and terminal event
+  subscription. Closing the window explicitly kills the live terminals.
+- `Brief ▾` sends the chosen minion brief to the existing Mad Scientist.
+  It never creates a third scientist. The separate Claude Town-Crier
+  patrol and its controls are retired from the live app; Town-Crier
+  remains an independent laboratory service, not our private mailbox.
+  The retired frontend crier slice and its tests have been removed.
+- Both CLIs run at the configured laboratory root through the existing
+  Windows→WSL bridge. Claude honors the existing binary override; Codex
+  resolves `codex` in the same login-shell PATH and uses `--no-alt-screen`.
+  Neither launch changes the investor's permission or model settings.
+- Claude uses the root `.mcp.json` Speaking Tube registration, channel
+  opt-in and launch-scoped root/database/connection-ID environment vars.
+  Codex receives the same absolute mailbox path as MCP CLI overrides.
+  Its opening turn reads its own `CODEX_THREAD_ID` and calls `tube_connect`.
+  That listener belongs to the MCP session and stops when it closes.
+- The tube panel reads session-ID-specific heartbeats; it does not infer
+  connectivity from a running CLI or a known identity. `connecting` stays
+  visible until attachment. Queue failures show an error and retry; dead
+  heartbeats become offline. Codex delivery occurs between turns, not as
+  a demonstrated interruption of active work. Acknowledgement is separate.
+
+**Requirements:** Node 24+ and `npm ci --prefix gadgets/speaking-tube` in
+the lab checkout; signed-in Claude and Codex CLIs in the laboratory PATH;
+Codex with `queue` support (tested CLI 0.154.0). The desktop build and the
+parent lab's updated Speaking Tube sources must be deployed together.
+No user-wide hooks or MCP configuration files are rewritten.
+
+**Verification:** the existing frontend and Rust gates remain required.
+New tests cover singleton PTYs, legacy migration, launch quoting, partial
+startup failure, nameplate selection and connection status. The parent
+Speaking Tube suite additionally tests real MCP attachment, queue retry
+and shutdown using a fake Codex executable and temporary mailboxes.
+Browser smoke checks use simulated Tauri responses; they do not certify
+the Windows binary or live model reception. See `TWO-COLLEAGUES.md` for
+verification receipts and remaining native checks.
 
 This repo lives as a submodule at `zmuuzn/gadgets/mezzanine/`. It
 supersedes **The Workbench** — the bench era (six fixed pty tabs, the
@@ -190,17 +238,17 @@ mezzanine/
 │   ├── version.mjs ........... The Ascent (#00056) — version lockstep across package.json / tauri.conf.json / Cargo.toml / package-lock.json (`check` / `bump` — four manifests must agree)
 │   └── release-readiness.mjs . Advisory PR job — warns when a feat/fix lands without a version bump (Decision 017 / Pattern 024: non-blocking, always exits 0)
 ├── src/
-│   ├── App.vue ............... The two-storey frame (#00057, reframed by #00059): Balustrade (+ RecentlyRecalledStrip dock while populated) / ScientistCanvas + CommandBar / RailingDivider / TornPaperEdge / LabFloor (permanent — no v-if, no v-show) + the five summonable panels (MC/DD/HT/GR/TC) + Dispatch + FirstRunWizard + AscentPrompt; mounts CriersWatchPanel + calls armOnBoot() via useCriersWatch (#00060). Owns isShortWindow (<820px → 64px floor-strip) and the plumb-line geometry (plumbX / plumbLength / plumbDropping). The DOM nameplate railing retired in #00059 J-3 — the roster lives only on the page
+│   ├── App.vue ............... The two-storey frame (#00057, reframed by #00059): Balustrade (+ RecentlyRecalledStrip dock while populated) / ScientistCanvas + CommandBar / RailingDivider / TornPaperEdge / LabFloor (permanent — no v-if, no v-show) + the four summonable panels (MC/DD/HT/GR) + Dispatch + FirstRunWizard + AscentPrompt; opens the two colleague benches after setup. Owns isShortWindow (<820px → 64px floor-strip) and the plumb-line geometry (plumbX / plumbLength / plumbDropping). The DOM nameplate railing retired in #00059 J-3 — the roster lives only on the page
 │   ├── main.ts ............... createApp + UnoCSS
 │   ├── ascent/                The Ascent (#00056) — the balcony rebuilds itself
 │   │   ├── types.ts .......... AscentStatus union + UpdateMeta
 │   │   ├── useAscent.ts ...... Singleton — check() / descend() / dismiss(); wraps plugin-updater + plugin-process; _resetForTests()
 │   │   └── AscentPrompt.vue .. Balcony-voiced prompt strip; descend/stay actions + descent progress
 │   ├── shell/                 Frame — the Overlook's balcony chrome (#00057)
-│   │   ├── Balustrade.vue .... The single ~76px brass cap (merged BalconyRail + TopBar, both retired): identity, two signs (Reserved tile dropped), MC/DD/HT/GR glyphs (OB retired) + TC glyph + PatrolLamp (#00060), Dispatch ▾ trigger
+│   │   ├── Balustrade.vue .... The single ~76px brass cap (merged BalconyRail + TopBar, both retired): identity, two signs (Reserved tile dropped), MC/DD/HT/GR glyphs (OB retired), Brief ▾ trigger
 │   │   ├── RailingDivider.vue  Brass-post SVG balustrade between the storeys — hosts the PENCIL plumb-line + sketched nail mark (#00059 J-4; 300ms stroke-dashoffset draw-on, reduced-motion instant; imports PENCIL from ../observer/pen — constants cross the slice boundary, logic does not)
 │   │   ├── TornPaperEdge.vue . The seam between the storeys (#00059 J-4) — static SVG zigzag, fill = PAPER from ../observer/pen, aria-hidden; the plumb-line (z-10) hangs OVER it (z-[5])
-│   │   └── useShell.ts ....... openPanel + togglePanel/closePanel singleton — PanelId is 'mission-control' | 'drydock' | 'holotable' | 'grind' | 'criers-watch' (no 'observer'; the floor is permanent; 'criers-watch' added #00060)
+│   │   └── useShell.ts ....... openPanel + togglePanel/closePanel singleton — PanelId is 'mission-control' | 'drydock' | 'holotable' | 'grind' (Observer is the permanent floor; Crier's Watch retired)
 │   ├── roster/                The dispatched-scientist domain
 │   │   ├── types.ts .......... Scientist / Target / MissionState / TARGET_OPTIONS / targetLabel / targetKey
 │   │   ├── useRoster.ts ...... Singleton roster + recalled-strip + selection state
@@ -238,11 +286,6 @@ mezzanine/
 │   │   ├── LabScene.vue ...... `<canvas>` host — pushes roster/selection/strip down (entries widened in #00059 J-3 with target / mission / startedAtMs / idleWarn / crashed for the captions); parses parseRecallScientistAction → backend.recall and parseSelectScientistAction → roster.select
 │   │   └── LabFloor.vue ...... THE PERMANENT FLOOR (#00057) — never a toggle; 40vh / 64px strip (never zero); CSS perspective gradient + light pools (opacity = total function of ActivityState; positions re-read behind a double rAF — the scene assigns stations inside its own tick, and a nextTick-only read strands the pool a station behind the figure, #00059 ratification wound); RAF gated by window focus + matchMedia (the DOM empty-voice overlay retired in #00059 J-3 — the canvas speaks)
 │   ├── grind/                 Arc 3 (#00053) — the lab economy: gameCore.ts + useGrind + GrindRenderer + GrindHud + GrindPanel (GR glyph)
-│   ├── crier/                 The Crier's Watch (#00060) — the town-crier relay watch-post (TC glyph)
-│   │   ├── types.ts .......... CrierStatus ('armed' | 'idle' | 'token-missing') + CrierWatchState (+ scientistId) + CrierQueueEntry TS mirrors
-│   │   ├── useCriersWatch.ts . Singleton — status / queue / lampStatus / scientistId / readState() (authoritative reconcile) / arm() / armOnBoot() / standDown() / takeTurn()
-│   │   ├── CriersWatchPanel.vue  Right-hand drawer beside the canvas (copies Drydock, not a slide-down): ON PATROL / STOOD DOWN / NO TOKEN, live bus queue (PR # parsed from prUrl), embedded watch-glass xterm, Arm / Stand Down / Take a turn
-│   │   └── PatrolLamp.vue .... Amber Balustrade indicator — nudging / watching / off, driven by parsed `[crier-doorbell] pushed turn` PTY lines, not a panel-poll proxy (Gift)
 │   ├── command/               Always-on input tray
 │   │   └── CommandBar.vue .... Always-focused bottom input → write_to_scientist(selected, text + "\n")
 │   ├── wizard/                First-run wizard (Phase 2C) — three steps, balcony voice
@@ -265,10 +308,9 @@ mezzanine/
 │   ├── ascent/ ................ useAscent (flow states) + AscentPrompt (render / actions / balcony voice)
 │   ├── balcony/ ............... BalconySign + BriefingLibrary + useBalconySigns + useBriefingLibrary + useDispatch
 │   ├── observer/ .............. LabFloor (floor invariants, pool totality, RAF gating, canvas empty voice via recorded mock ctx) + projection (the geometric spine + both wire formats) + pen (seeded-stroke determinism) + figure (7-state totality, ghost geometry) + useObserver + activityInference + types
-│   ├── roster/ ................ ScientistCanvas (incl. the rise) + RecentlyRecalledStrip + PulseDot + composables
+│   ├── roster/ ................ ScientistCanvas (both panes, focus and resize) + ColleagueBenches + RecentlyRecalledStrip + PulseDot + composables
 │   ├── wizard/ ................ useWizard + FirstRunWizard + Steps (StepLaboratory / StepBinary / StepChronicle)
 │   ├── mission/ ............... MissionControl + sections + useMissionControl
-│   ├── crier/ ................ CriersWatchPanel (status states, queue rows, PR-#-from-prUrl, button presence) + useCriersWatch (state transitions, scientistId binding/recovery, nudge scan)
 │   ├── drydock/ ............... DrydockPanel + PrCard + FileDiff + ReviewActions + useDrydock
 │   └── shell/ ................. Balustrade + RailingDivider (pencil plumb + nail) + TornPaperEdge (PAPER fill, stacking) + useShell
 ├── uno.config.ts ............. Balcony palette: mz-surface, mz-rail, mz-canvas, mz-pulse-*
@@ -350,7 +392,7 @@ cargo tauri build   # Tauri production build (Windows target)
   locally. (The Ascent's auto-updater reads a manifest from GitHub
   Releases — that is *static artifact hosting*, not a service the
   laboratory operates; no process, no uptime obligation. See #00056 RD-1.)
-- **Does not edit code.** It directs `claude` to edit code. The
+- **Does not edit code.** It directs Claude and Codex to edit code. The
   Mezzanine is a *command* surface, not an *editor* surface — that
   distinction is load-bearing for every UI decision.
 - **Does not duplicate VS Code.** No tree explorer, no diff viewer

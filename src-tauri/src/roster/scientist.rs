@@ -52,10 +52,28 @@ pub enum MissionState {
     Crashed,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Colleague {
+    MadScientist,
+    Heretic,
+}
+
+impl Colleague {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::MadScientist => "The Mad Scientist",
+            Self::Heretic => "The Heretic",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Scientist {
     pub id: ScientistId,
+    #[serde(default)]
+    pub colleague: Option<Colleague>,
     pub target: Target,
     pub mission: String,
     pub state: MissionState,
@@ -70,6 +88,7 @@ impl Scientist {
         let now = Utc::now();
         Self {
             id: ScientistId::new(),
+            colleague: None,
             target,
             mission,
             state: MissionState::default(),

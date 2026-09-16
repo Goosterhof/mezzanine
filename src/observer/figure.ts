@@ -42,6 +42,7 @@ export interface FigurePose {
     frame: number;
     /** pencil construction ghosts — only the figure being studied gets them */
     ghosts?: boolean;
+    heretic?: boolean;
 }
 
 export function drawScientist(pen: SketchPen, f: FigurePose): void {
@@ -117,6 +118,13 @@ export function drawScientist(pen: SketchPen, f: FigurePose): void {
         [rFootX + 5 * s, groundY - 4 * s + tap],
         1.8,
     );
+
+    // The Heretic wears an amber scarf: equal stature, a distinct silhouette.
+    if (f.heretic) {
+        pen.wash(shoulderX, shoulderY, 11 * s, AMBER, 0.28);
+        pen.line(shoulderX - 10 * s, shoulderY - 2 * s, shoulderX + 10 * s, shoulderY + 3 * s, 4, AMBER);
+        pen.line(shoulderX + 8 * s, shoulderY + 2 * s, shoulderX + 16 * s, shoulderY + 24 * s, 4, AMBER);
+    }
 
     // ---- the lab coat ----
     const flap = walking ? Math.sin(t * 9) * 5 * s : Math.sin(t * 1.5) * 1.2 * s;
@@ -290,7 +298,8 @@ export function drawScientist(pen: SketchPen, f: FigurePose): void {
 
     // goggles up on the forehead
     const gy = headY - headR * 0.58;
-    const glassTint = activity === 'error' ? RED : MINT;
+    const identityTint = f.heretic ? AMBER : MINT;
+    const glassTint = activity === 'error' ? RED : identityTint;
     pen.wash(headX - 7.5 * s, gy, 5.5 * s, glassTint, 0.3);
     pen.wash(headX + 7.5 * s, gy, 5.5 * s, glassTint, 0.3);
     pen.ellipse(headX - 7.5 * s, gy, 6 * s, 5.5 * s, 2.0);

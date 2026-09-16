@@ -72,7 +72,10 @@ pub fn run_in_lab_with_stdin(
 fn bridged_command(inner: &str, distro: Option<&str>) -> Command {
     #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
         let mut cmd = Command::new("wsl.exe");
+        // Background reads (including the tube heartbeat) need no console.
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
         if let Some(d) = distro {
             cmd.arg("-d").arg(d);
         }
@@ -95,7 +98,12 @@ fn inner_shell_command(working_dir: &Path, bin: &str, args: &[&str]) -> String {
     // refuse to find the directory. Defensive replace catches a backslash
     // that might survive an unwitting `Path::join` on the Windows host.
     let dir = working_dir.to_string_lossy().replace('\\', "/");
-    let mut cmd = format!("cd {} && exec {}", shell_quote(&dir), shell_quote(bin));
+    let mut cmd = format!(
+        "{} && cd {} && exec {}",
+        crate::pty::substrate::NODE_PATH_SETUP,
+        shell_quote(&dir),
+        shell_quote(bin)
+    );
     for arg in args {
         cmd.push(' ');
         cmd.push_str(&shell_quote(arg));
@@ -137,7 +145,13 @@ mod tests {
     #[test]
     fn inner_shell_command_composes_cd_and_exec() {
         let cmd = inner_shell_command(&PathBuf::from("/tmp/x"), "git", &["log", "-n", "5"]);
-        assert_eq!(cmd, "cd '/tmp/x' && exec 'git' 'log' '-n' '5'");
+        assert_eq!(
+            cmd,
+            format!(
+                "{} && cd '/tmp/x' && exec 'git' 'log' '-n' '5'",
+                crate::pty::substrate::NODE_PATH_SETUP
+            )
+        );
     }
 
     #[test]
@@ -154,7 +168,11 @@ mod tests {
         );
         assert_eq!(
             cmd,
-            "cd '/home/g/code/zmuuzn/experiments/zmuuzn-strava' && exec 'git' 'status'"
+            format!(
+                "{} && {}",
+                crate::pty::substrate::NODE_PATH_SETUP,
+                "cd '/home/g/code/zmuuzn/experiments/zmuuzn-strava' && exec 'git' 'status'"
+            ),
         );
     }
 

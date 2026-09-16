@@ -7,6 +7,11 @@
 // when the investor picks one from the Dispatch sheet.
 
 export type ScientistId = string;
+export type Colleague = 'mad-scientist' | 'heretic';
+export const COLLEAGUES: readonly Colleague[] = ['mad-scientist', 'heretic'];
+export function colleagueLabel(colleague: Colleague): string {
+    return colleague === 'heretic' ? 'The Heretic' : 'The Mad Scientist';
+}
 
 export type ExperimentCodename = 'gatekeeper' | 'war-table' | 'crucible' | 'parlour' | 'smokestacks' | 'horadrim';
 
@@ -24,6 +29,7 @@ export type MissionState = 'idle' | 'working' | 'awaiting' | 'done' | 'crashed';
 
 export interface Scientist {
     id: ScientistId;
+    colleague?: Colleague | null;
     target: Target;
     mission: string;
     state: MissionState;
