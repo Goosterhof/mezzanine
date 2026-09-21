@@ -50,15 +50,15 @@ describe('DrydockPanel', () => {
         stubInvoke();
     });
 
-    it('is hidden when no panel is open', () => {
+    it('is hidden on the conversation page', () => {
         const wrapper = mount(DrydockPanel);
-        const panel = wrapper.get('aside');
+        const panel = wrapper.get('[data-page]');
         expect(panel.attributes('style') ?? '').toContain('display: none');
         wrapper.unmount();
     });
 
     it('refreshes on open and renders the PR list', async () => {
-        useShell().togglePanel('drydock');
+        useShell().navigate('drydock');
         const wrapper = mount(DrydockPanel, {attachTo: document.body});
         await flushPromises();
 
@@ -72,7 +72,7 @@ describe('DrydockPanel', () => {
 
     it('renders the unauthenticated prompt and skips list_open_prs', async () => {
         stubInvoke({auth: AUTH_BAD});
-        useShell().togglePanel('drydock');
+        useShell().navigate('drydock');
         const wrapper = mount(DrydockPanel, {attachTo: document.body});
         await flushPromises();
 
@@ -85,7 +85,7 @@ describe('DrydockPanel', () => {
 
     it('renders the empty state when no open PRs', async () => {
         stubInvoke({prs: []});
-        useShell().togglePanel('drydock');
+        useShell().navigate('drydock');
         const wrapper = mount(DrydockPanel, {attachTo: document.body});
         await flushPromises();
 
@@ -94,29 +94,18 @@ describe('DrydockPanel', () => {
         wrapper.unmount();
     });
 
-    it('Escape closes the panel', async () => {
-        useShell().togglePanel('drydock');
+    it('Escape does not dismiss a page', async () => {
+        useShell().navigate('drydock');
         const wrapper = mount(DrydockPanel, {attachTo: document.body});
         await flushPromises();
 
         window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}));
-        expect(useShell().openPanel.value).toBeNull();
-        wrapper.unmount();
-    });
-
-    it('the ✕ button closes the panel', async () => {
-        useShell().togglePanel('drydock');
-        const wrapper = mount(DrydockPanel, {attachTo: document.body});
-        await flushPromises();
-        expect(useShell().openPanel.value).toBe('drydock');
-
-        await wrapper.get('[data-test="drydock-close"]').trigger('click');
-        expect(useShell().openPanel.value).toBeNull();
+        expect(useShell().page.value).toBe('drydock');
         wrapper.unmount();
     });
 
     it('Refresh button triggers a fresh fetch', async () => {
-        useShell().togglePanel('drydock');
+        useShell().navigate('drydock');
         const wrapper = mount(DrydockPanel, {attachTo: document.body});
         await flushPromises();
 
@@ -132,7 +121,7 @@ describe('DrydockPanel', () => {
     it('surfaces lastError via data-test stamp', async () => {
         mockedInvoke.mockReset();
         mockedInvoke.mockRejectedValueOnce(new Error('bridge collapsed'));
-        useShell().togglePanel('drydock');
+        useShell().navigate('drydock');
         const wrapper = mount(DrydockPanel, {attachTo: document.body});
         await flushPromises();
 

@@ -3,11 +3,13 @@ import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 
 import type {ScientistId} from './types';
 
+import {bookmarkViewport, restoreViewport} from './terminalViewport';
 import {COLLEAGUES, colleagueLabel} from './types';
 import {useRoster} from './useRoster';
 import {useRosterBackend} from './useRosterBackend';
 import {useScientistTerminals, type TerminalSlot} from './useScientistTerminals';
 
+const {active = true} = defineProps<{active?: boolean}>();
 const roster = useRoster();
 const terminals = useScientistTerminals();
 const backend = useRosterBackend();
@@ -19,20 +21,50 @@ const panes = computed(() =>
     })),
 );
 const wrapperRefs = new Map<ScientistId, HTMLDivElement>();
+const parkedViewports = new Map<ScientistId, ReturnType<typeof bookmarkViewport>>();
 let canvasObserver: ResizeObserver | null = null;
+let restoreFrame: number | null = null;
 
 function setWrapperRef(id: ScientistId, el: Element | null): void {
     if (el) wrapperRefs.set(id, el as HTMLDivElement);
     else wrapperRefs.delete(id);
 }
 
+function hasVisibleBox(id: ScientistId): boolean {
+    const box = wrapperRefs.get(id)?.getBoundingClientRect();
+    return active && !!box && box.width >= 2 && box.height >= 2;
+}
+
+function queueViewportRestore(): void {
+    if (restoreFrame !== null) cancelAnimationFrame(restoreFrame);
+    // xterm synchronizes its DOM scrollbar on a render frame. Restoring before
+    // that sync lets its queued scroll event move the viewport a second time.
+    // Keep the same bookmarks through any intervening ResizeObserver delivery.
+    restoreFrame = requestAnimationFrame(() => {
+        restoreFrame = requestAnimationFrame(() => {
+            restoreFrame = null;
+            if (!active) return;
+            for (const [id, bookmark] of parkedViewports) {
+                if (!hasVisibleBox(id)) continue;
+                restoreViewport(terminals.get(id).terminal, bookmark);
+                parkedViewports.delete(id);
+            }
+        });
+    });
+}
+
 function fitAndPush(id: ScientistId, slot: TerminalSlot): void {
-    if (!slot.terminal.element) return;
+    // A hidden FitAddon can reflow thousands of lines into two columns,
+    // trimming scrollback permanently. Navigation must never resize a hidden PTY.
+    if (!slot.terminal.element || !hasVisibleBox(id)) return;
+    if (!parkedViewports.has(id)) parkedViewports.set(id, bookmarkViewport(slot.terminal));
     try {
         slot.fit.fit();
     } catch {
         // The resize observer retries after the first non-zero layout.
         return;
+    } finally {
+        queueViewportRestore();
     }
     const {cols, rows} = slot.terminal;
     if (slot.lastSize?.cols === cols && slot.lastSize.rows === rows) return;
@@ -48,6 +80,11 @@ function fitBoth(): void {
 
 async function mountTerminals(): Promise<void> {
     await nextTick();
+    for (const [id, bookmark] of parkedViewports) {
+        if (wrapperRefs.has(id)) continue;
+        bookmark?.dispose();
+        parkedViewports.delete(id);
+    }
     for (const {scientist} of panes.value) {
         if (!scientist) continue;
         const wrapper = wrapperRefs.get(scientist.id);
@@ -74,9 +111,25 @@ watch(
 watch(
     () => roster.selected.value,
     (id) => {
-        if (id && wrapperRefs.has(id)) terminals.get(id).terminal.focus();
+        if (active && id && wrapperRefs.has(id)) terminals.get(id).terminal.focus();
     },
     {flush: 'post'},
+);
+
+watch(
+    () => active,
+    (visible) => {
+        if (visible) {
+            void nextTick(fitBoth);
+        } else {
+            for (const {scientist} of panes.value) {
+                if (!scientist) continue;
+                if (!parkedViewports.has(scientist.id)) {
+                    parkedViewports.set(scientist.id, bookmarkViewport(terminals.get(scientist.id).terminal));
+                }
+            }
+        }
+    },
 );
 
 onMounted(() => {
@@ -84,7 +137,11 @@ onMounted(() => {
     canvasObserver = new ResizeObserver(fitBoth);
     if (canvasRef.value) canvasObserver.observe(canvasRef.value);
 });
-onBeforeUnmount(() => canvasObserver?.disconnect());
+onBeforeUnmount(() => {
+    canvasObserver?.disconnect();
+    if (restoreFrame !== null) cancelAnimationFrame(restoreFrame);
+    for (const bookmark of parkedViewports.values()) bookmark?.dispose();
+});
 </script>
 
 <template>

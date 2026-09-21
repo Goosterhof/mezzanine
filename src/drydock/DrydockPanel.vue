@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, onMounted, onUnmounted, watch} from 'vue';
+import {computed, watch} from 'vue';
 
 import {useShell} from '../shell/useShell';
 import PrCard from './PrCard.vue';
@@ -8,7 +8,7 @@ import {useDrydock} from './useDrydock';
 const shell = useShell();
 const drydock = useDrydock();
 
-const open = computed(() => shell.openPanel.value === 'drydock');
+const open = computed(() => shell.page.value === 'drydock');
 
 const lastRefreshedLabel = computed(() => {
     const value = drydock.lastRefreshedAt.value;
@@ -31,35 +31,13 @@ watch(
     },
     {immediate: true},
 );
-
-function handleEscape(event: KeyboardEvent): void {
-    if (event.key !== 'Escape') {
-        return;
-    }
-    if (!open.value) {
-        return;
-    }
-    shell.closePanel();
-}
-
-onMounted(() => {
-    window.addEventListener('keydown', handleEscape);
-});
-
-onUnmounted(() => {
-    window.removeEventListener('keydown', handleEscape);
-});
 </script>
 
 <template>
-    <aside
-        v-show="open"
-        data-panel="drydock"
-        class="absolute top-19 right-0 bottom-0 w-[32rem] bg-mz-panel border-l border-mz-edge shadow-balcony flex flex-col z-20"
-    >
+    <section v-show="open" data-page="drydock" class="h-full min-h-0 bg-mz-panel flex flex-col">
         <header class="flex items-center justify-between px-5 py-3 border-b border-mz-edge flex-shrink-0">
             <div>
-                <div class="mz-stamp-label">Panel</div>
+                <div class="mz-stamp-label">Laboratory</div>
                 <h2 class="font-display text-mz-text text-base tracking-wide mt-0.5">Drydock</h2>
             </div>
             <div class="flex items-center gap-2">
@@ -78,15 +56,6 @@ onUnmounted(() => {
                     @click="drydock.refresh()"
                 >
                     {{ drydock.loading.value ? 'Reading…' : 'Refresh' }}
-                </button>
-                <button
-                    type="button"
-                    class="mz-button-icon"
-                    aria-label="Close Drydock"
-                    data-test="drydock-close"
-                    @click="shell.closePanel()"
-                >
-                    ✕
                 </button>
             </div>
         </header>
@@ -122,5 +91,5 @@ onUnmounted(() => {
             </div>
             <PrCard v-for="pr in drydock.prs.value" :key="`${pr.repoFullName}#${pr.number}`" :pr="pr" />
         </div>
-    </aside>
+    </section>
 </template>

@@ -72,14 +72,14 @@ function draw(overrides: Partial<FigurePose> = {}): RecordedCall[] {
 }
 
 describe('drawScientist — the figure in ink (#00059 J-1)', () => {
-    describe('totality over the seven ActivityStates', () => {
+    describe.each([false, true])('totality over the seven ActivityStates (heretic=%s)', (heretic) => {
         it.each(ACTIVITIES)('draws %s without throwing, with at least one stroke', (activity) => {
-            const calls = draw({activity});
+            const calls = draw({activity, heretic});
             expect(calls.filter((c) => c.method === 'stroke').length).toBeGreaterThan(0);
         });
 
         it.each(ACTIVITIES)('draws %s mid-walk without throwing', (activity) => {
-            const calls = draw({activity, walking: true, facing: -1});
+            const calls = draw({activity, heretic, walking: true, facing: -1});
             expect(calls.filter((c) => c.method === 'stroke').length).toBeGreaterThan(0);
         });
     });

@@ -5,6 +5,7 @@ import type {Scientist} from '../../src/roster/types';
 
 import {useDispatch} from '../../src/balcony/useDispatch';
 import {useRoster} from '../../src/roster/useRoster';
+import {useShell} from '../../src/shell/useShell';
 
 const mockedInvoke = vi.mocked(invoke);
 
@@ -109,6 +110,36 @@ describe('useDispatch — minion-only dispatch', () => {
         expect(d.lastError.value).toBe('Backend refused the dispatch.');
         expect(d.open.value).toBe(true);
         // The selection survives so the investor can retry.
+        expect(d.minionSlug.value).toBe('inspector');
+    });
+
+    it('finishes a slow brief without pulling the investor back from another page or sending twice', async () => {
+        let finish: (scientist: Scientist) => void = () => {};
+        const pending = new Promise<Scientist>((resolve) => {
+            finish = resolve;
+        });
+        mockedInvoke.mockImplementation((cmd) => (cmd === 'open_colleague' ? pending : Promise.resolve(undefined)));
+        const d = useDispatch();
+        d.show();
+        d.selectMinion('inspector');
+        const sent = d.submit();
+        await d.submit();
+        useShell().navigate('drydock');
+        finish(fakeScientist(''));
+        await sent;
+        expect(useShell().page.value).toBe('drydock');
+        expect(mockedInvoke.mock.calls.filter(([cmd]) => cmd === 'open_colleague')).toHaveLength(1);
+        expect(d.submitting.value).toBe(false);
+    });
+
+    it('retains a failed brief when the native bridge rejects with text', async () => {
+        mockedInvoke.mockRejectedValue('The bridge is unavailable');
+        const d = useDispatch();
+        d.show();
+        d.selectMinion('inspector');
+        await d.submit();
+        expect(d.lastError.value).toBe('The bridge is unavailable');
+        expect(d.open.value).toBe(true);
         expect(d.minionSlug.value).toBe('inspector');
     });
 });

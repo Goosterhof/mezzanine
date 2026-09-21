@@ -10,6 +10,9 @@ interface SceneController {
     destroy: () => void;
 }
 
+const {active = true} = defineProps<{active?: boolean}>();
+let disposed = false;
+
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const containerRef = ref<HTMLDivElement | null>(null);
 const tooltipRef = ref<HTMLDivElement | null>(null);
@@ -37,6 +40,7 @@ onMounted(async () => {
         const sceneModule = (await import('./scene.js')) as {
             initScene: (opts: Record<string, unknown>) => SceneController | undefined;
         };
+        if (disposed) return;
         created = sceneModule.initScene({
             canvas: canvasRef.value,
             container: containerRef.value,
@@ -65,6 +69,7 @@ onMounted(async () => {
     controller = created;
     // Push the current state immediately so the scene renders on mount.
     controller.setState(holotable.legacyState.value);
+    if (!active) controller.pauseRaf();
     // Reactively re-push when the composable's state changes.
     unwatchState = watch(
         () => holotable.legacyState.value,
@@ -78,6 +83,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+    disposed = true;
     if (unwatchState) {
         unwatchState();
         unwatchState = null;
@@ -97,6 +103,14 @@ function pauseRaf(): void {
 function resumeRaf(): void {
     if (controller) controller.resumeRaf();
 }
+watch(
+    () => active,
+    (visible) => {
+        if (visible) resumeRaf();
+        else pauseRaf();
+    },
+    {flush: 'post'},
+);
 defineExpose({pauseRaf, resumeRaf});
 </script>
 

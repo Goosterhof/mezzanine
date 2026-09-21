@@ -45,14 +45,14 @@ describe('MissionControl', () => {
         stubInvoke();
     });
 
-    it('is hidden when no panel is open', () => {
+    it('is hidden on the conversation page', () => {
         const wrapper = mount(MissionControl);
-        const panel = wrapper.get('aside');
+        const panel = wrapper.get('[data-page]');
         expect(panel.attributes('style') ?? '').toContain('display: none');
     });
 
     it('refreshes once on the open transition and renders all three sections', async () => {
-        useShell().togglePanel('mission-control');
+        useShell().navigate('mission-control');
         const wrapper = mount(MissionControl, {attachTo: document.body});
         await flushPromises();
 
@@ -72,7 +72,7 @@ describe('MissionControl', () => {
     });
 
     it('refreshes when the Refresh button is clicked', async () => {
-        useShell().togglePanel('mission-control');
+        useShell().navigate('mission-control');
         const wrapper = mount(MissionControl, {attachTo: document.body});
         await flushPromises();
         const callsBefore = mockedInvoke.mock.calls.length;
@@ -84,27 +84,16 @@ describe('MissionControl', () => {
         wrapper.unmount();
     });
 
-    it('closes the panel when Escape is pressed', async () => {
-        useShell().togglePanel('mission-control');
+    it('does not dismiss a page when Escape is pressed', async () => {
+        useShell().navigate('mission-control');
         const wrapper = mount(MissionControl, {attachTo: document.body});
         await flushPromises();
-        expect(useShell().openPanel.value).toBe('mission-control');
+        expect(useShell().page.value).toBe('mission-control');
 
         window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}));
         await flushPromises();
 
-        expect(useShell().openPanel.value).toBeNull();
-        wrapper.unmount();
-    });
-
-    it('closes the panel when the ✕ button is clicked', async () => {
-        useShell().togglePanel('mission-control');
-        const wrapper = mount(MissionControl, {attachTo: document.body});
-        await flushPromises();
-        expect(useShell().openPanel.value).toBe('mission-control');
-
-        await wrapper.get('[data-mc-close]').trigger('click');
-        expect(useShell().openPanel.value).toBeNull();
+        expect(useShell().page.value).toBe('mission-control');
         wrapper.unmount();
     });
 });

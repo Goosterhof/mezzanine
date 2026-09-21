@@ -27,13 +27,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <section class="flex-shrink-0 border-b border-mz-edge bg-mz-rail px-6 py-3" aria-label="Your two colleagues">
+    <section class="flex-shrink-0 border-b border-mz-edge bg-mz-rail px-3 py-1" aria-label="Your two colleagues">
         <div class="flex items-center gap-3">
             <button
                 v-for="identity in COLLEAGUES"
                 :key="identity"
                 type="button"
-                class="mz-button bg-mz-canvas text-left px-4 py-2 flex-1"
+                class="mz-button bg-mz-canvas text-left px-3 py-1 flex-1"
                 :class="{'border-mz-brass text-mz-brass': roster.selected.value === colleagues.bench(identity)?.id}"
                 :aria-pressed="roster.selected.value === colleagues.bench(identity)?.id"
                 :disabled="
@@ -42,9 +42,9 @@ onBeforeUnmount(() => {
                 :data-colleague="identity"
                 @click="visit(identity)"
             >
-                <span class="block font-display">{{ colleagueLabel(identity) }}</span>
+                <span class="block font-display text-sm">{{ colleagueLabel(identity) }}</span>
                 <span class="block text-xs text-mz-text-mute mt-1">
-                    {{ identity === 'heretic' ? 'Codex · the constructive rival' : 'Claude · the original scientist' }}
+                    {{ identity === 'heretic' ? 'Codex' : 'Claude' }}
                     ·
                     {{
                         colleagues.opening.value.includes(identity)

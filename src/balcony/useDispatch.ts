@@ -1,4 +1,4 @@
-// useDispatch — the slide-down dispatch sheet's state.
+// useDispatch — selection and submission for the Briefs page.
 //
 // A brief goes to the one Mad Scientist, opening that bench if needed.
 // Minion selection seeds an @agent-<slug> message in the existing terminal;
@@ -9,9 +9,10 @@ import {computed, ref} from 'vue';
 import type {Target} from '../roster/types';
 
 import {useRosterBackend} from '../roster/useRosterBackend';
+import {useShell} from '../shell/useShell';
 import {missionForMinion} from './minions';
 
-const open = ref(false);
+const open = computed(() => useShell().page.value === 'briefs');
 const minionSlug = ref<string | null>(null);
 const submitting = ref(false);
 const lastError = ref<string | null>(null);
@@ -34,15 +35,11 @@ export function useDispatch() {
         canSubmit: computed(() => !submitting.value),
 
         show(): void {
-            open.value = true;
+            useShell().navigate('briefs');
         },
 
         hide(): void {
-            open.value = false;
-        },
-
-        toggle(): void {
-            open.value = !open.value;
+            useShell().navigate('conversation');
         },
 
         /** Select a minion by slug, or pass null for "no minion" (a plain
@@ -54,7 +51,7 @@ export function useDispatch() {
         /** Dispatch the current selection into the lab root. The mission is
          *  `@agent-<slug>` for a selected minion (claude's opening prompt),
          *  or '' for a plain session. Clears the selection and closes the
-         *  sheet on success; errors land in `lastError` and keep the sheet
+         *  page on success; errors land in `lastError` and keep the page
          *  open so the investor can retry. */
         async submit(): Promise<void> {
             if (submitting.value) {
@@ -65,7 +62,8 @@ export function useDispatch() {
             try {
                 await backend.dispatch(LAB_TARGET, missionForMinion(minionSlug.value));
                 minionSlug.value = null;
-                open.value = false;
+                // A slow submission must not pull the investor away from another page.
+                if (open.value) useShell().navigate('conversation');
             } catch (error) {
                 lastError.value = error instanceof Error ? error.message : String(error);
             } finally {
@@ -75,7 +73,7 @@ export function useDispatch() {
 
         /** Test-only. */
         reset(): void {
-            open.value = false;
+            useShell().navigate('conversation');
             minionSlug.value = null;
             submitting.value = false;
             lastError.value = null;

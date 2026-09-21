@@ -7,7 +7,7 @@
 // of ActivityState, and RAF gating answers to window focus + reduced
 // motion — not to any panel.
 
-import {mount} from '@vue/test-utils';
+import {enableAutoUnmount, mount} from '@vue/test-utils';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {nextTick} from 'vue';
 
@@ -17,6 +17,8 @@ import type {Scientist} from '../../src/roster/types';
 import LabFloor from '../../src/observer/LabFloor.vue';
 import {useObserver} from '../../src/observer/useObserver';
 import {useRoster} from '../../src/roster/useRoster';
+
+enableAutoUnmount(afterEach);
 
 const pauseRaf = vi.fn<() => void>();
 const resumeRaf = vi.fn<() => void>();
@@ -251,6 +253,19 @@ describe('LabFloor — the Overlook #00057', () => {
     });
 
     describe('RAF gating — window focus + reduced motion, never a panel', () => {
+        it('stays paused on another page even when the window regains focus', async () => {
+            const wrapper = mount(LabFloor);
+            await nextTick();
+            await wrapper.setProps({active: false});
+            expect(pauseRaf).toHaveBeenCalled();
+            resumeRaf.mockClear();
+            window.dispatchEvent(new Event('focus'));
+            expect(resumeRaf).not.toHaveBeenCalled();
+            await wrapper.setProps({active: true});
+            await nextTick();
+            expect(resumeRaf).toHaveBeenCalled();
+            wrapper.unmount();
+        });
         it('pauses the scene when the window blurs', async () => {
             mount(LabFloor);
             await nextTick();

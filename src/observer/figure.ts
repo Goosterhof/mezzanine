@@ -11,6 +11,7 @@
 
 import type {ActivityState} from './types';
 
+import {drawHereticCoat, drawHereticHead} from './heretic';
 import {AMBER, INK, MINT, PENCIL, type Pt, RED, SHADE, SKIN, type SketchPen} from './pen';
 
 // ---- The Atelier figure proportions (in sketch units, × scale `s`) ----
@@ -119,31 +120,38 @@ export function drawScientist(pen: SketchPen, f: FigurePose): void {
         1.8,
     );
 
-    // The Heretic wears an amber scarf: equal stature, a distinct silhouette.
-    if (f.heretic) {
-        pen.wash(shoulderX, shoulderY, 11 * s, AMBER, 0.28);
-        pen.line(shoulderX - 10 * s, shoulderY - 2 * s, shoulderX + 10 * s, shoulderY + 3 * s, 4, AMBER);
-        pen.line(shoulderX + 8 * s, shoulderY + 2 * s, shoulderX + 16 * s, shoulderY + 24 * s, 4, AMBER);
-    }
-
     // ---- the lab coat ----
     const flap = walking ? Math.sin(t * 9) * 5 * s : Math.sin(t * 1.5) * 1.2 * s;
-    pen.curve(
-        [shoulderX - 16 * s, shoulderY + 2 * s],
-        [shoulderX, shoulderY - 6 * s],
-        [shoulderX + 16 * s, shoulderY + 2 * s],
-        2.6,
-    );
-    pen.line(shoulderX - 16 * s, shoulderY + 2 * s, hipX - 21 * s - flap, hipY + 16 * s, 2.6);
-    pen.line(shoulderX + 16 * s, shoulderY + 2 * s, hipX + 21 * s + flap, hipY + 16 * s, 2.6);
-    pen.curve([hipX - 21 * s - flap, hipY + 16 * s], [hipX - 8 * s, hipY + 11 * s], [hipX - 2 * s, hipY + 13 * s], 2.2);
-    pen.curve([hipX + 21 * s + flap, hipY + 16 * s], [hipX + 8 * s, hipY + 11 * s], [hipX + 2 * s, hipY + 13 * s], 2.2);
-    pen.line(shoulderX - 7 * s, shoulderY, shoulderX - 2 * s, shoulderY + 9 * s, 2.2);
-    pen.line(shoulderX + 7 * s, shoulderY, shoulderX + 2 * s, shoulderY + 9 * s, 2.2);
-    pen.line(shoulderX - 2 * s, shoulderY + 9 * s, hipX - 2 * s, hipY + 13 * s, 1.8);
-    pen.line(shoulderX + 2 * s, shoulderY + 9 * s, hipX + 2 * s, hipY + 13 * s, 1.8);
-    pen.line(shoulderX - 13 * s, shoulderY + 16 * s, shoulderX - 6 * s, shoulderY + 17 * s, 1.6);
-    pen.line(shoulderX - 11 * s, shoulderY + 12 * s, shoulderX - 10 * s, shoulderY + 17 * s, 2.0, MINT);
+    if (f.heretic) {
+        drawHereticCoat(pen, [shoulderX, shoulderY], [hipX, hipY], flap);
+    } else {
+        pen.curve(
+            [shoulderX - 16 * s, shoulderY + 2 * s],
+            [shoulderX, shoulderY - 6 * s],
+            [shoulderX + 16 * s, shoulderY + 2 * s],
+            2.6,
+        );
+        pen.line(shoulderX - 16 * s, shoulderY + 2 * s, hipX - 21 * s - flap, hipY + 16 * s, 2.6);
+        pen.line(shoulderX + 16 * s, shoulderY + 2 * s, hipX + 21 * s + flap, hipY + 16 * s, 2.6);
+        pen.curve(
+            [hipX - 21 * s - flap, hipY + 16 * s],
+            [hipX - 8 * s, hipY + 11 * s],
+            [hipX - 2 * s, hipY + 13 * s],
+            2.2,
+        );
+        pen.curve(
+            [hipX + 21 * s + flap, hipY + 16 * s],
+            [hipX + 8 * s, hipY + 11 * s],
+            [hipX + 2 * s, hipY + 13 * s],
+            2.2,
+        );
+        pen.line(shoulderX - 7 * s, shoulderY, shoulderX - 2 * s, shoulderY + 9 * s, 2.2);
+        pen.line(shoulderX + 7 * s, shoulderY, shoulderX + 2 * s, shoulderY + 9 * s, 2.2);
+        pen.line(shoulderX - 2 * s, shoulderY + 9 * s, hipX - 2 * s, hipY + 13 * s, 1.8);
+        pen.line(shoulderX + 2 * s, shoulderY + 9 * s, hipX + 2 * s, hipY + 13 * s, 1.8);
+        pen.line(shoulderX - 13 * s, shoulderY + 16 * s, shoulderX - 6 * s, shoulderY + 17 * s, 1.6);
+        pen.line(shoulderX - 11 * s, shoulderY + 12 * s, shoulderX - 10 * s, shoulderY + 17 * s, 2.0, MINT);
+    }
 
     // ---- arms per state ----
     const shL: Pt = [shoulderX - 15 * s, shoulderY + 5 * s];
@@ -279,34 +287,37 @@ export function drawScientist(pen: SketchPen, f: FigurePose): void {
     }
 
     // ---- head ----
-    pen.ellipse(headX, headY, headR, headR * 1.06, 2.6);
-    const hairBoost = activity === 'error' ? 0.45 : 0;
-    for (let i = 0; i < 9; i++) {
-        const a = -2.75 + i * 0.31;
-        const r1 = headR * 0.9;
-        const r2 = headR * (1.35 + ((i * 7) % 3) * 0.18 + hairBoost);
-        pen.line(
-            headX + Math.cos(a) * r1,
-            headY + Math.sin(a) * r1 - 2 * s,
-            headX + Math.cos(a + 0.16) * r2,
-            headY + Math.sin(a + 0.16) * r2 - 2 * s,
-            1.9,
-        );
-    }
-    pen.line(headX - headR * 1.3, headY - headR * 0.9, headX - headR * 1.6, headY - headR * 1.15, 1.2, INK, 0.6);
-    pen.line(headX + headR * 1.25, headY - headR, headX + headR * 1.55, headY - headR * 1.2, 1.2, INK, 0.6);
+    if (f.heretic) {
+        drawHereticHead(pen, headX, headY);
+    } else {
+        pen.ellipse(headX, headY, headR, headR * 1.06, 2.6);
+        const hairBoost = activity === 'error' ? 0.45 : 0;
+        for (let i = 0; i < 9; i++) {
+            const a = -2.75 + i * 0.31;
+            const r1 = headR * 0.9;
+            const r2 = headR * (1.35 + ((i * 7) % 3) * 0.18 + hairBoost);
+            pen.line(
+                headX + Math.cos(a) * r1,
+                headY + Math.sin(a) * r1 - 2 * s,
+                headX + Math.cos(a + 0.16) * r2,
+                headY + Math.sin(a + 0.16) * r2 - 2 * s,
+                1.9,
+            );
+        }
+        pen.line(headX - headR * 1.3, headY - headR * 0.9, headX - headR * 1.6, headY - headR * 1.15, 1.2, INK, 0.6);
+        pen.line(headX + headR * 1.25, headY - headR, headX + headR * 1.55, headY - headR * 1.2, 1.2, INK, 0.6);
 
-    // goggles up on the forehead
-    const gy = headY - headR * 0.58;
-    const identityTint = f.heretic ? AMBER : MINT;
-    const glassTint = activity === 'error' ? RED : identityTint;
-    pen.wash(headX - 7.5 * s, gy, 5.5 * s, glassTint, 0.3);
-    pen.wash(headX + 7.5 * s, gy, 5.5 * s, glassTint, 0.3);
-    pen.ellipse(headX - 7.5 * s, gy, 6 * s, 5.5 * s, 2.0);
-    pen.ellipse(headX + 7.5 * s, gy, 6 * s, 5.5 * s, 2.0);
-    pen.line(headX - 13.5 * s, gy, headX - headR, gy + 1 * s, 1.8);
-    pen.line(headX + 13.5 * s, gy, headX + headR, gy + 1 * s, 1.8);
-    pen.line(headX - 1.5 * s, gy, headX + 1.5 * s, gy, 1.8);
+        // goggles up on the forehead
+        const gy = headY - headR * 0.58;
+        const glassTint = activity === 'error' ? RED : MINT;
+        pen.wash(headX - 7.5 * s, gy, 5.5 * s, glassTint, 0.3);
+        pen.wash(headX + 7.5 * s, gy, 5.5 * s, glassTint, 0.3);
+        pen.ellipse(headX - 7.5 * s, gy, 6 * s, 5.5 * s, 2.0);
+        pen.ellipse(headX + 7.5 * s, gy, 6 * s, 5.5 * s, 2.0);
+        pen.line(headX - 13.5 * s, gy, headX - headR, gy + 1 * s, 1.8);
+        pen.line(headX + 13.5 * s, gy, headX + headR, gy + 1 * s, 1.8);
+        pen.line(headX - 1.5 * s, gy, headX + 1.5 * s, gy, 1.8);
+    }
 
     // ---- the face: brows carry the acting ----
     const ey = headY + 2 * s;
@@ -314,7 +325,7 @@ export function drawScientist(pen: SketchPen, f: FigurePose): void {
     if (activity === 'error') {
         pen.line(headX - 11 * s, browY - 3 * s, headX - 3 * s, browY - 1 * s, 2.2);
         pen.line(headX + 3 * s, browY - 1 * s, headX + 11 * s, browY - 3 * s, 2.2);
-    } else if (activity === 'thinking') {
+    } else if (activity === 'thinking' || (f.heretic && activity === 'idle')) {
         pen.line(headX - 10 * s, browY, headX - 3 * s, browY + 1 * s, 2.0);
         pen.line(headX + 3 * s, browY - 2.5 * s, headX + 10 * s, browY - 1 * s, 2.0);
     } else if (activity === 'waiting') {
@@ -371,6 +382,8 @@ export function drawScientist(pen: SketchPen, f: FigurePose): void {
         pen.line(headX - 2 * s, my + 0.5 * s, headX + 4 * s, my, 2.0);
     } else if (activity === 'waiting') {
         pen.curve([headX - 4 * s, my + 1 * s], [headX, my - 1.5 * s], [headX + 4 * s, my + 1 * s], 2.0);
+    } else if (f.heretic) {
+        pen.curve([headX - 4 * s, my], [headX + 1 * s, my + 2 * s], [headX + 6 * s, my - 3 * s], 2.0);
     } else {
         pen.curve([headX - 4 * s, my - 0.5 * s], [headX, my + 1.5 * s], [headX + 4 * s, my - 0.5 * s], 2.0);
     }

@@ -1,5 +1,9 @@
 # Two colleagues, one balcony
 
+The 2026-09-21 [page revision](PAGES.md) replaces overlay navigation and preserves
+the mounted conversations when leaving their page. Its validation and installation
+boundary are recorded separately; Windows receipts below predate that revision.
+
 The investor requested one Mad Scientist and the Heretic, replacing the
 Mezzanine's many-Claude roster, with the Speaking Tube ready on entry.
 
@@ -13,10 +17,34 @@ and the named command-bar recipient; it never hides either pane. Closing the app
 ends both sessions; reopening starts fresh model conversations. Chronicles stay
 on disk. Legacy anonymous roster records receive a backup before retirement.
 
-The Heretic is a full scientist on the ink floor, distinguished by amber glasses
-and a scarf. Its nameplate introduces Codex as the constructive rival. `Brief`
+The Heretic is a full scientist on the ink floor, distinguished by swept dark
+hair, an angular jaw, a high-collared cutaway coat, one amber eyeglass and a
+trailing scarf. Its nameplate introduces Codex as the constructive rival. `Brief`
 reuses the existing Mad Scientist terminal. The old independent Claude
 Town-Crier patrol is no longer launched or exposed in this app.
+
+### Heretic character revision (2026-09-21)
+
+The investor rejected the original scientist's reused appearance. The Heretic
+now has independent head and coat geometry in `src/observer/heretic.ts`, plus a
+raised eyebrow and crooked smile in the shared face renderer. Both identities
+retain the existing walking skeleton, seven activities, selection ghosts and
+scene-owned reduced-motion gate. Both full-floor and compact-strip rendering
+already pass the colleague identity through the same figure function.
+
+An independent bitmap portrait was considered, but would lose the existing
+ink boil and articulated activities. The revision uses the native SketchPen
+renderer; no generated raster asset or image-generation model was used.
+
+Run `npm run dev` and open `/documents/heretic-study.html` for the live comparison
+and seven-state study. `documents/heretic-study.png` records the static preview.
+Verification: 557 frontend tests pass, including both identities across all seven
+states standing and walking; lint has no errors (existing warnings remain),
+formatting and the typechecked production build pass. Chromium reported no page
+errors, changing pixels during animation, and stable pixels with reduced motion.
+The study uses the actual figure renderer, not a substitute illustration.
+This revision is source/build verified; it has not been installed or witnessed
+in the Windows app. The installation receipts below describe the earlier build.
 
 ## Private correspondence
 

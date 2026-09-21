@@ -19,14 +19,14 @@ describe('Dispatch — minion-only dispatch', () => {
 
     it('does NOT render the sheet when dispatch is closed', () => {
         const wrapper = mount(Dispatch);
-        expect(wrapper.find('[data-dispatch-sheet]').exists()).toBe(false);
+        expect(wrapper.find('[data-briefs-page]').exists()).toBe(false);
     });
 
     it('renders the header and the minion radiogroup when open', async () => {
         useDispatch().show();
         const wrapper = mount(Dispatch);
         await nextTick();
-        expect(wrapper.find('[data-dispatch-sheet]').exists()).toBe(true);
+        expect(wrapper.find('[data-briefs-page]').exists()).toBe(true);
         expect(wrapper.text()).toContain('Give the Mad Scientist a brief');
         // The "no minion" row plus one row per minion (Inspector seeds it).
         expect(wrapper.find('[data-dispatch-minion="none"]').exists()).toBe(true);
@@ -60,15 +60,6 @@ describe('Dispatch — minion-only dispatch', () => {
         expect(wrapper.get('[data-dispatch-submit]').attributes('disabled')).toBeUndefined();
     });
 
-    it('clicking close hides the dispatch sheet', async () => {
-        const d = useDispatch();
-        d.show();
-        const wrapper = mount(Dispatch);
-        await nextTick();
-        await wrapper.get('[data-dispatch-close]').trigger('click');
-        expect(d.open.value).toBe(false);
-    });
-
     it('clicking Cancel hides the dispatch sheet', async () => {
         const d = useDispatch();
         d.show();
@@ -78,13 +69,13 @@ describe('Dispatch — minion-only dispatch', () => {
         expect(d.open.value).toBe(false);
     });
 
-    it('escape on the sheet hides the dispatch', async () => {
+    it('Escape does not dismiss the Briefs page', async () => {
         const d = useDispatch();
         d.show();
         const wrapper = mount(Dispatch);
         await nextTick();
-        await wrapper.get('[data-dispatch-sheet]').trigger('keydown', {key: 'Escape'});
-        expect(d.open.value).toBe(false);
+        await wrapper.get('[data-briefs-page]').trigger('keydown', {key: 'Escape'});
+        expect(d.open.value).toBe(true);
     });
 
     it('ctrl+enter on the sheet submits the dispatch', async () => {
@@ -106,7 +97,7 @@ describe('Dispatch — minion-only dispatch', () => {
         });
         const wrapper = mount(Dispatch);
         await nextTick();
-        await wrapper.get('[data-dispatch-sheet]').trigger('keydown', {key: 'Enter', ctrlKey: true});
+        await wrapper.get('[data-briefs-page]').trigger('keydown', {key: 'Enter', ctrlKey: true});
         await Promise.resolve();
         await Promise.resolve();
         const calls = mockedInvoke.mock.calls.map((c) => c[0]);

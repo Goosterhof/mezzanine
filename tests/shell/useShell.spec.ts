@@ -1,76 +1,19 @@
-import {describe, it, expect, beforeEach} from 'vitest';
+import {beforeEach, describe, expect, it} from 'vitest';
 
-import {useShell} from '../../src/shell/useShell';
-
-describe('useShell', () => {
-    beforeEach(() => {
-        useShell().reset();
+import {PAGES, useShell} from '../../src/shell/useShell';
+describe('page navigation', () => {
+    beforeEach(() => useShell().reset());
+    it('starts at the conversation', () => expect(useShell().page.value).toBe('conversation'));
+    it.each(PAGES)('selects $label idempotently', ({id}) => {
+        useShell().navigate(id);
+        useShell().navigate(id);
+        expect(useShell().page.value).toBe(id);
     });
-
-    it('starts with no panel open', () => {
-        expect(useShell().openPanel.value).toBeNull();
-    });
-
-    it('togglePanel opens a panel that is not currently open', () => {
-        const shell = useShell();
-        shell.togglePanel('mission-control');
-        expect(shell.openPanel.value).toBe('mission-control');
-    });
-
-    it('togglePanel closes the panel when called with the open panel', () => {
-        const shell = useShell();
-        shell.togglePanel('drydock');
-        shell.togglePanel('drydock');
-        expect(shell.openPanel.value).toBeNull();
-    });
-
-    it('togglePanel switches directly between panels', () => {
-        const shell = useShell();
-        shell.togglePanel('mission-control');
-        shell.togglePanel('drydock');
-        expect(shell.openPanel.value).toBe('drydock');
-    });
-
-    it('closePanel closes whatever is open', () => {
-        const shell = useShell();
-        shell.togglePanel('drydock');
-        shell.closePanel();
-        expect(shell.openPanel.value).toBeNull();
-    });
-
-    it('closePanel is a no-op when nothing is open', () => {
-        const shell = useShell();
-        shell.closePanel();
-        expect(shell.openPanel.value).toBeNull();
-    });
-
-    it('returns the same singleton state across calls', () => {
-        useShell().togglePanel('drydock');
-        expect(useShell().openPanel.value).toBe('drydock');
-    });
-
-    it('accepts holotable as a panel id (arc #00051 absorption)', () => {
-        const shell = useShell();
-        shell.togglePanel('holotable');
-        expect(shell.openPanel.value).toBe('holotable');
-        shell.togglePanel('holotable');
-        expect(shell.openPanel.value).toBeNull();
-    });
-
-    it('accepts grind as a panel id (arc #00053 absorption)', () => {
-        const shell = useShell();
-        shell.togglePanel('grind');
-        expect(shell.openPanel.value).toBe('grind');
-        shell.togglePanel('grind');
-        expect(shell.openPanel.value).toBeNull();
-    });
-
-    it('does not carry an observer panel id (the Overlook #00057 — the floor is permanent)', () => {
-        // PanelId is a compile-time union; this assertion documents the
-        // runtime contract: nothing in the shell can open an "observer"
-        // panel because the type no longer admits one. The Observer scene
-        // lives in LabFloor — always present, never summoned.
-        const shell = useShell();
-        expect(shell.openPanel.value).toBeNull();
+    it('shares navigation state and returns home on reset', () => {
+        useShell().navigate('grind');
+        const other = useShell();
+        expect(other.page.value).toBe('grind');
+        other.reset();
+        expect(useShell().page.value).toBe('conversation');
     });
 });
