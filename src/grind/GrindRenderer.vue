@@ -13,6 +13,8 @@ import {useGrind} from './useGrind';
 // canvas redraws on every gameState update. The full sprite engine is
 // shelved as a post-absorption polish task.
 
+const {active = true} = defineProps<{active?: boolean}>();
+
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const grind = useGrind();
 
@@ -23,7 +25,7 @@ const WIDTH = COLS * TILE;
 const HEIGHT = ROWS * TILE;
 
 let rafHandle: number | null = null;
-let paused = false;
+let paused = !active;
 let frame = 0;
 
 // --- Reduced-Motion Gate (WCAG 2.3.3 AAA) ---
@@ -159,7 +161,7 @@ onMounted(() => {
     reducedMotionQuery?.addEventListener('change', onReducedMotionChange);
     draw();
     // Under reduced motion, the one static frame above is the final state.
-    if (!reducedMotion) {
+    if (!reducedMotion && active) {
         rafHandle = requestAnimationFrame(loop);
     }
 });
@@ -175,6 +177,14 @@ watch(
     () => draw(),
 );
 
+watch(
+    () => active,
+    (visible) => {
+        if (visible) resumeRaf();
+        else pauseRaf();
+    },
+    {flush: 'post'},
+);
 defineExpose({pauseRaf, resumeRaf});
 </script>
 

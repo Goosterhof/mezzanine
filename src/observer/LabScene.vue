@@ -49,9 +49,10 @@ interface Props {
     /** The Overlook's short-window projection: sprites in a single 64px
      *  row — no pools, no perspective, just the scientists. */
     strip?: boolean;
+    active?: boolean;
 }
 
-const {strip = false} = defineProps<Props>();
+const {strip = false, active = true} = defineProps<Props>();
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const containerRef = ref<HTMLDivElement | null>(null);
@@ -144,6 +145,7 @@ onMounted(async () => {
     pushRosterToScene();
     pushSelectedToScene();
     pushStripToScene();
+    if (!active) controller.pauseRaf();
     // Reactively re-push when the roster or activity map changes.
     unwatchRoster = watch(rosterEntries, pushRosterToScene, {deep: true});
     unwatchActivities = watch(() => observer.activities.value, pushRosterToScene, {deep: true});

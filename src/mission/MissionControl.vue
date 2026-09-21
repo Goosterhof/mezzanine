@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import {computed, onMounted, onUnmounted, watch} from 'vue';
+import {computed, watch} from 'vue';
 
 import {useShell} from '../shell/useShell';
+import LaboratorySigns from './LaboratorySigns.vue';
 import MinionsDue from './MinionsDue.vue';
 import {useMissionControl} from './useMissionControl';
 import VitalSigns from './VitalSigns.vue';
@@ -10,7 +11,7 @@ import WoundsAtThreshold from './WoundsAtThreshold.vue';
 const shell = useShell();
 const mc = useMissionControl();
 
-const open = computed(() => shell.openPanel.value === 'mission-control');
+const open = computed(() => shell.page.value === 'mission-control');
 
 const lastRefreshedLabel = computed(() => {
     const value = mc.lastRefreshedAt.value;
@@ -33,35 +34,13 @@ watch(
     },
     {immediate: true},
 );
-
-function handleEscape(event: KeyboardEvent): void {
-    if (event.key !== 'Escape') {
-        return;
-    }
-    if (!open.value) {
-        return;
-    }
-    shell.closePanel();
-}
-
-onMounted(() => {
-    window.addEventListener('keydown', handleEscape);
-});
-
-onUnmounted(() => {
-    window.removeEventListener('keydown', handleEscape);
-});
 </script>
 
 <template>
-    <aside
-        v-show="open"
-        data-panel="mission-control"
-        class="absolute top-19 right-0 bottom-0 w-[28rem] bg-mz-panel border-l border-mz-edge shadow-balcony flex flex-col z-20"
-    >
+    <section v-show="open" data-page="mission-control" class="h-full min-h-0 bg-mz-panel flex flex-col">
         <header class="flex items-center justify-between px-5 py-3 border-b border-mz-edge flex-shrink-0">
             <div>
-                <div class="mz-stamp-label">Panel</div>
+                <div class="mz-stamp-label">Laboratory</div>
                 <h2 class="font-display text-mz-text text-base tracking-wide mt-0.5">Mission Control</h2>
             </div>
             <div class="flex items-center gap-2">
@@ -81,15 +60,6 @@ onUnmounted(() => {
                 >
                     {{ mc.loading.value ? 'Reading…' : 'Refresh' }}
                 </button>
-                <button
-                    type="button"
-                    class="mz-button-icon"
-                    aria-label="Close Mission Control"
-                    data-mc-close
-                    @click="shell.closePanel()"
-                >
-                    ✕
-                </button>
             </div>
         </header>
 
@@ -101,9 +71,10 @@ onUnmounted(() => {
         </p>
 
         <div class="flex-1 overflow-y-auto relative">
+            <LaboratorySigns />
             <VitalSigns :signs="mc.vitalSigns.value" />
             <MinionsDue :signals="mc.signals.value" />
             <WoundsAtThreshold :wounds="mc.wounds.value" />
         </div>
-    </aside>
+    </section>
 </template>

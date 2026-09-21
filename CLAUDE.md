@@ -6,7 +6,33 @@ wizard clears. Their independent xterm terminals remain side by side, Mad
 Scientist on the left and Heretic on the right. Clicking a pane, its nameplate
 or its floor figure selects the command bar's recipient without hiding the
 other terminal. Both panes keep their own scrollback. The Heretic appears as an
-equal-sized ink figure with amber glasses and a scarf.
+equal-sized ink figure with swept dark hair, an angular jaw, a high-collared
+cutaway coat, one amber eyeglass and a trailing scarf. The two colleagues share
+animation joints, but have distinct head and clothing geometry.
+
+## Pages and conversation lifetime (2026-09-21)
+
+Six named pages replace the overlay navigation: Conversation, Mission Control,
+Drydock, Holotable, Grind, and Briefs. `src/shell/useShell.ts` owns the selected
+page. `ConversationPage.vue` keeps the entire talking-page stack together and
+stays mounted under `v-show`, preserving both xterm instances, independent
+scrollback, the selected recipient and the unsent command-bar draft. Backend
+subscriptions remain app-owned and continue while another page is visible.
+
+The conversation gets a compact 44px navigation rail and tighter nameplates;
+Last Chaos and Idea Ledger now live in Mission Control. The illustrated floor
+defaults to its existing expandable 64px strip. `ConversationPage.compactFloor`
+owns that interim size choice; the separate composition audition can change it
+without replacing terminal lifetime or navigation. Stations and light pools
+remain available in the expanded floor.
+
+Never fit a hidden or zero-size terminal. Preserve the reading line with xterm
+markers across visible fits, and restore after the scrollbar layout settles.
+Hidden canvases pause; the Holotable and Grind initialize on their first visit
+and retain their renderer state thereafter. Setup and update prompts remain
+task-specific dialogs, not navigation destinations.
+
+See [PAGES.md](PAGES.md) for the page inventory and validation boundaries.
 
 ## The Two Colleagues (2026-09-16)
 
@@ -248,7 +274,8 @@ mezzanine/
 │   │   ├── Balustrade.vue .... The single ~76px brass cap (merged BalconyRail + TopBar, both retired): identity, two signs (Reserved tile dropped), MC/DD/HT/GR glyphs (OB retired), Brief ▾ trigger
 │   │   ├── RailingDivider.vue  Brass-post SVG balustrade between the storeys — hosts the PENCIL plumb-line + sketched nail mark (#00059 J-4; 300ms stroke-dashoffset draw-on, reduced-motion instant; imports PENCIL from ../observer/pen — constants cross the slice boundary, logic does not)
 │   │   ├── TornPaperEdge.vue . The seam between the storeys (#00059 J-4) — static SVG zigzag, fill = PAPER from ../observer/pen, aria-hidden; the plumb-line (z-10) hangs OVER it (z-[5])
-│   │   └── useShell.ts ....... openPanel + togglePanel/closePanel singleton — PanelId is 'mission-control' | 'drydock' | 'holotable' | 'grind' (Observer is the permanent floor; Crier's Watch retired)
+│   │   ├── ConversationPage.vue .. persistent two-colleague page, floor and plumb-line geometry
+│   │   └── useShell.ts ....... page + navigate singleton; six destinations, no overlay toggles
 │   ├── roster/                The dispatched-scientist domain
 │   │   ├── types.ts .......... Scientist / Target / MissionState / TARGET_OPTIONS / targetLabel / targetKey
 │   │   ├── useRoster.ts ...... Singleton roster + recalled-strip + selection state

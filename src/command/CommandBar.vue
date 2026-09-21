@@ -34,7 +34,7 @@ async function dispatch(): Promise<void> {
 </script>
 
 <template>
-    <footer class="h-12 border-t border-mz-edge bg-mz-command flex items-center px-6 shadow-tray">
+    <footer class="h-12 flex-shrink-0 border-t border-mz-edge bg-mz-command flex items-center px-6 shadow-tray">
         <span class="mz-stamp-label mr-3">Direct</span>
         <input
             ref="fieldRef"

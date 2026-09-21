@@ -17,10 +17,7 @@ function onCancel(): void {
 }
 
 function onKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape') {
-        event.preventDefault();
-        dispatch.hide();
-    } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         if (dispatch.canSubmit.value) {
             onSubmit();
@@ -32,9 +29,9 @@ function onKeydown(event: KeyboardEvent): void {
 <template>
     <div
         v-if="dispatch.open.value"
-        data-dispatch-sheet
-        class="absolute inset-x-0 top-0 z-30 bg-mz-panel/95 backdrop-blur border-b border-mz-edge shadow-balcony"
-        role="dialog"
+        data-briefs-page
+        data-page="briefs"
+        class="h-full overflow-y-auto bg-mz-panel"
         aria-label="Brief the Mad Scientist"
         @keydown="onKeydown"
     >
@@ -48,15 +45,6 @@ function onKeydown(event: KeyboardEvent): void {
                         in their terminal.
                     </p>
                 </div>
-                <button
-                    type="button"
-                    class="mz-button-icon"
-                    aria-label="Close dispatch"
-                    data-dispatch-close
-                    @click="onCancel"
-                >
-                    ✕
-                </button>
             </header>
 
             <div>
@@ -103,7 +91,9 @@ function onKeydown(event: KeyboardEvent): void {
             </div>
 
             <footer class="flex items-center justify-end gap-2">
-                <button type="button" class="mz-button" data-dispatch-cancel @click="onCancel">Cancel</button>
+                <button type="button" class="mz-button" data-dispatch-cancel @click="onCancel">
+                    Back to conversation
+                </button>
                 <button
                     type="button"
                     class="mz-button border-mz-brass text-mz-text"

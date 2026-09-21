@@ -1,17 +1,7 @@
 <script setup lang="ts">
-// LabFloor — the permanent lower storey of the two-storey frame (#00057).
-//
-// This is the Overlook's one non-negotiable bold choice made code: the
-// Observer scene, lifted out of the retired ObserverPanel's dialog
-// chrome and mounted as the floor the investor permanently stands
-// above. No dialog, no toggle, no close button. On short windows it
-// surrenders height down to a 64px strip — never to zero. If this
-// component can be dismissed, the redesign has not happened.
-//
-// RAF gating moved from panel open/close (there is no panel) to window
-// focus + the OS reduced-motion preference. The chronicle subscription
-// stays push-always in App.vue — the floor renders state that was
-// always flowing.
+// The ink floor remains mounted with ConversationPage. Its active prop
+// pauses drawing while another page is visible; window focus and reduced
+// motion remain independent gates. Chronicle events stay app-owned.
 
 import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 
@@ -24,11 +14,12 @@ import {floorPointToPage} from './projection';
 import {activityFromMission, useObserver} from './useObserver';
 
 interface Props {
-    /** Short-window collapse (window.innerHeight < 820): the 64px strip. */
+    /** Compact conversation layout: the 64px strip, with an expansion control. */
     collapsed?: boolean;
+    active?: boolean;
 }
 
-const {collapsed = false} = defineProps<Props>();
+const {collapsed = false, active = true} = defineProps<Props>();
 
 interface LabSceneApi {
     pauseRaf?: () => void;
@@ -172,6 +163,7 @@ function poolStyle(pool: {id: ScientistId; opacity: number; burning: boolean}): 
 // scene loop has run — two animation frames guarantee at least one
 // full scene update lands between the reads on every host.
 function schedulePoolRecompute(): void {
+    if (!active) return;
     recomputePoolPositions();
     if (typeof requestAnimationFrame !== 'function') return;
     requestAnimationFrame(() => {
@@ -200,9 +192,24 @@ function onWindowBlur(): void {
 }
 
 function onWindowFocus(): void {
-    if (reducedMotion()) return;
+    if (!active || reducedMotion()) return;
     sceneRef.value?.resumeRaf?.();
 }
+
+watch(
+    () => active,
+    (visible) => {
+        if (!visible) {
+            sceneRef.value?.pauseRaf?.();
+            peek.value = false;
+        } else {
+            void nextTick(() => {
+                schedulePoolRecompute();
+                onWindowFocus();
+            });
+        }
+    },
+);
 
 function onWindowResize(): void {
     recomputePoolPositions();
@@ -256,7 +263,7 @@ defineExpose({recomputePoolPositions, stationToPage, sceneRef});
         @mouseleave="endPeek"
     >
         <!-- The Observer engine, rehosted — was ObserverPanel > LabScene -->
-        <LabScene ref="sceneRef" :strip="collapsed && !peek" />
+        <LabScene ref="sceneRef" :strip="collapsed && !peek" :active="active" />
 
         <!-- Perspective hint: further down = darker. A gradient OVERLAY —
              never a transform on the canvas pixels; pixel-art stays crisp. -->

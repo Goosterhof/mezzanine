@@ -1,6 +1,6 @@
 // useHolotable — singleton state + IPC for the lab floor.
 //
-// The Vue side is read-on-open: every `togglePanel('holotable')` opening
+// The Vue side is read-on-open: every visit to the Holotable page
 // fires `refresh()`, and the chrome's refresh button fires it on demand.
 // No polling, no file watcher. The dispatched-model voice carries: the
 // investor pulls intelligence, the floor does not push it.

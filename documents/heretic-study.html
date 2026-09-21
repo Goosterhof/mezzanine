@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Heretic — a study in dissent</title>
+<style>
+  body { margin: 0; background: #f3ecdc; color: #2b2620; font: 16px Georgia, serif; }
+  main { max-width: 1120px; margin: auto; padding: 32px; }
+  h1 { font-size: 36px; margin: 8px 0; font-weight: normal; }
+  p { color: #746b5e; }
+  canvas { display: block; width: 100%; }
+  button { padding: 8px 16px; border: 1px solid #8a8273; background: transparent; color: inherit; cursor: pointer; }
+</style>
+<main>
+  <p>THE MEZZANINE / CHARACTER STUDY</p>
+  <h1>A colleague with a mind of their own.</h1>
+  <p>Two silhouettes, the same living ink. Rendered by the actual laboratory figures.</p>
+  <button id="motion">Animate the study</button>
+  <canvas width="1120" height="900" aria-label="The Mad Scientist and Heretic, followed by the Heretic's seven activity states and compact figures"></canvas>
+</main>
+<script type="module">
+  import {drawScientist} from '/src/observer/figure.ts';
+  import {SketchPen, PAPER, INK} from '/src/observer/pen.ts';
+  const canvas = document.querySelector('canvas');
+  const ctx = canvas.getContext('2d');
+  const pen = new SketchPen(ctx);
+  let moving = false;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const button = document.querySelector('button');
+  button.onclick = () => { moving = !moving; button.textContent = moving ? 'Pause the study' : 'Animate the study'; };
+  function label(text, x, y, size = 18) {
+    ctx.fillStyle = INK; ctx.font = `${size}px Georgia`; ctx.textAlign = 'center'; ctx.fillText(text, x, y);
+  }
+  function figure(x, groundY, s, heretic, activity, t) {
+    pen.beginFrame(Math.floor(t * 60 / 14));
+    drawScientist(pen, {x, groundY, s, heretic, activity, walking: false, facing: 1, t, frame: Math.floor(t * 60)});
+  }
+  function paint(now) {
+    const t = moving && !reduce.matches ? now / 1000 : 0.5;
+    ctx.fillStyle = PAPER; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    figure(340, 375, 1.8, false, 'idle', t);
+    figure(780, 375, 1.8, true, 'idle', t);
+    label('THE MAD SCIENTIST', 340, 414);
+    label('THE HERETIC', 780, 414);
+    label('Wild hypotheses.', 340, 446, 16);
+    label('One raised eyebrow.', 780, 446, 16);
+    ['idle', 'thinking', 'writing', 'reading', 'running', 'waiting', 'error'].forEach((activity, i) => {
+      const x = 80 + i * 160;
+      figure(x, 670, 0.85, true, activity, t);
+      label(activity, x, 708, 15);
+    });
+    label('COMPACT FLOOR / ACTUAL 64px STRIP SCALE', 560, 785, 14);
+    figure(520, 862, 64 * .82 / 170, false, 'idle', t);
+    figure(600, 862, 64 * .82 / 170, true, 'idle', t);
+    requestAnimationFrame(paint);
+  }
+  requestAnimationFrame(paint);
+</script>
+</html>

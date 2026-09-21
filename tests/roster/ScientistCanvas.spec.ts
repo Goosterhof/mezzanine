@@ -39,6 +39,7 @@ describe('ScientistCanvas — both colleagues visible', () => {
     afterEach(() => {
         wrapper.unmount();
         vi.unstubAllGlobals();
+        vi.restoreAllMocks();
     });
     function open() {
         wrapper = mount(ScientistCanvas, {attachTo: document.body});
@@ -111,6 +112,7 @@ describe('ScientistCanvas — both colleagues visible', () => {
         }
     });
     it('re-fits both PTYs when the shared canvas resizes', async () => {
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({width: 600, height: 400} as DOMRect);
         let resize: () => void = vi.fn<() => void>();
         vi.stubGlobal(
             'ResizeObserver',
@@ -128,6 +130,31 @@ describe('ScientistCanvas — both colleagues visible', () => {
         const spies = ['claude', 'codex'].map((id) => vi.spyOn(useScientistTerminals().get(id).fit, 'fit'));
         resize();
         for (const spy of spies) expect(spy).toHaveBeenCalled();
+    });
+    it('does not fit hidden terminals, and refits their existing elements on return', async () => {
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({width: 600, height: 400} as DOMRect);
+        both();
+        open();
+        await settle();
+        const slots = ['claude', 'codex'].map((id) => useScientistTerminals().get(id));
+        const elements = slots.map((slot) => slot.terminal.element);
+        const fits = slots.map((slot) => vi.spyOn(slot.fit, 'fit'));
+        await wrapper.setProps({active: false});
+        await settle();
+        for (const fit of fits) expect(fit).not.toHaveBeenCalled();
+        await wrapper.setProps({active: true});
+        await settle();
+        for (const fit of fits) expect(fit).toHaveBeenCalledOnce();
+        expect(slots.map((slot) => slot.terminal.element)).toStrictEqual(elements);
+    });
+    it('skips zero-size fits even when the page is active (minimized window)', async () => {
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({width: 0, height: 0} as DOMRect);
+        both();
+        const fits = ['claude', 'codex'].map((id) => vi.spyOn(useScientistTerminals().get(id).fit, 'fit'));
+        open();
+        await settle();
+        for (const fit of fits) expect(fit).not.toHaveBeenCalled();
+        expect(vi.mocked(invoke).mock.calls.some(([cmd]) => cmd === 'resize_scientist')).toBe(false);
     });
     it('replaces a restarted bench without detaching the other terminal', async () => {
         both();
