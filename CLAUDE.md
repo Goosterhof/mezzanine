@@ -135,9 +135,9 @@ panel label this gadget will ever ship.
 |---------|---------------------|
 | Empty end of the bench | *"Balcony quiet."* / *"The Heretic's bench did not open."* / *"Retry from its nameplate above."* (re-voiced 2026-09-22 for the one path that still reaches it — a bench that failed to open; written in that colleague's third; *"Balcony quiet."* alone on the 64px crop) |
 | No selection | *"Balcony quiet. No scientist selected. Dispatch one from the balcony, or click a nameplate, or a scientist on the floor."* |
-| Margin caption (was the railing nameplate) | *"● The Crucible / check phpstan · 2m 14s"* (hand-written Caveat note under the figure on the page — #00059 moved the venue, not the words) |
-| Idle-warning caption | *"Idle 1h+"* (dim pencil; replaces the elapsed fragment) |
-| Crashed caption | *"Mission ended in failure. Recall to clear."* (red ink, pulsing dot, `[ recall ]` note always visible) |
+| Bench-front caption (was the margin caption) | *"● The Mad Scientist · writing · 2m 14s"* — name · state · clock, on the Long Bench's label strip since v0.3.2 (Caveat, the clock in JetBrains Mono); the #00059 target / mission form retired with dispatch-many |
+| Idle-warning caption | *"Idle 1h+"* (INK at reduced weight on the bench front — never PENCIL, which is 3.39:1 on paper; replaces the clock) |
+| Crashed caption | *"Mission ended in failure. Recall to clear."* (RED on paper, 4.62:1; pulsing dot, `[ recall ]` note always visible — kept by the #00041 ruling) |
 | Recall affordance | *"[ recall ]"* (hand-written note in the caption — always on crashed figures, on the selected one otherwise; canvas hit-region → `recallScientist:<id>`) |
 | Recently Recalled tile | *"<target> · <mission> · <recalledAgo>"* (dimmed horizontal strip docked under the Balustrade while populated) |
 | Dispatch CTA | *"Dispatch ▾"* |
