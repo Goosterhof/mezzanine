@@ -62,6 +62,16 @@ ordinary colleague restarts do not produce extra archives.
   Codex receives the same absolute mailbox path as MCP CLI overrides.
   Its opening turn reads its own `CODEX_THREAD_ID` and calls `tube_connect`.
   That listener belongs to the MCP session and stops when it closes.
+- The Mad Scientist always launches as `claude --name mad-scientist`, so
+  sibling sessions address it by that name (it precedes the variadic
+  channels option, which would otherwise swallow it). Since v0.3.1 its
+  launch also exports `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` and
+  `CLAUDE_CODE_PLUGIN_DIRS=<lab root>/.claude/mods/bench-warden`, loading
+  the lab's first Claude Mod (the Bench Warden, the CWD Guard in shadow
+  mode) for this colleague only. It is launch-scoped because the engine
+  reads that variable only from the process env or user settings, never a
+  project's, and user settings would load it into every session on the
+  machine. The Heretic and ordinary dispatches carry neither.
 - The tube panel reads session-ID-specific heartbeats; it does not infer
   connectivity from a running CLI or a known identity. `connecting` stays
   visible until attachment. Queue failures show an error and retry; dead

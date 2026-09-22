@@ -1,6 +1,6 @@
 {
     "name": "mezzanine",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "private": true,
     "description": "The Mezzanine — one Mad Scientist, one Heretic, and the Speaking Tube on the laboratory balcony.",
     "type": "module",
