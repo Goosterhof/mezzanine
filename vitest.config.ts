@@ -49,7 +49,6 @@ export default defineConfig({
                 // only the Canvas and the RAF loop.
                 'src/observer/LabScene.vue',
                 'src/observer/scene.js',
-                'src/observer/lab-core.js',
                 // The Grind's Canvas 2D renderer (Arc 3 #00053) draws
                 // through `canvas.getContext('2d')`; jsdom returns `null`
                 // for that context (see tests/setup.ts shim), making the

@@ -14,8 +14,7 @@
         "scripts/**",
         "src/holotable/scene.js",
         "src/holotable/lab-core.js",
-        "src/observer/scene.js",
-        "src/observer/lab-core.js"
+        "src/observer/scene.js"
     ],
     "rules": {
         // Core rules
