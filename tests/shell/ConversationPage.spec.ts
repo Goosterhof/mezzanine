@@ -9,7 +9,8 @@ import ConversationPage from '../../src/shell/ConversationPage.vue';
 enableAutoUnmount(afterEach);
 const station = vi.fn<(id: string) => {x: number; y: number} | null>();
 const Floor = defineComponent({
-    props: ['active', 'collapsed'],
+    props: ['active', 'collapsed', 'forced'],
+    emits: ['placed', 'update:collapsed'],
     setup(_props, {expose}) {
         expose({stationToPage: station});
     },
@@ -84,7 +85,7 @@ describe('conversation floor geometry survives page navigation', () => {
         expect(wrapper.get('[data-plumb-line]').attributes('style')).toContain('left: 630px');
         expect(wrapper.get('[data-plumb-line]').attributes('style')).toContain('height: 250px');
     });
-    it('reprojects on resize and on a full-floor layout change', async () => {
+    it('reprojects on resize and on a posture change', async () => {
         const wrapper = open();
         useRoster().select('claude');
         await flushPromises();
@@ -93,10 +94,49 @@ describe('conversation floor geometry survives page navigation', () => {
         await flushPromises();
         expect(wrapper.get('[data-plumb-line]').attributes('style')).toContain('left: 680px');
         station.mockReturnValue({x: 750, y: 550});
-        await wrapper.setProps({compactFloor: false});
+        await wrapper.setProps({compactFloor: true});
         await flushPromises();
         expect(wrapper.get('[data-plumb-line]').attributes('style')).toContain('height: 450px');
+        expect(wrapper.getComponent(Floor).props('collapsed')).toBe(true);
+    });
+    it('opens on the whole bench by default — the ruling (#00041 §8)', () => {
+        vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(900);
+        const floor = open().getComponent(Floor);
+        expect(floor.props('collapsed')).toBe(false);
+        expect(floor.props('forced')).toBe(false);
+    });
+    it('takes the investor’s ⌃ choice from the band in both directions', async () => {
+        const wrapper = open();
+        wrapper.getComponent(Floor).vm.$emit('update:collapsed', true);
+        await flushPromises();
+        expect(wrapper.getComponent(Floor).props('collapsed')).toBe(true);
+        wrapper.getComponent(Floor).vm.$emit('update:collapsed', false);
+        await flushPromises();
         expect(wrapper.getComponent(Floor).props('collapsed')).toBe(false);
+    });
+    it('forces the crop below the 820px cliff and lifts it above', async () => {
+        const wrapper = open();
+        vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(819);
+        window.dispatchEvent(new Event('resize'));
+        await flushPromises();
+        expect(wrapper.getComponent(Floor).props('forced')).toBe(true);
+        vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(821);
+        window.dispatchEvent(new Event('resize'));
+        await flushPromises();
+        expect(wrapper.getComponent(Floor).props('forced')).toBe(false);
+    });
+    it('re-reads the plumb on every placement — the line walks with the figure (trip-wire 8)', async () => {
+        const wrapper = open();
+        useRoster().select('claude');
+        await flushPromises();
+        station.mockReturnValue({x: 410, y: 400});
+        wrapper.getComponent(Floor).vm.$emit('placed');
+        await flushPromises();
+        expect(wrapper.get('[data-plumb-line]').attributes('style')).toContain('left: 390px');
+        station.mockReturnValue({x: 402, y: 400});
+        wrapper.getComponent(Floor).vm.$emit('placed');
+        await flushPromises();
+        expect(wrapper.get('[data-plumb-line]').attributes('style')).toContain('left: 382px');
     });
     it('waits for a missing station instead of drawing a false plumb-line', async () => {
         station.mockReturnValue(null);

@@ -3,6 +3,7 @@ import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 
 import CommandBar from '../command/CommandBar.vue';
 import LabFloor from '../observer/LabFloor.vue';
+import {SHORT_WINDOW_H} from '../observer/projection';
 import {useObserver} from '../observer/useObserver';
 import ColleagueBenches from '../roster/ColleagueBenches.vue';
 import RecentlyRecalledStrip from '../roster/RecentlyRecalledStrip.vue';
@@ -11,21 +12,32 @@ import {useRoster} from '../roster/useRoster';
 import RailingDivider from './RailingDivider.vue';
 import TornPaperEdge from './TornPaperEdge.vue';
 
-const {active = true, compactFloor = true} = defineProps<{active?: boolean; compactFloor?: boolean}>();
+const {active = true, compactFloor = false} = defineProps<{active?: boolean; compactFloor?: boolean}>();
 const labFloorRef = ref<InstanceType<typeof LabFloor> | null>(null);
 const dividerRef = ref<InstanceType<typeof RailingDivider> | null>(null);
 const roster = useRoster();
 const observer = useObserver();
-// Keep the floor available as a 64px strip; its existing expand control
-// offers a temporary full view without permanently spending conversation space.
+
+// The Long Bench (#00041 §5, ruled 2026-09-22) defaults EXPANDED: a 64px
+// default answered the investor's "lively" with a sliver. The ⌃ control on
+// the band flips this choice to the 64px crop of the same drawing when
+// terminal height matters; a short window forces the crop regardless.
+const floorCompact = ref(compactFloor);
+watch(
+    () => compactFloor,
+    (next) => {
+        floorCompact.value = next;
+    },
+);
+const shortWindow = ref(window.innerHeight < SHORT_WINDOW_H);
 
 // --- The plumb-line (#00057 §4) ------------------------------------------
-// plumbX is the selected sprite's station x, CSS-scale-corrected and
-// expressed relative to the RailingDivider's left edge. It re-targets on
-// every selection change, on window resize, on railing scroll (the
-// release-point visuals stay honest), and when the selected scientist's
-// activity changes — the sprite WALKS to a new station and the line
-// follows. It is never pinned to a selection-time x (§11).
+// plumbX is the selected figure's CURRENT x, expressed relative to the
+// RailingDivider's left edge. It re-reads on every selection change, on
+// window resize, on a posture change, and on every frame the selected
+// figure moves (the band's `placed` event) — so while a colleague walks,
+// the line walks with them. It lands on the figure, never on where the
+// figure is going (#00041 §2.3 D4, trip-wire 8).
 const plumbX = ref<number | null>(null);
 const plumbLength = ref(160);
 const plumbDropping = ref(false);
@@ -68,6 +80,7 @@ function dropPlumb(): void {
 const hasRecalledStrip = computed(() => roster.recalledStrip.value.length > 0);
 
 function onWindowResize(): void {
+    shortWindow.value = window.innerHeight < SHORT_WINDOW_H;
     recomputePlumb();
 }
 
@@ -79,9 +92,9 @@ onBeforeUnmount(() => {
 // Selection → the signature gesture (#00057 §4, reframed by #00059 §4:
 // "The Figure Under Study"). Figure clicks and caption clicks on the
 // page land in `useRoster.selected`; this watcher fans the selection
-// out: the pencil plumb-line drops at the figure's station, the
-// construction ghosts appear under the selected figure (LabScene →
-// setSelected), the light re-centers, and the terminal rises
+// out: the pencil plumb-line drops on the figure, the construction
+// ghosts appear on the selected figure (LabScene → setSelected), its
+// wash lifts on the bench, and the terminal rises
 // (ScientistCanvas). On select(null) the gesture unwinds without
 // ceremony — the railing simply lets go. (The plate-scroll duty retired
 // with the DOM nameplates in #00059 J-3.)
@@ -97,8 +110,8 @@ watch(
     },
 );
 
-// The selected scientist walks — their activity changes retarget the
-// sprite's station, and the plumb-line follows (§11).
+// The selected colleague's activity changes where they are going; the
+// band's `placed` event then carries the line along the walk itself.
 watch(
     () => {
         const id = roster.selected.value;
@@ -111,9 +124,9 @@ watch(
     },
 );
 
-// The strip re-projects every station — recompute against the new geometry.
+// The posture re-cuts the band — recompute against the new geometry.
 watch(
-    () => compactFloor,
+    () => [floorCompact.value, shortWindow.value],
     () => {
         void nextTick(() => {
             recomputePlumb();
@@ -136,6 +149,12 @@ watch(
         <CommandBar />
         <RailingDivider ref="dividerRef" :selected-x="plumbX" :drop-length="plumbLength" :dropping="plumbDropping" />
         <TornPaperEdge />
-        <LabFloor ref="labFloorRef" :collapsed="compactFloor" :active="active" />
+        <LabFloor
+            ref="labFloorRef"
+            v-model:collapsed="floorCompact"
+            :forced="shortWindow"
+            :active="active"
+            @placed="recomputePlumb"
+        />
     </section>
 </template>

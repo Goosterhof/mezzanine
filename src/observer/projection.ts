@@ -1,55 +1,58 @@
 // =============================================================================
-// The Floor Projection — the Observer's geometric spine, extracted (#00057 §12)
+// The Bench Projection — the Long Bench's geometric spine (#00041 §5)
 //
-// Every coordinate the lab floor stands on lives here: where each activity's
-// station sits, where a minion sprite lines up beside it, how the 64px strip
-// lays the roster out in a single row, and how a logical floor point projects
-// onto the CSS-scaled canvas the investor actually sees. Pure arithmetic — no
-// Canvas context, no RAF loop, no DOM. That purity is the point: the Overlook
-// (#00057) shipped this math inside the coverage-excluded `scene.js`, where
-// the only test it had was the Windows runtime checklist (§9 items 3–5).
-// The centerpiece never again ships on checklist faith alone — `scene.js`
-// consumes these functions; `tests/observer/projection.spec.ts` proves them.
+// The page below the railing is an ELEVATION now, not a floor plan: one
+// workbench running the full width, seen dead on, one ground line that
+// everything stands on. The Mad Scientist works the left third, under his
+// own terminal; the Heretic works the right third, under hers; the middle
+// third is shared, and the Speaking Tube's two bells rise out of the
+// benchtop there under a brass arch.
 //
-// The wire format for sprite-click selection lives here too, so the emitting
-// end (scene.js) and the consuming end (LabScene.vue) can never drift apart.
+// Every coordinate that elevation stands on lives here, in CSS pixels with
+// the origin at the band's top-left as if the band were always 200 px tall.
+// The 64 px posture is a CROP of that drawing (`cropTop`), never a second
+// projection. Pure arithmetic — no Canvas context, no RAF loop, no DOM —
+// so `scene.js` keeps the ink and vitest keeps the numbers.
+//
+// Retired with the floor plan (#00041 §5.3 "Struck"): the 2-D station table,
+// `MINION_OFFSETS`, `clampToFloorWalls`, `stripSlot` and the logical-plan
+// `floorSize`. Two colleagues on one bench need no roster arithmetic, and
+// a crop keeps the compact posture continuous with the expanded one.
+//
+// The wire formats for figure-click selection and the `[ recall ]` note
+// live here too, so the emitting end (scene.js) and the consuming end
+// (LabScene.vue) can never drift apart.
 // =============================================================================
 
+import type {Colleague} from '../roster/types';
 import type {ActivityState} from './types';
 
-/** The logical floor plan — tile size and full-floor dimensions in logical
- *  pixels. `scene.js` derives these from `lab-core.js` (`COLS * TILE` etc.)
- *  and passes them in; this module hardcodes nothing it could drift on. */
-export interface FloorPlan {
-    tile: number;
-    w: number;
-    h: number;
-}
+import {FIGURE_HEAD_CLEARANCE, FIGURE_HEAD_R, FIGURE_LEG, FIGURE_TORSO} from './figure';
 
-/** A point in logical floor pixels. */
+/** A point in the bench drawing's CSS pixels. */
 export interface FloorPoint {
     x: number;
     y: number;
 }
 
-/** Strip projection height in logical pixels (the Overlook #00057 O-4). */
-export const STRIP_H = 32;
+/** The band, authored. §5.3: 200 px fixed — never `40vh`. */
+export const BENCH_BAND_H = 200;
 
-/** The strip blits at exactly this many CSS pixels — twice the logical
- *  height, asserted as `STRIP_H * 2` so the contract cannot silently bend. */
-export const STRIP_CSS_HEIGHT = STRIP_H * 2;
+/** The compact posture — the same drawing, cropped (§5.7). */
+export const BENCH_STRIP_H = 64;
 
-/** Where sprites sit vertically inside the strip row. */
-export const STRIP_SPRITE_Y = 12;
+/** Below this window height the band is the crop whatever the investor
+ *  chose — the short-window posture is not a preference (§5.7). */
+export const SHORT_WINDOW_H = 820;
 
-/** Minion sprites stand at these offsets from their activity's station —
- *  two flanking, two behind. Rosters beyond four wrap around the table. */
-export const MINION_OFFSETS: ReadonlyArray<{readonly dx: number; readonly dy: number}> = [
-    {dx: -20, dy: 8},
-    {dx: 20, dy: 8},
-    {dx: -12, dy: 16},
-    {dx: 12, dy: 16},
-];
+/** §5.3: the ground line sits 10 px above the band's bottom. */
+export const GROUND_INSET = 10;
+
+/** `figure.ts`'s own proportions, summed — 173.45 sketch units. */
+export const FIGURE_UNITS = FIGURE_LEG + FIGURE_TORSO + FIGURE_HEAD_CLEARANCE + FIGURE_HEAD_R * 1.55;
+
+/** §5.3: `s = bandH × 0.70 / 173.45` — a 140 px colleague in a 200 px band. */
+export const FIGURE_SCALE = (BENCH_BAND_H * 0.7) / FIGURE_UNITS;
 
 const ACTIVITY_STATES: readonly ActivityState[] = [
     'idle',
@@ -66,63 +69,134 @@ export function isActivityState(value: string): value is ActivityState {
     return (ACTIVITY_STATES as readonly string[]).includes(value);
 }
 
-/** The station each activity walks its sprite to, in logical floor pixels.
- *  One entry per `ActivityState` — the type makes the totality structural. */
-export function stationTable(tile: number): Record<ActivityState, FloorPoint> {
+/** §5.3's 1-D station table, as fractions of the page width, for the Mad
+ *  Scientist's end; the Heretic's are mirrored into the right third. y is
+ *  pinned to the ground line — that is the whole point of an elevation.
+ *  `thinking` is the one state that walks a colleague toward the middle. */
+export const BENCH_STATIONS: Readonly<Record<ActivityState, number>> = {
+    waiting: 0.045, // own end, leaning
+    error: 0.065, // own end
+    reading: 0.105, // own shelf
+    running: 0.175, // own flask
+    writing: 0.25, // own desk — and the centre of their own pane
+    idle: 0.25, // own desk
+    thinking: 0.315, // toward the middle
+};
+
+/** Where a colleague stands for an activity, in CSS px across the bench.
+ *  Unknown activities fall back to idle, as the floor always has. */
+export function benchStationX(width: number, who: Colleague, activity: string): number {
+    const f = BENCH_STATIONS[isActivityState(activity) ? activity : 'idle'];
+    return who === 'mad-scientist' ? width * f : width * (1 - f);
+}
+
+/** The way each colleague faces when nothing is walking them: toward the
+ *  shared middle. The art natively faces +1 (§2.6 licenses the turn-in —
+ *  the Parlour's "never orient two figures at each other" is not inherited). */
+export function restFacing(who: Colleague): 1 | -1 {
+    return who === 'mad-scientist' ? 1 : -1;
+}
+
+export interface BenchGeometry {
+    w: number;
+    /** 200, or 64 in the compact posture. */
+    bandH: number;
+    compact: boolean;
+    /** Drawing y of the crop's top edge. 0 when expanded. */
+    cropTop: number;
+    s: number;
+    figureH: number;
+    groundY: number;
+    /** Drawing y of the benchtop line — elbow height; head and torso clear it. */
+    benchTopY: number;
+    boardBottomY: number;
+    apronBottomY: number;
+    archApexY: number;
+    bellTopY: number;
+    /** Drawing y of the top of a colleague's hair. */
+    headTopY: number;
+    bell: Record<Colleague, number>;
+    /** Where the receiver STANDS to take the capsule off the bell: beside it,
+     *  on their own side. On the bell's own x the bell vanished behind them
+     *  and the arch appeared to plunge into their head (measured, prototype). */
+    atBell: Record<Colleague, number>;
+    home: Record<Colleague, number>;
+    /** The inner edge of each colleague's own third. */
+    innerEdge: Record<Colleague, number>;
+}
+
+/** The elevation for a bench `width` CSS px wide. `compact` crops the same
+ *  drawing to 64 px. The crop is anchored on the HEADS, not the benchtop:
+ *  at the ruled scale the hair crown sits ~82 px above the benchtop, so the
+ *  benchtop, the arch and both faces cannot share a 64 px strip, and cutting
+ *  the goggles and the quiff would cut the two silhouettes the page is for.
+ *  The crop keeps both heads, the whole arch and both bell mouths, and loses
+ *  the benchtop line itself (a deviation from §5.7, measured in the audition). */
+export function benchGeometry(width: number, compact: boolean): BenchGeometry {
+    const w = Math.max(1, width);
+    const s = FIGURE_SCALE;
+    const figureH = FIGURE_UNITS * s;
+    const groundY = BENCH_BAND_H - GROUND_INSET;
+    const benchTopY = groundY - 0.42 * figureH;
+    const bellTopY = benchTopY - 26;
     return {
-        idle: {x: 9 * tile, y: 7 * tile},
-        thinking: {x: 6 * tile, y: 5 * tile},
-        writing: {x: 13 * tile, y: 5 * tile},
-        reading: {x: 3 * tile, y: 5 * tile},
-        running: {x: 10 * tile, y: 8 * tile},
-        waiting: {x: 9 * tile, y: 10 * tile},
-        error: {x: 15 * tile, y: 8 * tile},
+        w,
+        bandH: compact ? BENCH_STRIP_H : BENCH_BAND_H,
+        compact,
+        cropTop: compact ? bellTopY + 12 - BENCH_STRIP_H : 0,
+        s,
+        figureH,
+        groundY,
+        benchTopY,
+        boardBottomY: benchTopY + 6,
+        apronBottomY: benchTopY + 41,
+        archApexY: 62,
+        bellTopY,
+        headTopY: groundY - figureH,
+        bell: {'mad-scientist': w * 0.4, heretic: w * 0.6},
+        atBell: {'mad-scientist': w * 0.4 - 44, heretic: w * 0.6 + 44},
+        home: {'mad-scientist': w * 0.25, heretic: w * 0.75},
+        innerEdge: {'mad-scientist': w * 0.315, heretic: w * 0.685},
     };
 }
 
-/** The station for an activity — unknown activities fall back to idle,
- *  exactly as the floor has always treated them. */
-export function stationFor(activity: string, tile: number): FloorPoint {
-    const table = stationTable(tile);
-    return isActivityState(activity) ? table[activity] : table.idle;
+/** The plumb-line's landing point for a colleague standing at `x`, in the
+ *  CANVAS's own CSS coordinates (crop already subtracted). It lands on the
+ *  top of the VISIBLE head: in the crop the hair crown sits above the
+ *  strip, and a line that stops in the torn edge has landed on nothing. */
+export function plumbLanding(geo: BenchGeometry, x: number): FloorPoint {
+    return {x, y: Math.max(geo.headTopY, geo.cropTop + 3) - geo.cropTop};
 }
 
-/** Clamp a point inside the floor's walls — sprites never stand inside
- *  the wainscoting. The margins are the scene's historical constants. */
-export function clampToFloorWalls(point: FloorPoint, plan: FloorPlan): FloorPoint {
-    return {
-        x: Math.max(plan.tile + 4, Math.min(plan.w - plan.tile - 10, point.x)),
-        y: Math.max(plan.tile * 3 + 4, Math.min(plan.h - plan.tile * 2 - 14, point.y)),
-    };
+/** The wash behind a figure — a total function of ActivityState, lifted
+ *  verbatim from the struck CSS light pools (#00041 §5.4). Every member of
+ *  the union has a declared output; the crash burns, it does not dim. */
+export function washOpacity(state: ActivityState): number {
+    switch (state) {
+        case 'idle':
+        case 'waiting':
+            return 0.4;
+        case 'thinking':
+        case 'writing':
+        case 'reading':
+        case 'running':
+        case 'error':
+            return 0.85;
+        default: {
+            const _exhaustive: never = state;
+            throw new Error(`unreachable activity state: ${String(_exhaustive)}`);
+        }
+    }
 }
 
-/** Where the Nth minion sprite stands for an activity: the activity's
- *  station, offset through the modular wrap of `MINION_OFFSETS`, clamped
- *  to the floor walls. Indices are normalized Euclidean so a defensive
- *  caller can never produce NaN coordinates from a negative index. */
-export function minionStation(activity: string, minionIndex: number, plan: FloorPlan): FloorPoint {
-    const base = stationFor(activity, plan.tile);
-    const len = MINION_OFFSETS.length;
-    const offset = MINION_OFFSETS[((minionIndex % len) + len) % len] ?? {dx: 0, dy: 0};
-    return clampToFloorWalls({x: base.x + offset.dx, y: base.y + offset.dy}, plan);
+/** Selection lifts the wash — the figure under study is the lit one. */
+export function washStrength(state: ActivityState, selected: boolean): number {
+    return washOpacity(state) * (selected ? 1.4 : 1);
 }
 
-/** The strip projection: N sprites in one 64px row, evenly spaced along
- *  the floor width — slot i of count sits at `round(W / (count+1) * (i+1))`. */
-export function stripSlot(index: number, count: number, floorW: number): FloorPoint {
-    const gap = floorW / (count + 1);
-    return {x: Math.round(gap * (index + 1)), y: STRIP_SPRITE_Y};
-}
-
-/** Logical floor dimensions for the active projection — consumers divide
- *  a `getBoundingClientRect()` by these to recover the CSS scale. */
-export function floorSize(strip: boolean, plan: FloorPlan): {w: number; h: number} {
-    return {w: plan.w, h: strip ? STRIP_H : plan.h};
-}
-
-/** Project a logical floor point into page coordinates through the canvas's
- *  measured rect — the CSS-scale correction the plumb-line and the light
- *  pools both ride on (experiment log #00057 §11). */
+/** Project a canvas point into page coordinates through the canvas's
+ *  measured rect. The bench canvas renders 1:1, so `size` is its CSS size
+ *  and the scale is unity — kept general so a scaled host cannot lie. */
 export function floorPointToPage(
     point: FloorPoint,
     size: {w: number; h: number},
@@ -131,10 +205,10 @@ export function floorPointToPage(
     return {x: rect.left + (point.x / size.w) * rect.width, y: rect.top + (point.y / size.h) * rect.height};
 }
 
-/** The sprite-click selection wire format — one definition, two ends. */
+/** The figure-click selection wire format — one definition, two ends. */
 export const SELECT_SCIENTIST_PREFIX = 'selectScientist:';
 
-/** Build the interaction action a sprite click emits. */
+/** Build the interaction action a figure click emits. */
 export function selectScientistAction(scientistId: string): string {
     return `${SELECT_SCIENTIST_PREFIX}${scientistId}`;
 }
@@ -150,8 +224,8 @@ export function parseSelectScientistAction(action: string | undefined): string |
     return id.length > 0 ? id : null;
 }
 
-/** The canvas-recall wire format (#00059 J-3) — the `[ recall ]` note in
- *  a figure's margin caption emits this; `LabScene.vue` parses it into
+/** The canvas-recall wire format (#00059 J-3) — the `[ recall ]` note on
+ *  the bench front emits this; `LabScene.vue` parses it into
  *  `backend.recall(id)`. Same one-definition-two-ends discipline as the
  *  selection action above: the page and its reader cannot drift. */
 export const RECALL_SCIENTIST_PREFIX = 'recallScientist:';
