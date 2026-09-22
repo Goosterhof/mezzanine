@@ -24,6 +24,49 @@ const wrapperRefs = new Map<ScientistId, HTMLDivElement>();
 const parkedViewports = new Map<ScientistId, ReturnType<typeof bookmarkViewport>>();
 let canvasObserver: ResizeObserver | null = null;
 let restoreFrame: number | null = null;
+let unmounted = false;
+
+// xterm measures its character cell once, when a terminal opens, and never
+// again unless a font option changes. Opening before the self-hosted
+// JetBrains Mono has loaded measured the FALLBACK face (~7.83×18 instead of
+// 8×20): every fit then asked for too many rows (26 where 23 fit), and once
+// the real face arrived those rows drew past the pane's bottom edge — the
+// last two lines of every conversation clipped (found 2026-09-22, witnessed
+// by both colleagues). So a terminal opens only once its face is loaded; if
+// the face is slow, it opens on the fallback after FONT_WAIT_MS and is
+// re-measured the moment the face lands.
+const TERMINAL_FACES = ['13px "JetBrains Mono"', 'bold 13px "JetBrains Mono"'];
+const FONT_WAIT_MS = 3000;
+
+function terminalFacesPending(): Promise<boolean> | null {
+    const fonts = typeof document === 'undefined' ? undefined : document.fonts;
+    if (!fonts || typeof fonts.load !== 'function' || typeof fonts.check !== 'function') return null;
+    if (TERMINAL_FACES.every((face) => fonts.check(face))) return null;
+    const loaded = Promise.all(TERMINAL_FACES.map((face) => fonts.load(face))).then(
+        () => true,
+        () => false,
+    );
+    const late = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), FONT_WAIT_MS));
+    void loaded.then((ok) => {
+        if (ok) remeasureOpenTerminals();
+    });
+    return Promise.race([loaded, late]);
+}
+
+/** Re-measure terminals that opened on the fallback face, then refit them.
+ *  Re-assigning an equivalent `fontFamily` spelling is xterm's public way to
+ *  make it measure the cell again. */
+function remeasureOpenTerminals(): void {
+    if (unmounted) return;
+    for (const {scientist} of panes.value) {
+        if (!scientist) continue;
+        const slot = terminals.get(scientist.id);
+        if (!slot.terminal.element) continue;
+        const family = slot.terminal.options.fontFamily ?? '';
+        slot.terminal.options.fontFamily = family.endsWith(' ') ? family.trimEnd() : `${family} `;
+        fitAndPush(scientist.id, slot);
+    }
+}
 
 function setWrapperRef(id: ScientistId, el: Element | null): void {
     if (el) wrapperRefs.set(id, el as HTMLDivElement);
@@ -80,6 +123,11 @@ function fitBoth(): void {
 
 async function mountTerminals(): Promise<void> {
     await nextTick();
+    const faces = terminalFacesPending();
+    if (faces) {
+        await faces;
+        if (unmounted) return;
+    }
     for (const [id, bookmark] of parkedViewports) {
         if (wrapperRefs.has(id)) continue;
         bookmark?.dispose();
@@ -138,6 +186,7 @@ onMounted(() => {
     if (canvasRef.value) canvasObserver.observe(canvasRef.value);
 });
 onBeforeUnmount(() => {
+    unmounted = true;
     canvasObserver?.disconnect();
     if (restoreFrame !== null) cancelAnimationFrame(restoreFrame);
     for (const bookmark of parkedViewports.values()) bookmark?.dispose();

@@ -1,5 +1,5 @@
 import {invoke} from '@tauri-apps/api/core';
-import {mount} from '@vue/test-utils';
+import {flushPromises, mount} from '@vue/test-utils';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {nextTick} from 'vue';
 
@@ -169,5 +169,93 @@ describe('ScientistCanvas — both colleagues visible', () => {
             wrapper.get('[data-terminal="codex-new"]').element,
         );
         expect(useScientistTerminals().get('claude').terminal.element).toBe(left);
+    });
+
+    // ---- The terminal face must be loaded before a terminal measures -------
+    // Opening on the fallback face measured a ~7.83x18 cell; the real 8x20 face
+    // then drew the fitted rows past the pane's bottom edge (2026-09-22).
+    describe('waits for the terminal face before measuring', () => {
+        afterEach(() => {
+            Reflect.deleteProperty(document, 'fonts');
+            vi.useRealTimers();
+        });
+        function stubFonts(loaded: boolean, load: () => Promise<unknown>) {
+            const fonts = {
+                check: vi.fn<(face: string) => boolean>(() => loaded),
+                load: vi.fn<(face: string) => Promise<unknown>>(load),
+            };
+            Object.defineProperty(document, 'fonts', {configurable: true, value: fonts});
+            return fonts;
+        }
+        it('does not open a terminal until JetBrains Mono has loaded', async () => {
+            const waiting: Array<() => void> = [];
+            const finish = () => {
+                for (const resolve of waiting.splice(0)) resolve();
+            };
+            const fonts = stubFonts(false, () => new Promise<void>((resolve) => waiting.push(resolve)));
+            both();
+            open();
+            await settle();
+            expect(fonts.load).toHaveBeenCalledWith('13px "JetBrains Mono"');
+            expect(useScientistTerminals().get('claude').terminal.element).toBeUndefined();
+            finish();
+            await flushPromises();
+            await settle();
+            expect(useScientistTerminals().get('claude').terminal.element?.parentElement).toBe(
+                wrapper.get('[data-terminal="claude"]').element,
+            );
+        });
+        it('opens at once when the face is already loaded', async () => {
+            const fonts = stubFonts(true, () => Promise.resolve());
+            both();
+            open();
+            await settle();
+            expect(fonts.load).not.toHaveBeenCalled();
+            expect(useScientistTerminals().get('claude').terminal.element).toBeDefined();
+        });
+        it('opens on the fallback after the wait, then re-measures and refits when the face lands', async () => {
+            vi.useFakeTimers({toFake: ['setTimeout']});
+            vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+                width: 640,
+                height: 480,
+            } as DOMRect);
+            const waiting: Array<() => void> = [];
+            const finish = () => {
+                for (const resolve of waiting.splice(0)) resolve();
+            };
+            stubFonts(false, () => new Promise<void>((resolve) => waiting.push(resolve)));
+            both();
+            open();
+            await settle();
+            expect(useScientistTerminals().get('claude').terminal.element).toBeUndefined();
+            await vi.advanceTimersByTimeAsync(3000);
+            await settle();
+            const slot = useScientistTerminals().get('claude');
+            expect(slot.terminal.element).toBeDefined();
+            const before = slot.terminal.options.fontFamily;
+            const fit = vi.spyOn(slot.fit, 'fit');
+            finish();
+            await flushPromises();
+            await settle();
+            expect(slot.terminal.options.fontFamily).not.toBe(before);
+            expect(slot.terminal.options.fontFamily?.trim()).toBe(before?.trim());
+            expect(fit).toHaveBeenCalled();
+        });
+        it('abandons the mount if the canvas unmounts while the face loads', async () => {
+            const waiting: Array<() => void> = [];
+            const finish = () => {
+                for (const resolve of waiting.splice(0)) resolve();
+            };
+            stubFonts(false, () => new Promise<void>((resolve) => waiting.push(resolve)));
+            both();
+            open();
+            await settle();
+            wrapper.unmount();
+            finish();
+            await flushPromises();
+            await settle();
+            expect(useScientistTerminals().get('claude').terminal.element).toBeUndefined();
+            wrapper = mount(ScientistCanvas, {attachTo: document.body});
+        });
     });
 });
