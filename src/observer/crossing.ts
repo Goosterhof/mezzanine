@@ -129,7 +129,8 @@ export interface LongBench {
     /** One rise of mail at `receiver`'s bench. `instant` lands it without the
      *  flight or the walk — the page is paused or the clamp is on. */
     deliver(receiver: Colleague, instant?: boolean): DeliverOutcome;
-    /** Land a capsule that is in the pipe (the page is leaving). */
+    /** Land a capsule that is in the pipe (the page is leaving), and mark a
+     *  queued arrival to begin landed at its turn. */
     land(): void;
     advance(dt: number): void;
     capsule(): CapsulePose | null;
@@ -141,6 +142,10 @@ interface CrossingClock {
     sinceLanded: number;
     receiver: Colleague | null;
     pending: Colleague | null;
+    /** The pending arrival was never witnessed in flight — it came in while
+     *  the page was away, or was already queued when the page left — so at
+     *  its turn it begins LANDED, never in the pipe (§5.6: no replay). */
+    pendingLanded: boolean;
     bothWaitingFor: number;
     reduced: boolean;
 }
@@ -154,6 +159,7 @@ export function createLongBench(width: number, compact = false): LongBench {
         sinceLanded: Number.POSITIVE_INFINITY,
         receiver: null,
         pending: null,
+        pendingLanded: false,
         bothWaitingFor: 0,
         reduced: false,
     };
@@ -207,8 +213,10 @@ export function createLongBench(width: number, compact = false): LongBench {
             r.holding = false;
         }
         const next = clock.pending;
+        const landed = clock.pendingLanded;
         clock.pending = null;
-        if (next !== null) start(next, clock.reduced);
+        clock.pendingLanded = false;
+        if (next !== null) start(next, landed || clock.reduced);
     }
 
     function start(receiver: Colleague, instant: boolean): boolean {
@@ -330,7 +338,10 @@ export function createLongBench(width: number, compact = false): LongBench {
         },
         unseat(id) {
             if (!seated.delete(id)) return;
-            if (clock.pending === id) clock.pending = null;
+            if (clock.pending === id) {
+                clock.pending = null;
+                clock.pendingLanded = false;
+            }
             if (clock.receiver === id) finishCrossing(null);
         },
         actor: (id) => seated.get(id) ?? null,
@@ -352,6 +363,7 @@ export function createLongBench(width: number, compact = false): LongBench {
             if (clock.phase !== 'none') {
                 if (clock.pending !== null) return 'dropped';
                 clock.pending = receiver;
+                clock.pendingLanded = instant;
                 return 'queued';
             }
             start(receiver, instant || clock.reduced);
@@ -360,6 +372,9 @@ export function createLongBench(width: number, compact = false): LongBench {
         land() {
             const r = receiverActor();
             if (clock.phase === 'flight' && r) snapToLanded(r);
+            // A letter already waiting its turn is settled too: the investor
+            // will not be shown a flight they left the page during.
+            if (clock.pending !== null) clock.pendingLanded = true;
         },
         advance(dt) {
             tickDoubleWait(dt);
@@ -367,8 +382,11 @@ export function createLongBench(width: number, compact = false): LongBench {
             clock.sinceLanded += dt;
             const r = receiverActor();
             if (r) advancePhase(r);
+            // Re-read: finishing one crossing may have started the queued one,
+            // and its receiver's target belongs to the crossing, not the table.
+            const receiving = receiverActor();
             for (const a of seated.values()) {
-                if (a !== r) a.targetX = stationTarget(a);
+                if (a !== receiving) a.targetX = stationTarget(a);
                 if (doubleWait() && !a.walking) a.faceDir = restFacing(a.id);
                 stepWalk(a, dt);
             }

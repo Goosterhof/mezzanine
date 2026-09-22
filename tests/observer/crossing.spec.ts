@@ -347,6 +347,60 @@ describe('nothing frozen in transit — the clamp and the page return are one ru
         expect(b.phase).toBe('none');
     });
 
+    // The Heretic's P2 on #144: a pending arrival must carry its landed bit.
+    it('never replays the flight of mail that arrived while the page was away behind another crossing', () => {
+        const b = bench();
+        b.deliver('heretic');
+        run(b, 80 / 60);
+        expect(b.phase).toBe('fetch');
+        b.land(); // the page leaves
+        expect(b.deliver('mad-scientist', true)).toBe('queued'); // mail while hidden
+        run(b, 20, () => b.receiver === 'mad-scientist');
+        expect(b.receiver).toBe('mad-scientist');
+        expect(b.phase).toBe('read');
+        expect(x(b, 'mad-scientist')).toBe(b.geometry.atBell['mad-scientist']);
+        // …and stays at the bell to read it: the table does not walk him home.
+        run(b, 1);
+        expect(b.phase).toBe('read');
+        expect(x(b, 'mad-scientist')).toBe(b.geometry.atBell['mad-scientist']);
+    });
+
+    it('never replays a queued flight once the page has left and come back', () => {
+        const b = bench();
+        b.deliver('heretic');
+        b.deliver('mad-scientist');
+        b.land(); // the current capsule lands; the queued one must not fly later
+        run(b, 20, () => b.receiver === 'mad-scientist');
+        expect(b.receiver).toBe('mad-scientist');
+        expect(b.phase).toBe('read');
+    });
+
+    it('still flies a queued letter the investor never left the page for', () => {
+        const b = bench();
+        b.deliver('heretic');
+        b.deliver('mad-scientist');
+        run(b, 20, () => b.receiver === 'mad-scientist');
+        expect(b.phase).toBe('flight');
+    });
+
+    it('keeps guard (e) with a landed pending arrival: still one slot, still no restart', () => {
+        const b = bench();
+        b.deliver('heretic');
+        b.land();
+        expect(b.deliver('mad-scientist', true)).toBe('queued');
+        expect(b.deliver('mad-scientist', true)).toBe('dropped');
+        expect(b.deliver('heretic', true)).toBe('dropped');
+        expect(b.receiver).toBe('heretic');
+        expect(b.phase).toBe('read');
+        b.unseat('mad-scientist');
+        expect(b.pending).toBeNull();
+        b.seat('mad-scientist', 'writing');
+        // a fresh live rise after the landed one was forgotten flies again
+        expect(b.deliver('mad-scientist')).toBe('queued');
+        run(b, 20, () => b.receiver === 'mad-scientist');
+        expect(b.phase).toBe('flight');
+    });
+
     it('starts a queued crossing already landed while the clamp is on', () => {
         const b = bench();
         b.deliver('heretic');
