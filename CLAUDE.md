@@ -20,11 +20,26 @@ scrollback, the selected recipient and the unsent command-bar draft. Backend
 subscriptions remain app-owned and continue while another page is visible.
 
 The conversation gets a compact 44px navigation rail and tighter nameplates;
-Last Chaos and Idea Ledger now live in Mission Control. The illustrated floor
-defaults to its existing expandable 64px strip. `ConversationPage.compactFloor`
-owns that interim size choice; the separate composition audition can change it
-without replacing terminal lifetime or navigation. Stations and light pools
-remain available in the expanded floor.
+Last Chaos and Idea Ledger now live in Mission Control.
+
+**The Long Bench (v0.3.2, wireframe #00041 Direction C, ruled 2026-09-22).**
+The page under the railing is an elevation, not a floor plan: one 200px bench
+across the full width, the Mad Scientist's third under his pane, the Heretic's
+under hers, and the Speaking Tube's two bells under a brass arch in the shared
+middle. Captions sit on the bench front (Caveat, elapsed in JetBrains Mono).
+`compactFloor` defaults to expanded; the `⌃` control crops the same drawing to
+64px, and a window under 820px forces the crop (the control then peeks).
+`projection.ts` holds the geometry and `crossing.ts` the walk plus the crossing,
+both pure and specced; `scene.js` holds only ink and RAF. `getStationPos` returns
+the figure's current position, so the plumb-line follows the walk (D4). The
+light pools, their double rAF, the gradient, the wall clamps, `MINION_OFFSETS`,
+`stripSlot` and `40vh` are gone. **The crossing's signal:** a rise in a
+`read_tube_connections` row's `last_received_id` means mail arrived at that
+colleague's bench. It does not mean the live session received or handled it.
+`useColleagues.tubeArrivals` counts rises, not letters. The baseline seeds on the
+first snapshot and on a replaced connection. A missing field is ignored. One
+crossing plays per rise, with at most one queued. A paused page or reduced motion
+lands the letter at once; a walk in progress holds its place and resumes.
 
 Never fit a hidden or zero-size terminal. Preserve the reading line with xterm
 markers across visible fits, and restore after the scrollbar layout settles.
@@ -118,7 +133,7 @@ panel label this gadget will ever ship.
 
 | Surface | The Mezzanine Voice |
 |---------|---------------------|
-| Empty floor | *"Balcony quiet. No scientists dispatched."* (written ON the page in Caveat since #00059 — the absence is felt downstairs; condenses to *"Balcony quiet."* on the 64px strip) |
+| Empty end of the bench | *"Balcony quiet."* / *"The Heretic's bench did not open."* / *"Retry from its nameplate above."* (re-voiced 2026-09-22 for the one path that still reaches it — a bench that failed to open; written in that colleague's third; *"Balcony quiet."* alone on the 64px crop) |
 | No selection | *"Balcony quiet. No scientist selected. Dispatch one from the balcony, or click a nameplate, or a scientist on the floor."* |
 | Margin caption (was the railing nameplate) | *"● The Crucible / check phpstan · 2m 14s"* (hand-written Caveat note under the figure on the page — #00059 moved the venue, not the words) |
 | Idle-warning caption | *"Idle 1h+"* (dim pencil; replaces the elapsed fragment) |

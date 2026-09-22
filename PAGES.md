@@ -40,10 +40,13 @@ line. A marker trimmed out of the bounded history is not restored.
 
 Canvas visibility is independent of session lifetime: leaving Conversation pauses
 the ink floor; Holotable and Grind initialize on first visit and pause when hidden.
-The floor keeps its existing reduced-motion handling. The conversation defaults
-to a 64px floor strip with its existing expand control; `compactFloor` on
-`ConversationPage` makes this interim sizing choice replaceable by the separate
-first-page composition audition. No station or light pool has been removed.
+The floor keeps its existing reduced-motion handling. The composition audition
+(wireframe #00041) ruled Direction C, the Long Bench. It shipped in v0.3.2:
+`compactFloor` now defaults to the expanded 200px bench, and the `⌃` control
+crops the same drawing to 64px. The floor's walk and crossing state lives in
+the scene and survives a page change. A colleague caught mid-crossing is still
+mid-crossing on return. A letter that arrived while another page was showing is
+already in the receiver's hand at the bell, and is never replayed.
 
 ## Browser receipts and installation boundary
 

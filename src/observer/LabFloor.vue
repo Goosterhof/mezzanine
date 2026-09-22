@@ -1,25 +1,34 @@
 <script setup lang="ts">
-// The ink floor remains mounted with ConversationPage. Its active prop
-// pauses drawing while another page is visible; window focus and reduced
-// motion remain independent gates. Chronicle events stay app-owned.
+// The Long Bench's band (#00041 §5) — the page below the railing, mounted
+// with ConversationPage for the life of the app. Its `active` prop pauses
+// drawing while another page is visible; window focus and reduced motion
+// remain independent gates. Chronicle events stay app-owned.
+//
+// Struck with the floor plan (§5.3): the CSS light pools and the double
+// `requestAnimationFrame` that re-read their positions, the perspective
+// gradient, and the `40vh` rule. The pools answered "who is busy" among many
+// and were drawn in a different system from the thing they lit, which is how
+// they came to lead their figures by up to 60 px (§2.3 D4). The wash that
+// replaced them is drawn on the canvas, in the tick that places the figure.
 
-import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue';
+import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 
 import type {ScientistId} from '../roster/types';
-import type {ActivityState} from './types';
 
-import {useRoster} from '../roster/useRoster';
 import LabScene from './LabScene.vue';
-import {floorPointToPage} from './projection';
-import {activityFromMission, useObserver} from './useObserver';
+import {PAPER} from './pen';
+import {BENCH_BAND_H, BENCH_STRIP_H, floorPointToPage} from './projection';
 
 interface Props {
-    /** Compact conversation layout: the 64px strip, with an expansion control. */
+    /** The investor's choice: the compact posture — a 64px crop of the bench. */
     collapsed?: boolean;
+    /** The short window (< 820px tall) forces the crop whatever was chosen. */
+    forced?: boolean;
     active?: boolean;
 }
 
-const {collapsed = false, active = true} = defineProps<Props>();
+const {collapsed = false, forced = false, active = true} = defineProps<Props>();
+const emit = defineEmits<{'update:collapsed': [value: boolean]; placed: []}>();
 
 interface LabSceneApi {
     pauseRaf?: () => void;
@@ -30,159 +39,37 @@ interface LabSceneApi {
 }
 
 const sceneRef = ref<LabSceneApi | null>(null);
-const floorRef = ref<HTMLElement | null>(null);
 
-const roster = useRoster();
-const observer = useObserver();
-
-// Peek: the strip's "expand the floor" affordance. A temporary look
-// downstairs — the floor reclaims its full height until the pointer
-// leaves. The strip state itself is owned by App.vue's window-height
-// watcher; peek is the floor's own small courtesy.
+// Peek: on a short window the crop is not a preference, so the control
+// offers a temporary look at the whole bench instead, until the pointer
+// leaves. On a tall window the control flips the investor's own choice.
 const peek = ref(false);
 
 watch(
-    () => collapsed,
+    () => [collapsed, forced],
     () => {
         peek.value = false;
     },
 );
 
-const showFull = computed(() => !collapsed || peek.value);
+const showFull = computed(() => (forced ? peek.value : !collapsed));
 
-// --- Light pools ---------------------------------------------------------
-// CSS radial overlays over the sprites' station coordinates — NOT canvas
-// relighting (the Artisan's documented Ferrari, parked for a future arc).
-// Opacity is a total function of ActivityState: every member of the
-// union has a declared output. The crash burns; it does not dim.
-function poolOpacity(state: ActivityState): number {
-    switch (state) {
-        case 'idle':
-        case 'waiting':
-            return 0.4;
-        case 'thinking':
-        case 'writing':
-        case 'reading':
-        case 'running':
-        case 'error':
-            return 0.85;
-        default: {
-            const _exhaustive: never = state;
-            throw new Error(`unreachable activity state: ${String(_exhaustive)}`);
-        }
+function onBenchControl(): void {
+    if (forced) {
+        peek.value = !peek.value;
+        return;
     }
+    emit('update:collapsed', !collapsed);
 }
 
-// The selection re-center (§4): the selected station's pool fades up to
-// the full 0.85 and sibling pools dim a notch (−0.1) — the light arrives
-// just as the plumb-line lands. The base opacity stays a total function
-// of ActivityState; selection modulates it.
-function poolOpacityFor(id: ScientistId, state: ActivityState): number {
-    const base = poolOpacity(state);
-    const selected = roster.selected.value;
-    if (selected === null) {
-        return base;
-    }
-    if (id === selected) {
-        return Math.max(base, 0.85);
-    }
-    return Math.max(0.1, Math.round((base - 0.1) * 100) / 100);
+function endPeek(): void {
+    peek.value = false;
 }
-
-const pools = computed(() =>
-    roster.scientists.value.map((s) => {
-        const fromChronicle = observer.activities.value.get(s.id);
-        const state: ActivityState = fromChronicle?.state ?? activityFromMission(s.state);
-        return {
-            id: s.id,
-            state,
-            opacity: poolOpacityFor(s.id, state),
-            burning: state === 'error',
-            selected: roster.selected.value === s.id,
-        };
-    }),
-);
-
-// Station coordinates → CSS positions relative to the floor section.
-// The canvas may be CSS-scaled (logical 448px floor displayed larger),
-// so positions divide by the logical floor size and multiply by the
-// canvas's measured rect (experiment log §11).
-const poolPositions = ref<Map<ScientistId, {left: number; top: number}>>(new Map());
-
-interface FloorGeometry {
-    canvasRect: DOMRect;
-    size: {w: number; h: number};
-}
-
-/** The measured canvas rect + logical floor size — null until the scene
- *  is mounted and has real dimensions. */
-function floorGeometry(): FloorGeometry | null {
-    const scene = sceneRef.value;
-    const canvas = scene?.getCanvasEl?.();
-    const size = scene?.getFloorSize?.();
-    if (!canvas || !size || size.w === 0 || size.h === 0) {
-        return null;
-    }
-    return {canvasRect: canvas.getBoundingClientRect(), size};
-}
-
-function recomputePoolPositions(): void {
-    const geometry = floorGeometry();
-    const host = floorRef.value;
-    if (!geometry || !host) return;
-    const {canvasRect, size} = geometry;
-    const hostRect = host.getBoundingClientRect();
-    const next = new Map<ScientistId, {left: number; top: number}>();
-    for (const s of roster.scientists.value) {
-        const pos = sceneRef.value?.getStationPos?.(s.id);
-        if (!pos) continue;
-        const page = floorPointToPage(pos, size, canvasRect);
-        next.set(s.id, {left: page.x - hostRect.left, top: page.y - hostRect.top});
-    }
-    poolPositions.value = next;
-}
-
-function poolStyle(pool: {id: ScientistId; opacity: number; burning: boolean}): Record<string, string> {
-    const pos = poolPositions.value.get(pool.id);
-    const tint = pool.burning ? 'rgba(248, 113, 113, 0.55)' : 'rgba(212, 162, 76, 0.45)';
-    return {
-        left: `${pos?.left ?? 0}px`,
-        top: `${pos?.top ?? 0}px`,
-        opacity: String(pool.opacity),
-        background: `radial-gradient(circle, ${tint} 0%, transparent 70%)`,
-    };
-}
-
-// The scene assigns a character's station target inside its own RAF
-// tick — a `nextTick` recompute can therefore read the *previous*
-// station (one-frame staleness): the pool then glows over empty paper
-// a station away from the figure until an unrelated resize/selection
-// recompute happens by. Surfaced by the #00059 runtime ratification
-// (the dispatched scientist worked at the desk while their light pool
-// warmed the idle corner). The cure is mechanical: re-read after the
-// scene loop has run — two animation frames guarantee at least one
-// full scene update lands between the reads on every host.
-function schedulePoolRecompute(): void {
-    if (!active) return;
-    recomputePoolPositions();
-    if (typeof requestAnimationFrame !== 'function') return;
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            recomputePoolPositions();
-        });
-    });
-}
-
-watch([pools, () => collapsed], () => {
-    void nextTick(() => {
-        schedulePoolRecompute();
-    });
-});
 
 // --- RAF gating: window focus + reduced motion ---------------------------
-// The scene's own RAF loop already consults matchMedia directly for the
-// reduced-motion freeze (gadget protocol); the floor adds the focus
-// gate — an unfocused window burns no CPU drawing sprites nobody sees.
+// The scene's own RAF loop consults matchMedia directly for the reduced-
+// motion boil pin (gadget protocol); the band adds the focus gate — an
+// unfocused window burns no CPU drawing ink nobody sees.
 function reducedMotion(): boolean {
     return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
@@ -203,107 +90,94 @@ watch(
             sceneRef.value?.pauseRaf?.();
             peek.value = false;
         } else {
-            void nextTick(() => {
-                schedulePoolRecompute();
-                onWindowFocus();
-            });
+            onWindowFocus();
         }
     },
 );
 
-function onWindowResize(): void {
-    recomputePoolPositions();
-}
-
 onMounted(() => {
     window.addEventListener('blur', onWindowBlur);
     window.addEventListener('focus', onWindowFocus);
-    window.addEventListener('resize', onWindowResize);
-    void nextTick(() => {
-        schedulePoolRecompute();
-    });
 });
 
 onBeforeUnmount(() => {
     window.removeEventListener('blur', onWindowBlur);
     window.removeEventListener('focus', onWindowFocus);
-    window.removeEventListener('resize', onWindowResize);
 });
 
-function togglePeek(): void {
-    peek.value = !peek.value;
+/** The bench canvas and its drawn size — null until the scene is mounted
+ *  and has real dimensions. */
+function measuredCanvas(): {rect: DOMRect; size: {w: number; h: number}} | null {
+    const canvas = sceneRef.value?.getCanvasEl?.();
+    const size = sceneRef.value?.getFloorSize?.();
+    if (!canvas || !size || size.w === 0 || size.h === 0) return null;
+    return {rect: canvas.getBoundingClientRect(), size};
 }
 
-function endPeek(): void {
-    peek.value = false;
-}
-
-// Station → page coordinates for the plumb-line (App.vue's plumbX).
-// Same CSS-scale correction as the pools, but in page space — the
-// RailingDivider spans the full frame width and subtracts its own rect.
+/** A figure's CURRENT position → page coordinates, for the plumb-line. The
+ *  bench canvas renders 1:1 at full width, so this is the canvas offset —
+ *  still routed through the measured rect so a scaled host cannot lie. */
 function stationToPage(id: ScientistId): {x: number; y: number} | null {
-    const geometry = floorGeometry();
+    const measured = measuredCanvas();
     const pos = sceneRef.value?.getStationPos?.(id);
-    if (!geometry || !pos) return null;
-    const {canvasRect, size} = geometry;
-    return floorPointToPage(pos, size, canvasRect);
+    if (!measured || !pos) return null;
+    return floorPointToPage(pos, measured.size, measured.rect);
 }
 
-defineExpose({recomputePoolPositions, stationToPage, sceneRef});
+defineExpose({stationToPage, sceneRef});
 </script>
 
 <template>
     <section
-        ref="floorRef"
-        class="relative flex-shrink-0 bg-mz-canvas overflow-hidden"
-        :style="{height: showFull ? '40vh' : '64px', minHeight: '64px'}"
+        class="relative flex-shrink-0 overflow-hidden"
+        :style="{height: `${showFull ? BENCH_BAND_H : BENCH_STRIP_H}px`, background: PAPER}"
         data-lab-floor
-        :data-floor-collapsed="collapsed && !peek ? 'true' : 'false'"
+        :data-floor-collapsed="showFull ? 'false' : 'true'"
         aria-label="The lab floor below"
         @mouseleave="endPeek"
     >
-        <!-- The Observer engine, rehosted — was ObserverPanel > LabScene -->
-        <LabScene ref="sceneRef" :strip="collapsed && !peek" :active="active" />
+        <LabScene ref="sceneRef" :strip="!showFull" :active="active" @placed="emit('placed')" />
 
-        <!-- Perspective hint: further down = darker. A gradient OVERLAY —
-             never a transform on the canvas pixels; pixel-art stays crisp. -->
-        <div
-            v-if="showFull"
-            class="pointer-events-none absolute inset-0"
-            style="background: linear-gradient(to bottom, transparent, rgba(11, 13, 16, 0.6))"
-            data-floor-gradient
-        ></div>
-
-        <!-- Light pools: the floor lights up where work is happening,
-             before anyone is selected. The investor reads "who is busy"
-             by where the light is. -->
-        <div v-if="showFull" class="pointer-events-none absolute inset-0" data-light-pools>
-            <div
-                v-for="pool in pools"
-                :key="pool.id"
-                class="light-pool absolute w-32 h-20 -translate-x-1/2 -translate-y-1/2 transition-opacity duration-600 ease-out"
-                :data-pool-id="pool.id"
-                :data-pool-state="pool.state"
-                :data-pool-burning="pool.burning ? 'true' : 'false'"
-                :data-pool-selected="pool.selected ? 'true' : 'false'"
-                :style="poolStyle(pool)"
-            ></div>
-        </div>
-
-        <!-- The empty voice migrated INTO the page (#00059 J-3): the
-             canvas writes "Balcony quiet…" in Caveat, centred — the
-             DOM overlay that lived here retired with the pixel engine. -->
-
-        <!-- Short-window affordance: a temporary look downstairs -->
+        <!-- The ⌃ control: on a tall window it flips the investor's choice
+             between the whole bench and its crop; below the 820px cliff the
+             crop is forced and the control peeks at the whole bench. Drawn
+             as an ink mark on the page, not a steel button dropped onto it. -->
         <button
-            v-if="collapsed"
             type="button"
-            class="mz-button-icon absolute top-1 right-1 z-10"
-            :aria-label="peek ? 'Return to the strip' : 'Expand the floor'"
+            class="bench-control absolute top-1 right-1 z-10"
+            :aria-label="showFull ? 'Return to the strip' : 'Expand the floor'"
             data-floor-expand
-            @click="togglePeek"
+            @click="onBenchControl"
         >
-            {{ peek ? '⌄' : '⌃' }}
+            {{ showFull ? '⌄' : '⌃' }}
         </button>
     </section>
 </template>
+
+<style scoped>
+.bench-control {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 2px;
+    background: transparent;
+    /* INK at 0.7 on PAPER: 5.3:1, above the 3:1 non-text floor */
+    color: rgba(43, 38, 32, 0.7);
+    font:
+        700 18px Caveat,
+        cursive;
+    line-height: 1;
+    cursor: pointer;
+}
+.bench-control:hover {
+    color: #2b2620;
+}
+.bench-control:focus-visible {
+    outline: 2px solid #2b2620;
+    outline-offset: 1px;
+}
+</style>
