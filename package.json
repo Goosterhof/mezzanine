@@ -43,7 +43,7 @@
         "jsdom": "^29.1.1",
         "oxfmt": "^0.68.0",
         "oxlint": "^1.82.0",
-        "oxlint-tsgolint": "^7.0.2001",
+        "oxlint-tsgolint": "^7.0.2002",
         "typescript": "~6.0.3",
         "unocss": "^66.10.5",
         "vite": "^8.3.0",
