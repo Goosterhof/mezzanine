@@ -49,7 +49,11 @@ const MISSING_FILE_GRACE_SECS: u64 = 30;
 /// What the Vue side receives on the `chronicle-event` channel — the
 /// scientist's id plus one deserialized turn. Keyed payloads let
 /// `useObserver` route by id without parsing the full turn first.
+// camelCase on the wire: `useObserver` reads `scientistId`. Without the
+// rename every event crossed as `scientist_id` and was filed under
+// `undefined` (found 2026-10-02 beside the Semaphore).
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChronicleEvent {
     pub scientist_id: ScientistId,
     pub turn: ChronicleTurn,
@@ -341,6 +345,24 @@ mod tests {
         ));
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn chronicle_event_crosses_the_bridge_in_camel_case() {
+        let event = ChronicleEvent {
+            scientist_id: ScientistId::default(),
+            turn: ChronicleTurn {
+                ts: "t".into(),
+                direction: crate::chronicle::types::TurnDirection::Out,
+                payload: "p".into(),
+            },
+        };
+        let json = serde_json::to_value(&event).unwrap();
+        assert!(
+            json.get("scientistId").is_some(),
+            "useObserver reads scientistId: {json}"
+        );
+        assert!(json.get("scientist_id").is_none());
     }
 
     #[test]
