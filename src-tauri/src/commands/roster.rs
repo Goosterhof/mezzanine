@@ -63,6 +63,7 @@ pub fn recall_scientist<R: Runtime>(
     // tears down the live pty. The frontend's recall flow also calls
     // `stop_watching_scientist` directly — both paths are idempotent.
     state.chronicle_reader.stop_watching(id);
+    state.semaphore.stop(id);
 
     // Read the scientist's final state BEFORE the recall mutation moves
     // the record into the recall strip — the Grind needs the pre-recall

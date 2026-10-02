@@ -32,6 +32,7 @@ mod host_paths;
 mod lab;
 mod pty;
 mod roster;
+mod semaphore;
 mod state;
 mod wizard;
 
