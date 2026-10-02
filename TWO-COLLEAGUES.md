@@ -49,7 +49,9 @@ in the Windows app. The installation receipts below describe the earlier build.
 ## Private correspondence
 
 Claude uses the laboratory's one project MCP definition, with a launch-scoped
-connection UUID and channel opt-in. Codex uses explicit per-launch MCP arguments
+connection UUID. Since v0.3.3 its doorbell is the lab's Tube Doorbell mod
+(launch-scoped via `CLAUDE_CODE_PLUGIN_DIRS`), not the development channel
+opt-in. Codex uses explicit per-launch MCP arguments
 and an opening turn that reads its own `CODEX_THREAD_ID` and calls `tube_connect`.
 No hook installation, trust bypass, latest-session guess or detached background
 watcher is involved. This initial tool call is a model action: until it succeeds,
@@ -132,8 +134,10 @@ instead of assuming a distribution named `Ubuntu`. `MEZZANINE_WSL_DISTRO` still
 overrides it. Background mailbox checks do not open console windows.
 When Node is absent from that non-interactive shell, the launcher loads the
 existing default from `~/.nvm/nvm.sh`. It does not change shell startup files.
-Claude's variadic channel option is terminated with `--` before the opening
-prompt; otherwise the CLI consumes the greeting as another channel name.
+Until v0.3.3, Claude's variadic channel option had to be terminated with `--`
+before the opening prompt, or the CLI consumed the greeting as another channel
+name. The channel flag is gone, and the greeting is now the last argument after
+`--name mad-scientist`.
 Build/run the desktop from this gadget with `npm run tauri dev`, or use the
 updated Windows executable. Existing released installers are not silently
 replaced by a source checkout change.
