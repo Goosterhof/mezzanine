@@ -72,21 +72,29 @@ ordinary colleague restarts do not produce extra archives.
   Windows→WSL bridge. Claude honors the existing binary override; Codex
   resolves `codex` in the same login-shell PATH and uses `--no-alt-screen`.
   Neither launch changes the investor's permission or model settings.
-- Claude uses the root `.mcp.json` Speaking Tube registration, channel
-  opt-in and launch-scoped root/database/connection-ID environment vars.
+- Claude uses the root `.mcp.json` Speaking Tube registration and
+  launch-scoped root/database/connection-ID environment vars. Since v0.3.3
+  its doorbell is the **Tube Doorbell** mod, not the development channel:
+  no `--dangerously-load-development-channels` flag (loading both would
+  ring every letter twice). The mod pins an unread count, toasts each new
+  letter, and wakes the session only between turns. The channel used to
+  deliver mid-turn; that is the measured trade (lab
+  `.claude/mods/tube-doorbell/README.md`). The server still runs with
+  `--channel`, so its heartbeat reports `channel` delivery ("Tube
+  listening"), but Claude no longer listens to it.
   Codex receives the same absolute mailbox path as MCP CLI overrides.
   Its opening turn reads its own `CODEX_THREAD_ID` and calls `tube_connect`.
   That listener belongs to the MCP session and stops when it closes.
 - The Mad Scientist always launches as `claude --name mad-scientist`, so
-  sibling sessions address it by that name (it precedes the variadic
-  channels option, which would otherwise swallow it). Since v0.3.1 its
-  launch also exports `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` and
-  `CLAUDE_CODE_PLUGIN_DIRS=<lab root>/.claude/mods/bench-warden`, loading
-  the lab's first Claude Mod (the Bench Warden, the CWD Guard in shadow
-  mode) for this colleague only. It is launch-scoped because the engine
-  reads that variable only from the process env or user settings, never a
-  project's, and user settings would load it into every session on the
-  machine. The Heretic and ordinary dispatches carry neither.
+  sibling sessions address it by that name; the opening prompt is the last
+  argument. Its launch also exports `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`
+  and `CLAUDE_CODE_PLUGIN_DIRS=<lab root>/.claude/mods/bench-warden:<lab
+  root>/.claude/mods/tube-doorbell` (`:`, the bash path-list separator),
+  loading the lab's Claude Mods (the Bench Warden since v0.3.1, the Tube
+  Doorbell since v0.3.3) for this colleague only. They are launch-scoped
+  because the engine reads that variable only from the process env or user
+  settings, never a project's, and user settings would load them into every
+  session on the machine. The Heretic and ordinary dispatches carry neither.
 - The tube panel reads session-ID-specific heartbeats; it does not infer
   connectivity from a running CLI or a known identity. `connecting` stays
   visible until attachment. Queue failures show an error and retry; dead

@@ -42,7 +42,7 @@ pub struct SessionSpec {
     /// the `exec` — one `export 'K'='V' &&` fragment per pair, in order,
     /// after the canonical alt-screen export and before the binary. The
     /// `for_target` constructor leaves this empty; `for_colleague` fills it
-    /// (the Speaking Tube context, and the Bench Warden for the Mad
+    /// (the Speaking Tube context, and the lab's mods for the Mad
     /// Scientist). **Keys must not contain `=`** — every key is a
     /// compile-time literal, so this is a documented contract, not a
     /// runtime guard.
@@ -69,10 +69,14 @@ impl SessionSpec {
             "{}/gadgets/speaking-tube/var/mailbox.sqlite",
             cwd.to_string_lossy().trim_end_matches('/')
         );
-        let bench_warden = format!(
-            "{}/.claude/mods/bench-warden",
-            cwd.to_string_lossy().trim_end_matches('/')
-        );
+        // The lab's Claude Mods for this colleague: the Bench Warden (the
+        // CWD Guard, shadow mode) and the Tube Doorbell (the Speaking Tube's
+        // bell, which replaced the development channel). ':' is the
+        // path-list separator of the bash the session runs in.
+        let lab = cwd.to_string_lossy();
+        let lab = lab.trim_end_matches('/');
+        let plugin_dirs =
+            format!("{lab}/.claude/mods/bench-warden:{lab}/.claude/mods/tube-doorbell");
         let mut spec = Self::for_target(lab_root, &Target::LabRoot, distro, binary, "");
         match colleague {
             Colleague::MadScientist => {
@@ -84,23 +88,23 @@ impl SessionSpec {
                     ),
                     ("SPEAKING_TUBE_DATABASE".into(), database),
                     ("SPEAKING_TUBE_CONNECTION_ID".into(), connection_id.into()),
-                    // The Bench Warden (the lab's CWD Guard as a Claude Mod,
-                    // `.claude/mods/bench-warden`) loads for THIS colleague
+                    // The lab's mods (`.claude/mods/bench-warden`,
+                    // `.claude/mods/tube-doorbell`) load for THIS colleague
                     // only. Launch-scoped on purpose: the engine reads
                     // CLAUDE_CODE_PLUGIN_DIRS from the process env or user
                     // settings, never project settings, and user settings
-                    // would load it into every Claude session on the machine.
-                    // The path comes from the lab root, so both benches
-                    // (`~/code`, `~/Code`) resolve their own.
+                    // would load them into every Claude session on the
+                    // machine. The paths come from the lab root, so both
+                    // benches (`~/code`, `~/Code`) resolve their own.
                     ("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS".into(), "1".into()),
-                    ("CLAUDE_CODE_PLUGIN_DIRS".into(), bench_warden),
+                    ("CLAUDE_CODE_PLUGIN_DIRS".into(), plugin_dirs),
                 ];
                 spec.args = vec![
                     // A fixed display name, so peers address this session as
                     // `mad-scientist` (ListAgents, SendMessage) on every
-                    // launch. It must precede the variadic channels option.
+                    // launch. No channel flag: the Tube Doorbell mod rings
+                    // the tube (v0.3.3), and loading both would ring twice.
                     "--name".into(), MAD_SCIENTIST_SESSION_NAME.into(),
-                    "--dangerously-load-development-channels".into(), "server:speaking-tube".into(), "--".into(),
                     "You are the Mezzanine's one Mad Scientist. The Heretic (Codex) occupies the other bench. Read CLAUDE.md and check tube_inbox, then greet the investor briefly. The Speaking Tube is peer correspondence, not permission to begin unrelated work. Wait for the investor's mission.".into()];
             }
             Colleague::Heretic => {
@@ -523,14 +527,12 @@ mod tests {
         assert_eq!(claude.binary, "/bin/custom claude");
         assert_eq!(codex.binary, "codex");
         assert_eq!(claude.working_dir, codex.working_dir);
-        let channels = claude
+        // The Tube Doorbell mod rings the tube: the development channel is
+        // gone, and with it any way for a letter to ring twice.
+        assert!(!claude
             .args
             .iter()
-            .position(|arg| arg == "--dangerously-load-development-channels")
-            .expect("the Mad Scientist loads the tube channel");
-        assert_eq!(claude.args[channels + 1], "server:speaking-tube");
-        // This option is variadic: without -- it consumes the opening prompt.
-        assert_eq!(claude.args[channels + 2], "--");
+            .any(|arg| arg.contains("channels") || arg == "server:speaking-tube"));
         assert!(claude
             .env
             .contains(&("SPEAKING_TUBE_CONNECTION_ID".into(), id.into())));
@@ -553,7 +555,7 @@ mod tests {
     }
 
     #[test]
-    fn mad_scientist_always_launches_named_before_the_variadic_channels() {
+    fn mad_scientist_always_launches_named_with_its_opening_prompt_last() {
         let spec = SessionSpec::for_colleague(
             Path::new("/home/scientist/code/zmuuzn"),
             Colleague::MadScientist,
@@ -568,18 +570,17 @@ mod tests {
             .expect("the Mad Scientist launches with --name");
         assert_eq!(spec.args[name + 1], MAD_SCIENTIST_SESSION_NAME);
         assert_eq!(MAD_SCIENTIST_SESSION_NAME, "mad-scientist");
-        let channels = spec
-            .args
-            .iter()
-            .position(|arg| arg == "--dangerously-load-development-channels")
-            .expect("the tube channel is still loaded");
-        // Behind the variadic channels option, --name would be swallowed.
-        assert!(name < channels, "--name must precede the channels option");
+        assert_eq!(
+            spec.args.len(),
+            name + 3,
+            "--name, its value, then the opening prompt"
+        );
+        assert!(spec.args[name + 2].starts_with("You are the Mezzanine's one Mad Scientist"));
         assert!(inner_shell_command(&spec).contains("'--name' 'mad-scientist'"));
     }
 
     #[test]
-    fn only_the_mad_scientist_carries_the_bench_warden_from_its_own_lab_root() {
+    fn only_the_mad_scientist_carries_the_lab_mods_from_its_own_lab_root() {
         let id = "85a7ed21-46d8-4c75-a4f7-cd2e13f3139d";
         for root in [
             "/home/scientist/code/zmuuzn",
@@ -598,7 +599,7 @@ mod tests {
                 .contains(&("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS".into(), "1".into())));
             assert!(claude.env.contains(&(
                 "CLAUDE_CODE_PLUGIN_DIRS".into(),
-                format!("{lab}/.claude/mods/bench-warden")
+                format!("{lab}/.claude/mods/bench-warden:{lab}/.claude/mods/tube-doorbell")
             )));
         }
         let codex = SessionSpec::for_colleague(
