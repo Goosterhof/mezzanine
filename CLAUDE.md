@@ -109,7 +109,11 @@ ordinary colleague restarts do not produce extra archives.
   (200 ms, size+mtime, newest `at` wins, a half-written file is re-read)
   and emits `scientist-signal`. `useObserver` takes the board as the truth
   for a scientist that signals (chronicle events and the 30 s idle
-  reversion stand aside) until the board says `ended`, and exposes
+  reversion stand aside) until the board says `ended` or its pty exits
+  (`scientist-exit` → `sessionExited`: a killed session never writes
+  `ended`). A board already on disk when the watch starts is never emitted:
+  the roster survives a restart and the pty does not, so it belongs to a
+  dead session. A board missing its figure or lists is dropped. It exposes
   `errands` (minions + departures) for the floor. The Heretic has no mods
   and keeps the chronicle path. How minions are drawn is wireframe #00042
   (the Artisan); v0.3.4 delivers the data only.

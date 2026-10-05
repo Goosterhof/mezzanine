@@ -99,26 +99,48 @@ function clearIdleTimer(scientistId: ScientistId): void {
     }
 }
 
+/** The session is over: the board stops being the truth, and its minions go home. */
+function endBoard(scientistId: ScientistId): void {
+    clearIdleTimer(scientistId);
+    signalled.delete(scientistId);
+    const nextActivities = new Map(activities.value);
+    nextActivities.set(scientistId, {state: 'idle', detail: 'Session ended', lastEventAt: Date.now()});
+    activities.value = nextActivities;
+    if (errands.value.has(scientistId)) {
+        const nextErrands = new Map(errands.value);
+        nextErrands.delete(scientistId);
+        errands.value = nextErrands;
+    }
+}
+
+/** The Rust side checks only `v` and `at`; a board the floor cannot draw is dropped. */
+function isDrawable(board: SemaphoreSignal['board']): boolean {
+    return (
+        typeof board.scientist?.state === 'string' &&
+        typeof board.scientist.detail === 'string' &&
+        Array.isArray(board.minions) &&
+        Array.isArray(board.departed)
+    );
+}
+
 function handleSignal(payload: SemaphoreSignal): void {
     const {scientistId, board} = payload;
-    const nextActivities = new Map(activities.value);
-    const nextErrands = new Map(errands.value);
-    clearIdleTimer(scientistId);
     if (board.ended === true) {
-        // The session is over: the board stops being the truth.
-        signalled.delete(scientistId);
-        nextActivities.set(scientistId, {state: 'idle', detail: 'Session ended', lastEventAt: Date.now()});
-        nextErrands.delete(scientistId);
-    } else {
-        signalled.add(scientistId);
-        nextActivities.set(scientistId, {
-            state: asActivity(board.scientist.state),
-            detail: board.scientist.detail,
-            lastEventAt: Date.now(),
-        });
-        nextErrands.set(scientistId, {minions: board.minions, departed: board.departed, at: board.at});
+        endBoard(scientistId);
+        return;
     }
+    if (!isDrawable(board)) return;
+    clearIdleTimer(scientistId);
+    signalled.add(scientistId);
+    const nextActivities = new Map(activities.value);
+    nextActivities.set(scientistId, {
+        state: asActivity(board.scientist.state),
+        detail: board.scientist.detail,
+        lastEventAt: Date.now(),
+    });
     activities.value = nextActivities;
+    const nextErrands = new Map(errands.value);
+    nextErrands.set(scientistId, {minions: board.minions, departed: board.departed, at: board.at});
     errands.value = nextErrands;
 }
 
@@ -200,6 +222,13 @@ export function useObserver() {
         /** Read the activity detail string for a scientist. */
         getActivityDetail(scientistId: ScientistId): string {
             return activities.value.get(scientistId)?.detail ?? '...';
+        },
+
+        /** The scientist's pty exited. A session killed mid-turn never
+         *  writes `ended`, so its last board would pin the figure; the
+         *  exit ends it instead. Without a board, nothing changes. */
+        sessionExited(scientistId: ScientistId): void {
+            if (signalled.has(scientistId)) endBoard(scientistId);
         },
 
         /** Drop the in-memory activity state for a scientist when they

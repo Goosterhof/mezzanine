@@ -14,12 +14,17 @@
 // when a newer board arrives. A half-written file fails to parse and is
 // simply read again on the next tick; a missing file (a session without the
 // mod, the Heretic) emits nothing, so the Observer keeps its old path.
+//
+// A board already on disk when the watch starts is never emitted. The
+// roster survives a restart and the pty does not, so that board belongs to
+// a dead session that may never have written `ended`; read as live, it
+// would pin the figure. A live session's next write moves the stamp.
 
 use crate::roster::scientist::ScientistId;
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use tauri::{AppHandle, Emitter, Runtime};
 use tokio::sync::oneshot;
@@ -95,26 +100,31 @@ impl SemaphoreWatcher {
     }
 }
 
+/// The file's size and mtime, or `None` while it does not exist.
+async fn file_stamp(path: &Path) -> Option<(u64, SystemTime)> {
+    let meta = tokio::fs::metadata(path).await.ok()?;
+    Some((
+        meta.len(),
+        meta.modified().unwrap_or(SystemTime::UNIX_EPOCH),
+    ))
+}
+
 async fn run_watch<R: Runtime>(
     scientist_id: ScientistId,
     path: PathBuf,
     app: AppHandle<R>,
     mut cancel: oneshot::Receiver<()>,
 ) {
-    let mut stamp: Option<(u64, SystemTime)> = None;
+    let mut stamp = file_stamp(&path).await;
     let mut last_at: Option<u64> = None;
     loop {
         tokio::select! {
             _ = &mut cancel => return,
             _ = tokio::time::sleep(std::time::Duration::from_millis(POLL_INTERVAL_MS)) => {}
         }
-        let Ok(meta) = tokio::fs::metadata(&path).await else {
+        let Some(now_stamp) = file_stamp(&path).await else {
             continue;
         };
-        let now_stamp = (
-            meta.len(),
-            meta.modified().unwrap_or(SystemTime::UNIX_EPOCH),
-        );
         if stamp == Some(now_stamp) {
             continue;
         }
@@ -193,6 +203,48 @@ mod tests {
             "the Vue side reads scientistId: {json}"
         );
         assert!(json.get("scientist_id").is_none());
+    }
+
+    // The general's review of #159: a dead session's last board, already on
+    // disk when the watch starts, must not be read as live; the next write
+    // (a live session's own board) must be.
+    #[tokio::test]
+    async fn a_board_left_on_disk_before_the_watch_is_never_emitted() {
+        use std::sync::Arc;
+        use tauri::test::{mock_app, MockRuntime};
+        use tauri::Listener;
+
+        let dir = std::env::temp_dir().join(format!("semaphore-stale-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("board.json");
+        std::fs::write(&path, board(100)).unwrap();
+
+        let app = mock_app();
+        let app_handle: AppHandle<MockRuntime> = app.handle().clone();
+        let heard = Arc::new(Mutex::new(Vec::<String>::new()));
+        let sink = heard.clone();
+        app_handle.listen("scientist-signal", move |event| {
+            sink.lock().push(event.payload().to_string());
+        });
+
+        let watcher = SemaphoreWatcher::new();
+        let id = ScientistId::new();
+        watcher.start(id, path.clone(), app_handle);
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        assert!(
+            heard.lock().is_empty(),
+            "stale board emitted: {:?}",
+            heard.lock()
+        );
+
+        std::fs::write(&path, board(200)).unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        watcher.stop(id);
+
+        let heard = heard.lock();
+        assert_eq!(heard.len(), 1, "{heard:?}");
+        assert!(heard[0].contains(r#""at":200"#), "{}", heard[0]);
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]

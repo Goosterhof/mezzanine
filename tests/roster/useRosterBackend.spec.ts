@@ -4,6 +4,7 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import type {RecalledScientist, Scientist} from '../../src/roster/types';
 
+import {useObserver} from '../../src/observer/useObserver';
 import {useRoster} from '../../src/roster/useRoster';
 import {useRosterBackend} from '../../src/roster/useRosterBackend';
 import {useScientistTerminals} from '../../src/roster/useScientistTerminals';
@@ -142,6 +143,33 @@ describe('useRosterBackend — Phase 2A', () => {
         await Promise.resolve();
         const roster = useRoster();
         expect(roster.scientists.value[0]!.state).toBe('done');
+    });
+
+    it('scientist-exit ends the Semaphore board of the exited scientist', async () => {
+        const handlers = captureListeners();
+        const a = makeScientist('a');
+        mockedInvoke.mockImplementation((cmd: string) => {
+            if (cmd === 'list_roster') return Promise.resolve([a]);
+            if (cmd === 'list_recently_recalled') return Promise.resolve([]);
+            return Promise.resolve(undefined);
+        });
+        await useRosterBackend().subscribe();
+        const observer = useObserver();
+        observer.reset();
+        observer._injectSignalForTests({
+            scientistId: 'a',
+            board: {
+                v: 1,
+                seq: 4,
+                at: 1000,
+                scientist: {state: 'running', detail: 'Running npm test', since: 900},
+                minions: [],
+                departed: [],
+            },
+        });
+        handlers.exit?.({payload: {scientist: 'a', exit_code: 137}});
+        await Promise.resolve();
+        expect(observer.activities.value.get('a')).toMatchObject({state: 'idle', detail: 'Session ended'});
     });
 
     it('scientist-exit event with non-zero code transitions to crashed', async () => {

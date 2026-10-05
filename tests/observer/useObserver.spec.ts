@@ -208,6 +208,35 @@ describe('useObserver — the Semaphore', () => {
         expect(obs.getActivityState('s1')).toBe('thinking');
     });
 
+    it('a pty exit ends a board the dead session never ended', () => {
+        const obs = useObserver();
+        obs._injectSignalForTests({
+            scientistId: 's1',
+            board: board({scientist: {state: 'running', detail: 'Running npm test', since: 1}, minions: [MONKEY]}),
+        });
+        obs.sessionExited('s1');
+        expect(obs.activities.value.get('s1')).toMatchObject({state: 'idle', detail: 'Session ended'});
+        expect(obs.errands.value.has('s1')).toBe(false);
+        obs._injectEventForTests({scientistId: 's1', turn: {ts: 't', direction: 'out', payload: 'x'}});
+        vi.advanceTimersByTime(30_000);
+        expect(obs.getActivityState('s1')).toBe('idle');
+    });
+
+    it('a pty exit leaves a scientist without a board alone', () => {
+        const obs = useObserver();
+        obs.sessionExited('s2');
+        expect(obs.activities.value.has('s2')).toBe(false);
+    });
+
+    it('a board missing its figure or its lists is dropped, not drawn', () => {
+        const obs = useObserver();
+        obs._injectSignalForTests({scientistId: 's1', board: {v: 1, seq: 1, at: 1000} as never});
+        obs._injectSignalForTests({scientistId: 's2', board: board({minions: undefined as never})});
+        expect(obs.activities.value.has('s1')).toBe(false);
+        expect(obs.activities.value.has('s2')).toBe(false);
+        expect(obs.errands.value.size).toBe(0);
+    });
+
     it('forget drops the board and the errands', () => {
         const obs = useObserver();
         obs._injectSignalForTests({scientistId: 's1', board: board({minions: [MONKEY]})});
