@@ -27,7 +27,14 @@ import {listen, type UnlistenFn} from '@tauri-apps/api/event';
 import {computed, ref} from 'vue';
 
 import type {MissionState, ScientistId} from '../roster/types';
-import type {ActivityState, ChronicleEvent, ScientistActivity, ScientistErrands, SemaphoreSignal} from './types';
+import type {
+    ActivityState,
+    ChronicleEvent,
+    ScientistActivity,
+    ScientistErrands,
+    SemaphoreBoard,
+    SemaphoreSignal,
+} from './types';
 
 import {inferActivity} from './activityInference';
 
@@ -114,7 +121,7 @@ function endBoard(scientistId: ScientistId): void {
 }
 
 /** The Rust side checks only `v` and `at`; a board the floor cannot draw is dropped. */
-function isDrawable(board: SemaphoreSignal['board']): boolean {
+function isDrawable(board: Partial<SemaphoreBoard>): boolean {
     return (
         typeof board.scientist?.state === 'string' &&
         typeof board.scientist.detail === 'string' &&
