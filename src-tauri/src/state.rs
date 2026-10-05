@@ -19,6 +19,7 @@ use crate::chronicle::{ChronicleReader, ChronicleWriter};
 use crate::grind::EconomyManager;
 use crate::roster::scientist::ScientistId;
 use crate::roster::RosterManager;
+use crate::semaphore::SemaphoreWatcher;
 use parking_lot::RwLock;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -57,6 +58,9 @@ pub struct AppState {
     /// recall (via the frontend's stop_watching IPC + the belt-and-
     /// suspenders stop inside `commands::roster::recall_scientist`).
     pub chronicle_reader: Arc<ChronicleReader>,
+    /// The Semaphore's watcher: the real activity and minions the Mad
+    /// Scientist's mod reports, started and stopped beside the chronicle tail.
+    pub semaphore: Arc<SemaphoreWatcher>,
     /// Arc 3 (#00053) — The Grind's RP grant engine. Holds the per-scientist
     /// chronicle rate limiters and lifecycle dedup sets. Lifecycle events
     /// (dispatch / recall) are reported to this singleton by the
@@ -90,6 +94,7 @@ impl AppState {
             mezzanine_home,
             chronicle: Arc::new(ChronicleWriter::new(chronicle_base.clone())),
             chronicle_reader: Arc::new(ChronicleReader::new(chronicle_base)),
+            semaphore: Arc::new(SemaphoreWatcher::new()),
             economy: Arc::new(EconomyManager::new()),
             crier_token: RwLock::new(None),
             crier_scientist_id: RwLock::new(None),

@@ -33,6 +33,54 @@ export interface ScientistActivity {
     lastEventAt: number;
 }
 
+/** One figure on a Semaphore board: what it shows, and since when (ms). */
+export interface SemaphoreFigure {
+    state: ActivityState;
+    detail: string;
+    since: number;
+}
+
+/** A minion out on an errand, as the lab's Semaphore mod reports it. */
+export interface SemaphoreMinion extends SemaphoreFigure {
+    id: string;
+    /** The resolved subagent type: `chaos-monkey`, `artisan`, `Explore`, ... */
+    type: string;
+    /** The Agent tool's short description of the errand. */
+    task: string;
+    background: boolean;
+    spawnedAt: number;
+}
+
+export interface SemaphoreDeparture {
+    id: string;
+    type: string;
+    at: number;
+}
+
+/** The board the Semaphore mod writes (`.claude/mods/semaphore/`, schema v1). */
+export interface SemaphoreBoard {
+    v: 1;
+    seq: number;
+    at: number;
+    scientist: SemaphoreFigure;
+    minions: SemaphoreMinion[];
+    departed: SemaphoreDeparture[];
+    ended?: true;
+}
+
+/** Wire shape of the Tauri `scientist-signal` payload (src-tauri/src/semaphore). */
+export interface SemaphoreSignal {
+    scientistId: ScientistId;
+    board: SemaphoreBoard;
+}
+
+/** A scientist's minions as the floor reads them: who is out, who just left. */
+export interface ScientistErrands {
+    minions: SemaphoreMinion[];
+    departed: SemaphoreDeparture[];
+    at: number;
+}
+
 /** Wire shape of the Tauri `chronicle-event` payload. */
 export interface ChronicleEvent {
     scientistId: ScientistId;

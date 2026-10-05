@@ -103,6 +103,7 @@ export function useRosterBackend() {
                 unlistenExit = await listen<ExitPayload>('scientist-exit', (event) => {
                     const id = event.payload.scientist;
                     clearQuietTimer(id);
+                    useObserver().sessionExited(id);
                     void setLocalState(id, event.payload.exit_code === 0 ? 'done' : 'crashed');
                 });
                 subscribed = true;

@@ -89,12 +89,34 @@ ordinary colleague restarts do not produce extra archives.
   sibling sessions address it by that name; the opening prompt is the last
   argument. Its launch also exports `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`
   and `CLAUDE_CODE_PLUGIN_DIRS=<lab root>/.claude/mods/bench-warden:<lab
-  root>/.claude/mods/tube-doorbell` (`:`, the bash path-list separator),
-  loading the lab's Claude Mods (the Bench Warden since v0.3.1, the Tube
-  Doorbell since v0.3.3) for this colleague only. They are launch-scoped
+  root>/.claude/mods/tube-doorbell:<lab root>/.claude/mods/semaphore` (`:`,
+  the bash path-list separator), loading the lab's Claude Mods (the Bench
+  Warden since v0.3.1, the Tube Doorbell since v0.3.3, the Semaphore since
+  v0.3.4) for this colleague only, plus `MEZZANINE_SEMAPHORE_PATH=<lab
+  root>/.claude/mods/semaphore/var/<scientist-id>.json`. They are launch-scoped
   because the engine reads that variable only from the process env or user
   settings, never a project's, and user settings would load them into every
   session on the machine. The Heretic and ordinary dispatches carry neither.
+- **The Semaphore (v0.3.4):** the Observer's activity was dead. It handed raw
+  pty `ChronicleTurn`s to `inferActivity`, which needs Claude transcript
+  JSON, so it returned `null` every time and every Long Bench figure sat
+  `idle`. On top of that, `ChronicleEvent` crossed the bridge as
+  `scientist_id` while `useObserver` read `scientistId` (now
+  `rename_all = "camelCase"`, with a test). The lab's Semaphore mod now
+  writes the Mad Scientist's real board (state, detail, and every minion
+  out on an errand, each with its own activity, plus recent departures).
+  `src-tauri/src/semaphore/` polls that file through `resolve_for_std_fs`
+  (200 ms, size+mtime, newest `at` wins, a half-written file is re-read)
+  and emits `scientist-signal`. `useObserver` takes the board as the truth
+  for a scientist that signals (chronicle events and the 30 s idle
+  reversion stand aside) until the board says `ended` or its pty exits
+  (`scientist-exit` → `sessionExited`: a killed session never writes
+  `ended`). A board already on disk when the watch starts is never emitted:
+  the roster survives a restart and the pty does not, so it belongs to a
+  dead session. A board missing its figure or lists is dropped. It exposes
+  `errands` (minions + departures) for the floor. The Heretic has no mods
+  and keeps the chronicle path. How minions are drawn is wireframe #00042
+  (the Artisan); v0.3.4 delivers the data only.
 - The tube panel reads session-ID-specific heartbeats; it does not infer
   connectivity from a running CLI or a known identity. `connecting` stays
   visible until attachment. Queue failures show an error and retry; dead
@@ -236,6 +258,8 @@ mezzanine/
 │   │   ├── main.rs ........... Trivial entry — calls lib::run()
 │   │   ├── error.rs .......... MezzanineError + Serialize-for-Tauri-bridge
 │   │   ├── state.rs .......... AppState — RosterManager + lab_root + distro + claude_binary + mezzanine_home + ChronicleWriter + crier_token + crier_scientist_id (#00060)
+│   │   ├── semaphore/
+│   │   │   └── mod.rs ........ The Semaphore's balcony end (v0.3.4): polls the lab mod's board per scientist, emits `scientist-signal`
 │   │   ├── host_paths.rs ..... WSL2-side POSIX `lab_root` ↔ Windows host path resolvers: `\\wsl$\` UNC for `std::fs` reads, POSIX strings for `wsl.exe -- bash -lc "cd …"` working dirs (Phase 2D runtime sweep)
 │   │   ├── wizard/             First-run wizard persistence (Phase 2C)
 │   │   │   └── mod.rs ........ WizardState serde struct + read/write of `wizard-state.json`
@@ -337,7 +361,7 @@ mezzanine/
 │   ├── observer/              Arc 2 (#00052) — the activity floor; promoted to the permanent lower storey by #00057; restyled to the Field Journal by #00059
 │   │   ├── types.ts .......... ActivityState / ChronicleEvent / ScientistActivity wire shapes
 │   │   ├── activityInference.ts Transcript-turn → ActivityState inference (lifted from the Pixel Lab)
-│   │   ├── useObserver.ts .... Singleton chronicle-event subscription; per-scientist activity map (push-always)
+│   │   ├── useObserver.ts .... Singleton chronicle-event + scientist-signal subscription; per-scientist activity map (push-always), the Semaphore's board authoritative once a scientist signals; `errands` for minions
 │   │   ├── lab-core.js ....... Lifted pure helpers (ESM); ignored by oxlint/oxfmt/vue-tsc
 │   │   ├── projection.ts ..... The geometric spine (#00057 §12 extraction) — station table, minion-offset wall clamps, 64px strip-row slots, floor size, CSS-scale page projection, selectScientist + recallScientist:<id> wire formats (#00059 J-3). Pure arithmetic, fully unit-tested (NOT coverage-excluded)
 │   │   ├── pen.ts ............ The ink toolkit (#00059 J-1) — SketchPen (seeded boiling strokes, washes, scribbles, splats) + the page palette (INK / PENCIL / PAPER / RED / MINT / AMBER / SKIN / SHADE). Colour truth lives here; src/shell/ imports constants across the slice boundary

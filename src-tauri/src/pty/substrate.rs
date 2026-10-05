@@ -75,8 +75,15 @@ impl SessionSpec {
         // path-list separator of the bash the session runs in.
         let lab = cwd.to_string_lossy();
         let lab = lab.trim_end_matches('/');
-        let plugin_dirs =
-            format!("{lab}/.claude/mods/bench-warden:{lab}/.claude/mods/tube-doorbell");
+        let plugin_dirs = format!(
+            "{lab}/.claude/mods/bench-warden:{lab}/.claude/mods/tube-doorbell:{lab}/.claude/mods/semaphore"
+        );
+        // The Semaphore mod's board for this session; the Mezzanine's watcher
+        // reads the same lab-relative file (`semaphore::snapshot_relative`).
+        let semaphore = format!(
+            "{lab}/{}",
+            crate::semaphore::snapshot_relative(connection_id)
+        );
         let mut spec = Self::for_target(lab_root, &Target::LabRoot, distro, binary, "");
         match colleague {
             Colleague::MadScientist => {
@@ -98,6 +105,7 @@ impl SessionSpec {
                     // benches (`~/code`, `~/Code`) resolve their own.
                     ("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS".into(), "1".into()),
                     ("CLAUDE_CODE_PLUGIN_DIRS".into(), plugin_dirs),
+                    ("MEZZANINE_SEMAPHORE_PATH".into(), semaphore),
                 ];
                 spec.args = vec![
                     // A fixed display name, so peers address this session as
@@ -599,7 +607,11 @@ mod tests {
                 .contains(&("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS".into(), "1".into())));
             assert!(claude.env.contains(&(
                 "CLAUDE_CODE_PLUGIN_DIRS".into(),
-                format!("{lab}/.claude/mods/bench-warden:{lab}/.claude/mods/tube-doorbell")
+                format!("{lab}/.claude/mods/bench-warden:{lab}/.claude/mods/tube-doorbell:{lab}/.claude/mods/semaphore")
+            )));
+            assert!(claude.env.contains(&(
+                "MEZZANINE_SEMAPHORE_PATH".into(),
+                format!("{lab}/.claude/mods/semaphore/var/{id}.json")
             )));
         }
         let codex = SessionSpec::for_colleague(
@@ -612,7 +624,7 @@ mod tests {
         assert!(!codex
             .env
             .iter()
-            .any(|(key, _)| key.starts_with("CLAUDE_CODE_")));
+            .any(|(key, _)| key.starts_with("CLAUDE_CODE_") || key == "MEZZANINE_SEMAPHORE_PATH"));
         assert!(!codex.args.contains(&"--name".into()));
         // Ordinary dispatches stay unmodded.
         let dispatched = SessionSpec::for_target(
