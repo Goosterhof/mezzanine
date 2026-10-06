@@ -12,7 +12,8 @@
 // failed before compiling a line (2026-10-06). This script reads both
 // lockfiles and fails the PR instead.
 //
-//   node scripts/tauri-pairs.mjs     — exit 1 on any major.minor split
+//   node scripts/tauri-pairs.mjs     — exit 1 on any major.minor split, or
+//                                      when no api ↔ tauri pair is found
 //
 // Pairs: @tauri-apps/api ↔ tauri, @tauri-apps/plugin-<x> ↔ tauri-plugin-<x>.
 // Dependency-free (Node built-ins only), like its siblings in scripts/.
@@ -43,6 +44,18 @@ for (const [path, entry] of Object.entries(npmLock.packages ?? {})) {
     const crateVersion = crateVersions.get(crate);
     if (!crateVersion) continue; // a JS-only package has no Rust half to agree with
     rows.push({npm: `@tauri-apps/${match[1]}`, npmVersion: entry.version, crate, crateVersion});
+}
+
+// Fail closed. A gate that finds nothing to compare must not report green: a
+// renamed lockfile key, a moved Cargo.lock or a regex that stops matching
+// would otherwise turn this into a permanent pass (PR #173 review). The
+// api ↔ tauri pair is the floor — the balcony cannot build without it.
+if (!rows.some((r) => r.crate === 'tauri')) {
+    console.error(
+        `The pair check found ${rows.length} Tauri pair(s) and no @tauri-apps/api ↔ tauri pair, so it measured nothing it can trust.\n` +
+            'Check that package-lock.json still lists node_modules/@tauri-apps/* and that src-tauri/Cargo.lock still exists, then re-run.',
+    );
+    process.exit(1);
 }
 
 const split = rows.filter((r) => majorMinor(r.npmVersion) !== majorMinor(r.crateVersion));
