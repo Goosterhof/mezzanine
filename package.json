@@ -19,7 +19,7 @@
         "version:check": "node scripts/version.mjs check"
     },
     "dependencies": {
-        "@tauri-apps/api": "^2.11.1",
+        "@tauri-apps/api": "^2.12.1",
         "@tauri-apps/plugin-dialog": "^2",
         "@tauri-apps/plugin-fs": "^2",
         "@tauri-apps/plugin-http": "^2",
