@@ -39,6 +39,13 @@ jobs:
             - name: Assert the four manifests agree
               run: node scripts/version.mjs check
 
+            # Blocking from day one, unlike release-readiness: this is not a
+            # new rule (Decision 017 / Pattern 024 cover new enforcement). It is
+            # `tauri build`'s own hard check, moved from the release job to the
+            # PR, after a npm/crate split killed the v0.3.4 tag (2026-10-06).
+            - name: Assert every Tauri npm package matches its crate's major.minor
+              run: node scripts/tauri-pairs.mjs
+
     release-readiness:
         # Advisory only — never fails the PR. Warns when a user-facing code
         # change ships no version bump, so the author decides whether a release

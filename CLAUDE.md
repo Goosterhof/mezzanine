@@ -319,6 +319,7 @@ mezzanine/
 │   └── icons/ ................ PLACEHOLDER copies from horadric-cube; Phase 4 swaps for balcony iconography
 ├── scripts/
 │   ├── version.mjs ........... The Ascent (#00056) — version lockstep across package.json / tauri.conf.json / Cargo.toml / package-lock.json (`check` / `bump` — four manifests must agree)
+│   ├── tauri-pairs.mjs ....... Blocking lockstep step — every `@tauri-apps/*` npm package must share major.minor with its crate in Cargo.lock, else `tauri build` refuses the release (the v0.3.4 tag died on a Dependabot split, 2026-10-06)
 │   └── release-readiness.mjs . Advisory PR job — warns when a feat/fix lands without a version bump (Decision 017 / Pattern 024: non-blocking, always exits 0)
 ├── src/
 │   ├── App.vue ............... The two-storey frame (#00057, reframed by #00059): Balustrade (+ RecentlyRecalledStrip dock while populated) / ScientistCanvas + CommandBar / RailingDivider / TornPaperEdge / LabFloor (permanent — no v-if, no v-show) + the four summonable panels (MC/DD/HT/GR) + Dispatch + FirstRunWizard + AscentPrompt; opens the two colleague benches after setup. Owns isShortWindow (<820px → 64px floor-strip) and the plumb-line geometry (plumbX / plumbLength / plumbDropping). The DOM nameplate railing retired in #00059 J-3 — the roster lives only on the page
