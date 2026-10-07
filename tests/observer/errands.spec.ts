@@ -775,7 +775,7 @@ describe('the sill as a recorded place (PR #177 review)', () => {
         expect(figure(floor, 'b')).toMatchObject({layer: 'border', arms: 'point'});
     });
 
-    it('should never seat a "+N" waiter (it has no post to climb from), nor let it block a posted one', () => {
+    it('should never skip a "+N" waiter: it climbs out of the flask into the sill, and back into it (#00042 §7.4)', () => {
         const floor = railed();
         const rows = [
             wait('a', 'running'),
@@ -785,17 +785,16 @@ describe('the sill as a recorded place (PR #177 review)', () => {
         ];
         floor.ingest(live(rows), 'running', 1);
         floor.land();
+        expect(figure(floor, 'd')).toBeUndefined();
         floor.ingest(live(rows.map((r) => (r.id === 'd' ? {...r, state: 'waiting'} : r))), 'running', 2);
         floor.advance(5, QUIET);
-        expect(floor.sillOccupant()).toBeNull();
+        expect(floor.sillOccupant()).toStrictEqual({id: 'd', reason: 'permission'});
+        expect(figure(floor, 'd')).toMatchObject({layer: 'border', arms: 'point'});
+        floor.ingest(live(rows), 'running', 6);
+        floor.advance(6.2, QUIET);
+        expect(figure(floor, 'd')).toMatchObject({arms: 'idle', walking: true});
+        floor.advance(6.6, QUIET);
         expect(figure(floor, 'd')).toBeUndefined();
-        floor.ingest(
-            live(rows.map((r) => (r.id === 'd' || r.id === 'a' ? {...r, state: 'waiting'} : r))),
-            'running',
-            6,
-        );
-        floor.advance(7.6, QUIET);
-        expect(floor.sillOccupant()).toStrictEqual({id: 'a', reason: 'permission'});
     });
 
     it('should record the same entry on a coarse tick and a fine one', () => {

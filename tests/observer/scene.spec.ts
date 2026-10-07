@@ -579,6 +579,31 @@ describe('the Long Bench renderer', () => {
             away.scene.destroy();
         });
 
+        it("should wake a paused page at the floor's next deadline: a held wait still speaks without a loop (PR #177 review)", async () => {
+            vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']});
+            const onErrandEvent = vi.fn<(ev: unknown) => void>();
+            const {scene} = await floorScene({onErrandEvent});
+            scene.setErrands(errandBoard([minion('w')]), 'running');
+            step(60);
+            scene.pauseRaf();
+            scene.setErrands(
+                errandBoard([minion('w', {state: 'waiting', detail: 'Asking permission: Bash'})]),
+                'running',
+            );
+            onErrandEvent.mockClear();
+            now += 1600;
+            vi.advanceTimersByTime(1600);
+            expect(onErrandEvent).toHaveBeenCalledWith({
+                kind: 'permission',
+                name: 'the Surgeon',
+                detail: 'Asking permission: Bash',
+            });
+            // and it sleeps again once nothing is pending
+            expect(vi.getTimerCount()).toBe(0);
+            scene.destroy();
+            vi.useRealTimers();
+        });
+
         it('should keep the ledger off the compact crop, where the bench front is cut away', async () => {
             const {scene, written} = await floorScene();
             scene.setErrands(errandBoard([minion('a')]), 'running');

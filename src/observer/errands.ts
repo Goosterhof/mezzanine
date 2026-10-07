@@ -283,6 +283,8 @@ export interface ErrandFloor {
     phaseOf(id: string): ErrandPhase;
     /** errands born, hopping or on the way home right now — 0 once landed */
     inTransit(): number;
+    /** the next receipt time something changes without a new board (a paused page wakes for it) */
+    nextDeadline(): number | null;
     /** errands the floor still remembers (out, or home less than RETIRE_AFTER_S ago) */
     retained(): number;
     figures(geo: BenchGeometry, act: number): ErrandFigure[];
@@ -574,11 +576,9 @@ function landCold(st: FloorState): void {
 /** When an arrival's transit ends: a grip takes the long way, over the brass. */
 const arrivalEnd = (e: Errand): number => (e.grip ? GRIP_ARRIVE_S : ARRIVE_S);
 
-/** A posted minion's wait that is still maturing (< 1.5 s): it will want the sill. */
+/** A minion's wait that is still open: it wants (or will want) the sill. */
 function waitPending(st: FloorState): boolean {
-    return [...st.errands.values()].some(
-        (e) => !isMonkey(e) && isOut(e) && openWait(e) !== undefined && postXAt(st, e, st.now, 1) !== null,
-    );
+    return [...st.errands.values()].some((e) => !isMonkey(e) && isOut(e) && openWait(e) !== undefined);
 }
 
 /** The arrival grip's gates (#00042 §7.4), decided once, at arrival: a measured sill, a watched
@@ -605,16 +605,33 @@ function releasedAt(st: FloorState, hold: SillHold): number | null {
     return w?.[1] ?? null;
 }
 
-/** The earliest-started wait held ≥ 1.5 s among minions that HOLD A POST (a "+N" has no place to climb from). */
+/** The earliest-started wait held ≥ 1.5 s. Never skipped (#00042 §7.4): a "+N" waiter has no
+ *  post, so it rises from the flask instead. */
 function heldWaiter(st: FloorState): {e: Errand; w0: number} | null {
     let best: {e: Errand; w0: number} | null = null;
     for (const e of st.errands.values()) {
         const w = openWait(e);
         if (isMonkey(e) || !isOut(e) || !w || st.now < w[0] + PERMISSION_DEBOUNCE_S) continue;
-        if (postXAt(st, e, st.now, 1) === null) continue;
         if (!best || w[0] < best.w0) best = {e, w0: w[0]};
     }
     return best;
+}
+
+/** The floor's next receipt-time deadline, so a PAUSED page (no animation loop: a blurred window,
+ *  reduced motion) still speaks and still seats a held wait on time. null: nothing pending. */
+function nextDeadline(st: FloorState): number | null {
+    const at: number[] = st.pending.map((v) => v.dueAt);
+    for (const e of st.errands.values()) {
+        const w = openWait(e);
+        if (w) at.push(w[0] + PERMISSION_DEBOUNCE_S);
+    }
+    if (st.sill?.reason === 'grip') {
+        const e = st.errands.get(st.sill.id);
+        if (e) at.push(e.seenAt + GRIP_HOLD_END_S);
+    }
+    for (const s of [...st.slips, ...st.blots]) at.push(s.at, s.at + FILE_AFTER_S);
+    const ahead = at.filter((t) => t > st.now);
+    return ahead.length > 0 ? Math.min(...ahead) : null;
 }
 
 /** Keep the sill's ledger: release a holder that let go, then seat the next held wait — never
@@ -1050,8 +1067,16 @@ function figureOf(c: FigureCtx, e: Errand): ErrandFigure | null {
     if (isMonkey(e)) return monkeyFigure(c, e);
     if (e.departedAt !== null) return departing(c, e, e.departedAt);
     const {x, arriveAt} = slotOf(c.st, e, c.geo.w);
-    if (x === null || arriveAt === null || c.st.now < arriveAt) return null; // out, but only as "+N"
+    if (x === null || arriveAt === null || c.st.now < arriveAt) return overflowWaiter(c, e); // out, but only as "+N"
     return atPost(c, e, [x, c.geo.benchTopY], arriveAt);
+}
+
+/** A "+N" minion is not drawn — unless its wait holds: then it climbs out of the flask into the
+ *  sill, and back into the flask when answered (#00042 §7.4, never skipped). */
+function overflowWaiter(c: FigureCtx, e: Errand): ErrandFigure | null {
+    if (!hasRail(c)) return null;
+    const flask: Pt = [flaskX(c.geo), c.geo.benchTopY];
+    return sillRise(c, e, flask) ?? sillReturn(c, e, flask);
 }
 
 /** A departure's phase: on its way home until its transit (or the monkey's pop) ends. */
@@ -1238,6 +1263,7 @@ export function createErrandFloor(reducedMotion = false): ErrandFloor {
             return e ? phaseAt(st, e, 1) : 'gone';
         },
         retained: () => st.errands.size,
+        nextDeadline: () => nextDeadline(st),
         inTransit() {
             const moving = new Set<ErrandPhase>(['born', 'hop', 'grip', 'home']);
             return [...st.errands.values()].filter((e) => moving.has(phaseAt(st, e, 1))).length;

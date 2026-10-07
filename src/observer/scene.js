@@ -549,6 +549,8 @@ export function initScene(opts) {
     /** the Rail: the page's sill canvas, its measured envelope and the plumb-line's x (P2) */
     let sill = null;
     let sillKey = '';
+    /** one bounded timer that wakes a PAUSED page at the floor's next deadline */
+    let wakeHandle = 0;
     const keystrokes = useLastKeystroke();
     /** The grip gate as it stands NOW: how long since the investor typed, whether the page is watched. */
     const gateNow = () => ({keystrokeQuietS: keystrokes.msSince() / 1000, pageActive: !rafPaused});
@@ -982,6 +984,26 @@ export function initScene(opts) {
         return outcome;
     }
 
+    /** A paused page has no loop, but the floor still keeps time: wake once at its next deadline
+     *  (a volley's hold, a wait's 1.5 s, a grip's release, a slip's filing), advance, repaint, and
+     *  sleep again. The running loop does this every frame, so no wake is needed then. */
+    function scheduleWake() {
+        if (wakeHandle) clearTimeout(wakeHandle);
+        wakeHandle = 0;
+        if (!rafPaused || destroyed) return;
+        const at = floor.nextDeadline();
+        if (at === null) return;
+        wakeHandle = setTimeout(wake, Math.max(0, (at - receiptNowS()) * 1000) + 5);
+    }
+
+    function wake() {
+        wakeHandle = 0;
+        for (const ev of floor.advance(receiptNowS(), gateNow())) onErrandEvent(ev);
+        render();
+        markPhase();
+        scheduleWake();
+    }
+
     /** The Rail (#00067 P2): the page's sill canvas and its measured envelope, or null — no sill
      *  (a short window, a page mid-mount): no grip, a waiter keeps its post, the monkey sits. */
     function setSill(next) {
@@ -1006,6 +1028,7 @@ export function initScene(opts) {
         if (rafPaused) {
             render();
             markPhase();
+            scheduleWake();
         }
     }
 
@@ -1031,12 +1054,15 @@ export function initScene(opts) {
         floor.land();
         render();
         markPhase();
+        scheduleWake();
     }
 
     function resumeRaf() {
         if (!rafPaused || destroyed) return;
         rafPaused = false;
         lastTs = null;
+        if (wakeHandle) clearTimeout(wakeHandle);
+        wakeHandle = 0;
         if (ctx) rafHandle = requestAnimationFrame(gameLoop);
     }
 
@@ -1044,6 +1070,7 @@ export function initScene(opts) {
         destroyed = true;
         rafPaused = true;
         if (rafHandle) cancelAnimationFrame(rafHandle);
+        if (wakeHandle) clearTimeout(wakeHandle);
         reducedMotionQuery?.removeEventListener('change', onReducedMotionChange);
         canvas.removeEventListener('click', onClick);
         canvas.removeEventListener('mousemove', onMouseMove);

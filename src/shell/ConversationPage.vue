@@ -152,6 +152,9 @@ onMounted(() => {
     if (sectionRef.value) {
         sectionObserver = new ResizeObserver(measureSill);
         sectionObserver.observe(sectionRef.value);
+        // the bench canvas takes its real size only after the scene's async start: measure again then
+        const bench = sectionRef.value.querySelector('[data-observer-canvas]');
+        if (bench) sectionObserver.observe(bench);
     }
 });
 onBeforeUnmount(() => {
