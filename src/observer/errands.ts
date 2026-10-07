@@ -145,6 +145,10 @@ export interface Errand {
     waits: [number, number | null][];
     /** the mechanism clock held while it waits (the Stopped Mechanism Rule) */
     mechHeld: number | null;
+    /** receipt clock (s): when it first won a post (memoised; null while only "+N") */
+    postedAt: number | null;
+    /** the start of the wait already spoken, so each wait speaks once */
+    spokenWait: number | null;
 }
 
 export type ErrandPhase = 'born' | 'hop' | 'post' | 'queued' | 'hanging' | 'home' | 'gone';
@@ -231,6 +235,8 @@ export interface ErrandFloor {
     phaseOf(id: string): ErrandPhase;
     /** errands born, hopping or on the way home right now — 0 once landed */
     inTransit(): number;
+    /** errands the floor still remembers (out, or home less than RETIRE_AFTER_S ago) */
+    retained(): number;
     figures(geo: BenchGeometry, act: number): ErrandFigure[];
     furniture(geo: BenchGeometry): ErrandFurnitureState;
 }
@@ -293,13 +299,17 @@ interface PendingVolley {
     dueAt: number;
 }
 
+/** A slip, with the receipt time of the departure that sent it (its transit's start). */
+interface FiledSlip extends TraySlip {
+    origin: number;
+}
+
 interface FloorState {
     errands: Map<string, Errand>;
-    slips: TraySlip[];
-    /** departures already handled (the board keeps `departed` for 30 s) */
-    homeIds: Set<string>;
+    slips: FiledSlip[];
+    /** departures already handled, by receipt time (the board keeps `departed` for 30 s) */
+    homeIds: Map<string, number>;
     pending: PendingVolley[];
-    announcedWaits: Set<string>;
     scientistState: ActivityState;
     cold: boolean;
     landedAt: number;
@@ -311,9 +321,8 @@ function freshState(reduced: boolean): FloorState {
     return {
         errands: new Map(),
         slips: [],
-        homeIds: new Set(),
+        homeIds: new Map(),
         pending: [],
-        announcedWaits: new Set(),
         scientistState: 'idle',
         cold: true,
         landedAt: Number.NEGATIVE_INFINITY,
@@ -322,10 +331,15 @@ function freshState(reduced: boolean): FloorState {
     };
 }
 
-/** The effective time of a transit over [s, e]: snapped to `e` once landed (§2.8: no replay). */
-function eff(st: FloorState, s: number, e: number): number {
-    return st.reduced || s <= st.landedAt ? e : Math.min(st.now, e);
+/** A transit that began at `s` is settled: the clamp is on, or it began before the floor last landed. */
+const settled = (st: FloorState, s: number): boolean => st.reduced || s <= st.landedAt;
+
+/** The effective time at `tt` of a transit over [s, e]: snapped to `e` once settled (§2.8: no replay). */
+function effAt(st: FloorState, s: number, e: number, tt: number): number {
+    return settled(st, s) ? e : Math.min(tt, e);
 }
+
+const eff = (st: FloorState, s: number, e: number): number => effAt(st, s, e, st.now);
 
 function openWait(e: Errand): [number, number | null] | undefined {
     const w = e.waits.at(-1);
@@ -352,6 +366,8 @@ function newErrand(m: SemaphoreMinion, nowS: number): Errand {
         departedAt: null,
         waits: [],
         mechHeld: null,
+        postedAt: null,
+        spokenWait: null,
     };
 }
 
@@ -377,9 +393,9 @@ function foldMinion(st: FloorState, m: SemaphoreMinion): boolean {
 function sendHome(st: FloorState, e: Errand): void {
     e.departedAt = st.now;
     closeWait(e, st.now);
-    st.homeIds.add(e.id);
+    st.homeIds.set(e.id, st.now);
     const lands = st.now + (isMonkey(e) ? MONKEY_SLIP_S : SLIP_AT_TRAY_S);
-    st.slips.push({at: lands, task: e.task, scorched: false});
+    st.slips.push({at: lands, origin: st.now, task: e.task, scorched: false});
 }
 
 function foldDepartures(st: FloorState, board: ScientistErrands): void {
@@ -387,15 +403,15 @@ function foldDepartures(st: FloorState, board: ScientistErrands): void {
         if (st.homeIds.has(d.id)) continue;
         if (st.cold) {
             // cold start: these came home before the floor was watching
-            st.homeIds.add(d.id);
+            st.homeIds.set(d.id, st.now);
             continue;
         }
         const e = st.errands.get(d.id);
         if (e) sendHome(st, e);
         else {
             // a flash errand: out and home between two boards — a blank slip, no figure
-            st.homeIds.add(d.id);
-            st.slips.push({at: st.now, task: '', scorched: false});
+            st.homeIds.set(d.id, st.now);
+            st.slips.push({at: st.now, origin: st.now, task: '', scorched: false});
         }
     }
     // robustness: a minion gone from the board without a departure row still went home
@@ -434,10 +450,8 @@ function permissionEvents(st: FloorState): ErrandEvent[] {
     const out: ErrandEvent[] = [];
     for (const e of st.errands.values()) {
         const w = openWait(e);
-        if (!w || st.now < w[0] + PERMISSION_DEBOUNCE_S) continue;
-        const key = `${e.id}@${w[0]}`;
-        if (st.announcedWaits.has(key)) continue;
-        st.announcedWaits.add(key);
+        if (!w || st.now < w[0] + PERMISSION_DEBOUNCE_S || e.spokenWait === w[0]) continue;
+        e.spokenWait = w[0];
         out.push({kind: 'permission', name: voiceName(e.type), detail: e.detail});
     }
     return out;
@@ -450,7 +464,7 @@ function landCold(st: FloorState): void {
     st.pending = [];
     for (const e of st.errands.values()) {
         const w = openWait(e);
-        if (w) st.announcedWaits.add(`${e.id}@${w[0]}`);
+        if (w) e.spokenWait = w[0];
     }
 }
 
@@ -482,18 +496,42 @@ function layoutChanges(st: FloorState): number[] {
     return [...ev].filter((v) => v <= st.now).sort((a, b) => a - b);
 }
 
-/** The post an errand holds now (gliding 0.45 s when the layout changes), and when it first got one. */
+/** When the errand first won a post (memoised once found; it was "+N" until then). */
+function arrivalOf(st: FloorState, e: Errand, w: number): number | null {
+    if (e.postedAt !== null) return e.postedAt;
+    const changes = layoutChanges(st).filter((v) => v > e.seenAt);
+    const at = [e.seenAt, ...changes].find((tt) => postXAt(st, e, tt + 1e-6, w) !== null);
+    if (at !== undefined) e.postedAt = at;
+    return at ?? null;
+}
+
+/** The last change in (tt − GLIDE_S, tt] that MOVED this errand's post — an arrival or an
+ *  overflow change elsewhere does not restart its glide. null when it has none in flight. */
+function lastRetarget(st: FloorState, e: Errand, w: number, tt: number): number | null {
+    const recent = layoutChanges(st).filter((v) => v <= tt && v > tt - GLIDE_S);
+    for (const tc of recent.toReversed()) {
+        const before = postXAt(st, e, tc - 1e-6, w);
+        if (before !== null && before !== postXAt(st, e, tc, w)) return tc;
+    }
+    return null;
+}
+
+/** Where the errand's post is DRAWN at tt: a glide always starts from where it was drawn
+ *  when the layout moved again, never from the old target (no jump on an interrupted glide). */
+function shownX(st: FloorState, e: Errand, w: number, tt: number): number | null {
+    const target = postXAt(st, e, tt, w);
+    if (target === null) return null;
+    const tc = lastRetarget(st, e, w, tt);
+    if (tc === null) return target;
+    const u = prog(effAt(st, tc, tc + GLIDE_S, tt), tc, GLIDE_S);
+    if (u >= 1) return target;
+    const from = shownX(st, e, w, tc - 1e-6) ?? target;
+    return lerp(from, target, u * u * (3 - 2 * u));
+}
+
+/** The post an errand holds now, as drawn, and when it first got one. */
 function slotOf(st: FloorState, e: Errand, w: number): {x: number | null; arriveAt: number | null} {
-    const changes = layoutChanges(st);
-    const arriveAt =
-        [e.seenAt, ...changes.filter((v) => v > e.seenAt)].find((tt) => postXAt(st, e, tt + 1e-6, w) !== null) ?? null;
-    const now = postXAt(st, e, st.now, w);
-    const tLast = changes.at(-1) ?? 0;
-    if (now === null || arriveAt === null || tLast <= arriveAt + 1e-6) return {x: now, arriveAt};
-    const prev = postXAt(st, e, tLast - 1e-6, w);
-    if (prev === null || prev === now) return {x: now, arriveAt};
-    const u = prog(eff(st, tLast, tLast + GLIDE_S), tLast, GLIDE_S);
-    return {x: lerp(prev, now, u * u * (3 - 2 * u)), arriveAt};
+    return {x: shownX(st, e, w, st.now), arriveAt: arrivalOf(st, e, w)};
 }
 
 /** The mechanism stops dead while the errand waits (the Stopped Mechanism Rule). */
@@ -531,10 +569,11 @@ function baseFigure(c: FigureCtx, e: Errand, p: Pt): ErrandFigure {
 /** The departure: run to the in-tray, hand in the slip, hop home into the flask. */
 function departing(c: FigureCtx, e: Errand, d: number): ErrandFigure | null {
     const {st, geo, s} = c;
-    const from = postXAt(st, e, d - 1e-6, geo.w);
-    if (from === null) return null; // it was only ever "+N"
+    // a finished transit is rejected before any lookup into the post history
     const te = eff(st, d, d + DEP);
     if (te >= d + DEP) return null;
+    const from = postXAt(st, e, d - 1e-6, geo.w);
+    if (from === null) return null; // it was only ever "+N"
     const ground = geo.benchTopY;
     const tray: Pt = [trayX(geo), ground];
     const apex = geo.benchTopY - 52;
@@ -605,9 +644,10 @@ function homeward(st: FloorState, e: Errand): boolean {
     return eff(st, e.departedAt, home) < home;
 }
 
-/** A transient that started at `at` and still plays at now (never once landed). */
-const playing = (st: FloorState, at: number, len: number): boolean =>
-    !st.reduced && at > st.landedAt && st.now >= at && st.now < at + len;
+/** A transient that plays over [at, at + len], belonging to a transit that began at
+ *  `origin`: it plays only while that transit is unsettled — a landed homecoming never burps. */
+const playing = (st: FloorState, span: {origin: number; at: number}, len: number): boolean =>
+    !settled(st, span.origin) && st.now >= span.at && st.now < span.at + len;
 
 function poolsOf(st: FloorState, geo: BenchGeometry): {x: number; rx: number}[] {
     if (st.scientistState !== 'idle') return [];
@@ -632,8 +672,25 @@ function occupantOf(st: FloorState): Errand | null {
     return best?.e ?? null;
 }
 
+/** A slip lands when its runner reaches the tray — at once, if that departure has settled. */
 function trayOf(st: FloorState): TraySlip[] {
-    return st.slips.filter((s) => s.at <= st.now && st.now < s.at + FILE_AFTER_S).slice(-TRAY_SHEETS);
+    return st.slips
+        .filter((s) => (s.at <= st.now || settled(st, s.origin)) && st.now < s.at + FILE_AFTER_S)
+        .slice(-TRAY_SHEETS)
+        .map(({at, task, scorched}) => ({at, task, scorched}));
+}
+
+/** Errands this long gone no longer move anyone's post, and are forgotten. */
+const RETIRE_AFTER_S = 5;
+/** The board keeps a departure row for 30 s; remember having handled one a while longer. */
+const FORGET_HOME_AFTER_S = 60;
+
+/** Bound the history: retire long-gone errands, forget old departures, drop filed slips. */
+function compact(st: FloorState): void {
+    for (const [id, e] of st.errands)
+        if (e.departedAt !== null && st.now > e.departedAt + RETIRE_AFTER_S) st.errands.delete(id);
+    for (const [id, at] of st.homeIds) if (st.now > at + FORGET_HOME_AFTER_S) st.homeIds.delete(id);
+    st.slips = st.slips.filter((s) => st.now < s.at + FILE_AFTER_S);
 }
 
 function ledgerOf(st: FloorState): string | null {
@@ -651,11 +708,12 @@ function furnitureOf(st: FloorState, geo: BenchGeometry): ErrandFurnitureState {
         now: st.now,
         corkOut: live.length > 0,
         corkAt: Math.min(...live.map((e) => e.seenAt)),
-        foam: all.map((e) => e.seenAt).filter((at) => playing(st, at, FOAM_S)),
+        foam: all.map((e) => e.seenAt).filter((at) => playing(st, {origin: at, at}, FOAM_S)),
         burps: all
             .filter((e) => !isMonkey(e) && e.departedAt !== null)
-            .map((e) => (e.departedAt ?? 0) + DEP)
-            .filter((at) => playing(st, at, BURP_S)),
+            .map((e) => ({origin: e.departedAt ?? 0, at: (e.departedAt ?? 0) + DEP}))
+            .filter((span) => playing(st, span, BURP_S))
+            .map((span) => span.at),
         tray: trayOf(st),
         pools: poolsOf(st, geo),
         overflow: Math.max(0, outAt(st, st.now).length - 3),
@@ -687,6 +745,7 @@ export function createErrandFloor(reducedMotion = false): ErrandFloor {
         ingest(board, scientistState, nowS) {
             st.now = Math.max(st.now, nowS);
             st.scientistState = scientistState;
+            compact(st);
             if (board !== null) return foldBoard(st, board);
             // the session ended or exited: every errand swept, silently; the next board is a cold start
             st = freshState(st.reduced);
@@ -695,6 +754,7 @@ export function createErrandFloor(reducedMotion = false): ErrandFloor {
         },
         advance(nowS) {
             st.now = Math.max(st.now, nowS);
+            compact(st);
             return [...flushVolleys(st), ...permissionEvents(st)];
         },
         land,
@@ -727,6 +787,7 @@ export function createErrandFloor(reducedMotion = false): ErrandFloor {
             // the width only moves a post's x, never whether it has one
             return e ? phaseAt(st, e, 1) : 'gone';
         },
+        retained: () => st.errands.size,
         inTransit() {
             const moving = new Set<ErrandPhase>(['born', 'hop', 'home']);
             return [...st.errands.values()].filter((e) => moving.has(phaseAt(st, e, 1))).length;

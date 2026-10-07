@@ -410,3 +410,87 @@ describe('the figures and the furniture', () => {
         expect(floor.tray()).toHaveLength(1);
     });
 });
+
+// The Heretic's review of PR #176 at 0582cb4, each counterexample kept as a regression.
+describe('the review round (PR #176)', () => {
+    it('should settle a landed homecoming’s furniture too: the slip is in the tray now, and no burp replays', () => {
+        const floor = warm();
+        floor.ingest(live([minion('a')]), 'running', 0.5);
+        floor.land();
+        floor.ingest(live([], [{id: 'a', type: 'surgeon', at: 0}]), 'running', 5);
+        floor.advance(5.1);
+        floor.land();
+        expect(floor.phaseOf('a')).toBe('gone');
+        expect(floor.corkOut()).toBe(false);
+        expect(floor.tray()).toHaveLength(1);
+        floor.advance(6.4);
+        expect(floor.furniture(GEO).burps).toStrictEqual([]);
+    });
+
+    it('should continue an interrupted glide from where the post is drawn, never from its old target', () => {
+        const floor = warm();
+        floor.ingest(live([minion('a', {spawnedAt: 0})]), 'running', 1);
+        floor.land();
+        floor.ingest(
+            live([minion('a', {spawnedAt: 0}), minion('b', {type: 'librarian', spawnedAt: 9000})]),
+            'running',
+            10,
+        );
+        floor.advance(10.2);
+        const drawn = (): number => floor.figures(GEO, 0).find((f) => f.id === 'a')?.x ?? Number.NaN;
+        const mid = drawn();
+        expect(mid).toBeLessThan(W / 2);
+        expect(mid).toBeGreaterThan(W / 2 - 22);
+        floor.ingest(
+            live([
+                minion('a', {spawnedAt: 0}),
+                minion('b', {type: 'librarian', spawnedAt: 9000}),
+                minion('c', {type: 'scribe', spawnedAt: 9500}),
+            ]),
+            'running',
+            10.2,
+        );
+        expect(drawn()).toBeCloseTo(mid, 3);
+        floor.advance(10.4);
+        expect(drawn()).toBeGreaterThan(mid);
+        floor.advance(11);
+        expect(drawn()).toBe(W / 2);
+    });
+
+    it('should not restart a glide for a change that does not move this post (one more into "+N")', () => {
+        const floor = warm();
+        const three = [
+            minion('a', {spawnedAt: 0}),
+            minion('b', {type: 'librarian', spawnedAt: 1}),
+            minion('c', {type: 'scribe', spawnedAt: 2}),
+        ];
+        floor.ingest(live(three.slice(0, 2)), 'running', 1);
+        floor.land();
+        floor.ingest(live(three), 'running', 10);
+        floor.advance(10.2);
+        const drawn = (): number => floor.figures(GEO, 0).find((f) => f.id === 'b')?.x ?? Number.NaN;
+        const before = drawn();
+        floor.ingest(live([...three, minion('d', {type: 'synchronizer', spawnedAt: 3})]), 'running', 10.2);
+        expect(drawn()).toBeCloseTo(before, 3);
+        floor.advance(10.5);
+        expect(drawn()).toBe(W / 2 - 46);
+    });
+
+    it('should keep its history bounded: long-gone errands retire, and a thousand homecomings cost nothing per frame', () => {
+        const floor = warm();
+        let t = 1;
+        for (let i = 0; i < 1000; i++) {
+            floor.ingest(live([minion(`m${i}`, {spawnedAt: i})]), 'running', t);
+            floor.ingest(live([], [{id: `m${i}`, type: 'surgeon', at: i}]), 'running', t + 0.1);
+            t += 0.2;
+        }
+        floor.advance(t + 10);
+        expect(floor.retained()).toBe(0);
+        expect(floor.phaseOf('m0')).toBe('gone');
+        floor.ingest(live([minion('now', {spawnedAt: 5000})]), 'running', t + 11);
+        floor.land();
+        expect(floor.retained()).toBe(1);
+        expect(floor.figures(GEO, 0)).toHaveLength(1);
+        expect(floor.tray()).toHaveLength(3);
+    });
+});
