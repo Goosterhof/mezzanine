@@ -20,6 +20,14 @@ const panes = computed(() =>
         scientist: roster.scientists.value.find((s) => s.colleague === identity),
     })),
 );
+
+// The Mad Scientist's terminal is the keystroke witness for the Errand Floor (#00067 P2): a
+// minion arriving within 1.5 s of his typing skips its grip on the rail he is writing under.
+watch(
+    () => panes.value.find((p) => p.identity === 'mad-scientist')?.scientist?.id ?? null,
+    (id) => terminals.setKeystrokeWitness(id),
+    {immediate: true},
+);
 const wrapperRefs = new Map<ScientistId, HTMLDivElement>();
 const parkedViewports = new Map<ScientistId, ReturnType<typeof bookmarkViewport>>();
 let canvasObserver: ResizeObserver | null = null;

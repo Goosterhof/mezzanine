@@ -9,8 +9,8 @@ import ConversationPage from '../../src/shell/ConversationPage.vue';
 enableAutoUnmount(afterEach);
 const station = vi.fn<(id: string) => {x: number; y: number} | null>();
 const Floor = defineComponent({
-    props: ['active', 'collapsed', 'forced'],
-    emits: ['placed', 'update:collapsed'],
+    props: ['active', 'collapsed', 'forced', 'sill'],
+    emits: ['placed', 'update:collapsed', 'errand'],
     setup(_props, {expose}) {
         expose({stationToPage: station});
     },
@@ -157,5 +157,32 @@ describe('conversation floor geometry survives page navigation', () => {
         await flushPromises();
         wrapper.unmount();
         expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('lays the sill canvas over the page without taking a click, a focus or a screen reader (AC-6)', () => {
+        const sill = open().get('[data-errand-sill]');
+        expect(sill.classes()).toContain('pointer-events-none');
+        expect(sill.attributes('aria-hidden')).toBe('true');
+        expect(sill.attributes('tabindex')).toBe('-1');
+    });
+
+    it('speaks the floor’s voice in one polite line, and says nothing until there is something to say (AC-10)', async () => {
+        const wrapper = open();
+        const voice = wrapper.get('[data-errand-voice]');
+        expect(voice.attributes('aria-live')).toBe('polite');
+        expect(voice.text()).toBe('');
+        wrapper
+            .getComponent(Floor)
+            .vm.$emit('errand', {kind: 'volley', names: ['the Surgeon', 'the Librarian', 'the Scribe']});
+        await flushPromises();
+        expect(voice.text()).toBe('The Surgeon and 2 more are out on errands.');
+        wrapper.getComponent(Floor).vm.$emit('errand', {kind: 'loose', others: 0});
+        await flushPromises();
+        expect(voice.text()).toBe('The Chaos Monkey is loose.');
+    });
+
+    it('leaves the sill unmeasured while the page cannot be measured — no sill, no grip', () => {
+        // jsdom lays nothing out and the chrome here is stubbed: a required rect is missing
+        expect((open().get('[data-errand-sill]').element as HTMLElement).style.display).toBe('none');
     });
 });

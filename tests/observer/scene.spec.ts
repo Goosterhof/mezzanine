@@ -43,6 +43,7 @@ interface SceneController {
         errands: {minions: SemaphoreMinion[]; departed: {id: string; type: string; at: number}[]; at: number} | null,
         state: ActivityState,
     ) => void;
+    setSill: (sill: {canvas: unknown; envelope: unknown; plumbX: number | null} | null) => void;
     getStationPos: (id: string) => {x: number; y: number} | null;
     getFloorSize: () => {w: number; h: number};
     pauseRaf: () => void;
@@ -493,6 +494,42 @@ describe('the Long Bench renderer', () => {
             scene.setErrands(null, 'idle');
             step();
             expect(written.map((w) => w.text).some((t) => t.includes('more out') || t === '+1')).toBe(false);
+            scene.destroy();
+        });
+
+        it('should take a measured sill: an arrival then climbs over the brass, the long way (#00067 P2)', async () => {
+            const {scene, canvas} = await floorScene();
+            const sillCanvas = {width: 0, height: 0, getContext: () => null};
+            const envelope = {
+                x: 0,
+                top: 665.5,
+                w: W,
+                h: 234.5,
+                W,
+                H: 900,
+                barTop: 628,
+                dividerTop: 676,
+                railY: 679,
+                tornTop: 692,
+                benchTop: 700,
+                benchBottom: 900,
+                benchLeft: 0,
+                textBottom: 662.5,
+                ceiling: 665.5,
+                xspan: [0, 679.5],
+                tier3: [],
+            };
+            scene.setSill({canvas: sillCanvas, envelope, plumbX: null});
+            scene.setErrands(errandBoard([minion('m1')]), 'running');
+            step(60);
+            // 1 s in: a tier-0 hop (0.6 s) would have landed; the grip (2.05 s) is still over the brass
+            expect(canvas.dataset.errandsInTransit).toBe('1');
+            step(70);
+            expect(canvas.dataset.errandsInTransit).toBe('0');
+            scene.setSill(null);
+            scene.setErrands(errandBoard([minion('m1'), minion('m2', {type: 'scribe', spawnedAt: 5000})]), 'running');
+            step(40);
+            expect(canvas.dataset.errandsInTransit).toBe('0');
             scene.destroy();
         });
 

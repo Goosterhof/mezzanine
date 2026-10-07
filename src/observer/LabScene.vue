@@ -2,6 +2,8 @@
 import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 
 import type {Colleague, ScientistId} from '../roster/types';
+import type {ErrandEvent} from './errands';
+import type {SillEnvelope} from './sill';
 import type {ActivityState, ScientistErrands} from './types';
 
 import {COLLEAGUES, colleagueLabel, targetLabel} from '../roster/types';
@@ -53,6 +55,7 @@ interface SceneController {
     deliver: (receiver: Colleague) => 'started' | 'queued' | 'dropped';
     resize: (width: number) => void;
     setErrands: (errands: ScientistErrands | null, scientistState: ActivityState) => void;
+    setSill: (sill: ErrandSill | null) => void;
     getStationPos: (id: ScientistId) => {x: number; y: number} | null;
     getFloorSize: () => {w: number; h: number};
     pauseRaf: () => void;
@@ -60,14 +63,24 @@ interface SceneController {
     destroy: () => void;
 }
 
+/** The Rail (#00067 P2): the page's sill canvas, its measured envelope and the plumb-line's x. */
+export interface ErrandSill {
+    canvas: HTMLCanvasElement | null;
+    envelope: SillEnvelope | null;
+    plumbX: number | null;
+}
+
 interface Props {
     /** The compact posture: the same bench drawing, cropped to 64px. */
     strip?: boolean;
     active?: boolean;
+    /** The Rail, measured by ConversationPage; null until it has measured. */
+    sill?: ErrandSill | null;
 }
 
-const {strip = false, active = true} = defineProps<Props>();
-const emit = defineEmits<{placed: []}>();
+const {strip = false, active = true, sill = null} = defineProps<Props>();
+// `errand`: the floor's voice (a volley, the monkey loose, a held wait) for the page's live region.
+const emit = defineEmits<{placed: []; errand: [event: ErrandEvent]}>();
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const containerRef = ref<HTMLDivElement | null>(null);
@@ -145,6 +158,10 @@ function pushErrandsToScene(): void {
     if (controller) controller.setErrands(madScientistErrands.value.errands, madScientistErrands.value.state);
 }
 
+function pushSillToScene(): void {
+    if (controller) controller.setSill(sill);
+}
+
 function pushTubeToScene(): void {
     if (controller) controller.setTube(tubeWords.value);
 }
@@ -179,6 +196,7 @@ onMounted(async () => {
             canvas: HTMLCanvasElement;
             onInteraction?: (msg: {type: string; action?: string}) => void;
             onPlaced?: () => void;
+            onErrandEvent?: (event: ErrandEvent) => void;
         }) => SceneController;
     };
     controller = mod.initScene({
@@ -186,6 +204,7 @@ onMounted(async () => {
         // The selected figure moved (or the drawing re-cut): the plumb-line
         // re-reads its CURRENT x in the same frame (trip-wire 8).
         onPlaced: () => emit('placed'),
+        onErrandEvent: (event) => emit('errand', event),
         onInteraction: (msg) => {
             // The recall pathway (#00059 J-3): the `[ recall ]` note in a
             // canvas margin caption rides the recallScientist:<id> wire
@@ -218,6 +237,7 @@ onMounted(async () => {
     pushTubeToScene();
     pushVacanciesToScene();
     if (!active) controller.pauseRaf();
+    pushSillToScene();
     pushErrandsToScene();
     // Reactively re-push when the roster or activity map changes.
     unwatchers.push(
@@ -228,6 +248,7 @@ onMounted(async () => {
         watch(tubeWords, pushTubeToScene, {deep: true}),
         watch(vacancies, pushVacanciesToScene, {deep: true}),
         watch(madScientistErrands, pushErrandsToScene),
+        watch(() => sill, pushSillToScene, {deep: true}),
         watch(() => ({...colleagues.tubeArrivals.value}), crossOnArrival),
     );
     resizeObserver = new ResizeObserver(fitToContainer);

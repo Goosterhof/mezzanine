@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {onBeforeUnmount, onMounted, ref, watch} from 'vue';
 
+import {BRASS} from '../shell/brass';
 import {BUILDINGS} from './gameCore';
 import {useGrind} from './useGrind';
 
@@ -66,7 +67,7 @@ function tileColor(tier: number): string {
         case 2:
             return '#a855f7';
         case 3:
-            return '#d4a24c';
+            return BRASS;
         default:
             return '#9098a4';
     }

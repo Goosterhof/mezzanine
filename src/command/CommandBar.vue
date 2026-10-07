@@ -4,12 +4,14 @@ import {computed, onMounted, ref} from 'vue';
 import {colleagueLabel} from '../roster/types';
 import {useRoster} from '../roster/useRoster';
 import {useRosterBackend} from '../roster/useRosterBackend';
+import {useLastKeystroke} from './useLastKeystroke';
 
 const input = ref('');
 const fieldRef = ref<HTMLInputElement | null>(null);
 
 const roster = useRoster();
 const backend = useRosterBackend();
+const keystrokes = useLastKeystroke();
 const recipient = computed(() => {
     const colleague = roster.selectedScientist.value?.colleague;
     return colleague ? colleagueLabel(colleague) : 'Selected scientist';
@@ -34,7 +36,10 @@ async function dispatch(): Promise<void> {
 </script>
 
 <template>
-    <footer class="h-12 flex-shrink-0 border-t border-mz-edge bg-mz-command flex items-center px-6 shadow-tray">
+    <footer
+        class="h-12 flex-shrink-0 border-t border-mz-edge bg-mz-command flex items-center px-6 shadow-tray"
+        data-command-bar
+    >
         <span class="mz-stamp-label mr-3">Direct</span>
         <input
             ref="fieldRef"
@@ -45,6 +50,7 @@ async function dispatch(): Promise<void> {
             autocomplete="off"
             spellcheck="false"
             data-command-input
+            @keydown="keystrokes.note()"
             @keydown.enter.prevent="dispatch"
         />
         <span class="mz-stamp-label ml-4">To: {{ recipient }}</span>

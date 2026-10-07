@@ -223,12 +223,11 @@ describe('the Specimens in ink (AC-3)', () => {
     });
 
     it('should hold no raw hex in the errand floor’s modules — colour truth lives in pen.ts (§3 #6)', () => {
-        // P2 adds sill.ts, monkey.ts and sillPainter.ts to this sweep.
         const sources = import.meta.glob<string>(
-            '../../src/observer/{specimen,specimenFit,errands,errandFurniture}.ts',
+            '../../src/observer/{specimen,specimenFit,errands,errandFurniture,monkey,sill,sillPainter}.ts',
             {query: '?raw', import: 'default', eager: true},
         );
-        expect(Object.keys(sources)).toHaveLength(4);
+        expect(Object.keys(sources)).toHaveLength(7);
         const hexes = Object.entries(sources).flatMap(([file, src]) =>
             (src.match(/#[0-9a-fA-F]{6}\b/g) ?? []).map((hex) => `${file}: ${hex}`),
         );

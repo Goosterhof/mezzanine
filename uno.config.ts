@@ -1,5 +1,7 @@
 import {defineConfig, presetAttributify, presetIcons, presetWind3, transformerVariantGroup} from 'unocss';
 
+import {BRASS, BRASS_DIM} from './src/shell/brass';
+
 // The Mezzanine — Balcony palette.
 //
 // The Mezzanine's visual posture is architectural: the investor stands on an
@@ -40,8 +42,8 @@ export default defineConfig({
             'mz-pulse-crashed': '#F87171', // red
 
             // Brass — accents on balcony fittings
-            'mz-brass': '#D4A24C',
-            'mz-brass-dim': '#8C6A2F',
+            'mz-brass': BRASS,
+            'mz-brass-dim': BRASS_DIM,
 
             // Signal — only used when the laboratory needs the investor's eye
             'mz-signal': '#F59E0B',

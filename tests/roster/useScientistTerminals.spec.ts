@@ -1,6 +1,7 @@
 import {Terminal} from '@xterm/xterm';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
+import {_resetForTests, useLastKeystroke} from '../../src/command/useLastKeystroke';
 import {useScientistTerminals} from '../../src/roster/useScientistTerminals';
 
 const ctrlC = () => new KeyboardEvent('keydown', {ctrlKey: true, key: 'c'});
@@ -127,5 +128,28 @@ describe('useScientistTerminals — Phase 2A', () => {
         slot.terminal.input('hi', false);
         await Promise.resolve();
         expect(handler).not.toHaveBeenCalled();
+    });
+
+    describe('the keystroke witness (#00067 P2)', () => {
+        it('should note the Mad Scientist’s keydowns, and only his, for the grip gate', () => {
+            _resetForTests();
+            useScientistTerminals().setKeystrokeWitness('ms');
+            const ms = armedChord('ms');
+            const heretic = armedChord('heretic');
+            heretic.chord(new KeyboardEvent('keydown', {key: 'x'}));
+            expect(useLastKeystroke().msSince()).toBe(Number.POSITIVE_INFINITY);
+            ms.chord(new KeyboardEvent('keyup', {key: 'x'}));
+            expect(useLastKeystroke().msSince()).toBe(Number.POSITIVE_INFINITY);
+            expect(ms.chord(new KeyboardEvent('keydown', {key: 'x'}))).toBe(true);
+            expect(useLastKeystroke().msSince()).toBeLessThan(1000);
+        });
+
+        it('should never take a terminal-generated reply or a paste (onData) for a keystroke', async () => {
+            _resetForTests();
+            useScientistTerminals().setKeystrokeWitness('ms');
+            useScientistTerminals().get('ms').terminal.input('\u001b[?1;2c', false);
+            await Promise.resolve();
+            expect(useLastKeystroke().msSince()).toBe(Number.POSITIVE_INFINITY);
+        });
     });
 });

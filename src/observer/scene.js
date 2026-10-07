@@ -29,13 +29,14 @@
 // up to 223 px.
 // =============================================================================
 
+import {useLastKeystroke} from '../command/useLastKeystroke';
 import {createLongBench, archPath, quadAt} from './crossing';
 import {drawCork, corkRoll, drawLedger, flaskFoam, inTray, lightPool, overflowGlyph} from './errandFurniture';
 import {createErrandFloor, flaskX, POST_OFFSETS, receiptNowS, trayX} from './errands';
 import {drawScientist} from './figure';
 import {AMBER, INK, MINT, PAPER, PENCIL, RED, SHADE, SketchPen} from './pen';
 import * as Projection from './projection';
-import {drawSpecimen} from './specimen';
+import {inkFigure, paintSill} from './sillPainter';
 
 // How many 60fps frames each ink pose holds before re-jittering.
 // 14 ≈ 4.3 redraws/sec — a calm, deliberate boil.
@@ -545,6 +546,10 @@ export function initScene(opts) {
     let lastTs = null;
     let clockS = 0;
     let lastPlacedKey = '';
+    /** the Rail: the page's sill canvas, its measured envelope and the plumb-line's x (P2) */
+    let sill = null;
+    let sillKey = '';
+    const keystrokes = useLastKeystroke();
 
     /** Caption notes per colleague: target label, startedAtMs, idle, crash. */
     const notes = new Map();
@@ -709,35 +714,48 @@ export function initScene(opts) {
         }
     }
 
-    /** One minion in ink, its feet on the benchtop (or wherever its hop has it). */
+    /** One minion in ink on the bench canvas, at its own place in the drawing. */
     function drawMinion(fig) {
         ctx.save();
         ctx.translate(fig.x, fig.y);
-        ctx.scale(fig.s, fig.s);
-        drawSpecimen(pen, {
-            ...fig,
-            t: clockS,
-            frame: reducedMotion ? 0 : Math.floor(clockS * 60),
-            part: 'all',
-            still: reducedMotion,
-        });
+        inkFigure(pen, fig, {t: clockS, still: reducedMotion, part: 'all'});
         ctx.restore();
         pen.s = 1;
     }
 
-    /** The errand floor (#00067 P1): the cork, the foam, the in-tray, the R5′
-     *  pools, the "+N", and every minion out, all on the benchtop. */
-    function drawErrandFloor() {
+    /** The errand floor (#00067): the cork, the foam, the in-tray, the monkey's blots, the R5′
+     *  pools, the "+N", and every minion whose ink stays inside the band. */
+    function drawErrandFloor(bandFigures) {
         const b = geo.benchTopY;
         const flask = {x: flaskX(geo), b};
         const f = floor.furniture(geo);
         drawCork(pen, flask, f.corkOut, corkRoll(f.now, f.corkAt, reducedMotion));
         flaskFoam(pen, flask, f.now, f);
         inTray(pen, {x: trayX(geo), b}, f.tray);
+        pen.s = 1;
+        pen.jitter = 1;
+        for (const blot of f.blots) pen.splat(blot.x, blot.y, 7);
         for (const pool of f.pools) lightPool(ctx, pool.x, b, pool.rx);
         const lastPost = Math.max(...POST_OFFSETS[3]);
         overflowGlyph(ctx, [geo.w / 2 + lastPost + 30, b - 5], f.overflow);
-        for (const fig of floor.figures(geo, clockS)) drawMinion(fig);
+        for (const fig of bandFigures) drawMinion(fig);
+    }
+
+    /** The Rail (P2): the figures over the brass, painted into the sill canvas the page laid
+     *  over the command bar — in this same tick, and only when the frame's content changed. */
+    function paintRail(borderFigures) {
+        if (!sill || !sill.canvas || !sill.envelope) return;
+        const seed = boilSeed();
+        const key = `${seed}|${geo.w}|${geo.cropTop}|${JSON.stringify(sill.envelope)}|${borderFigures
+            .map((f) => `${f.id}:${Math.round(f.x * 2)}:${Math.round(f.y * 2)}:${f.arms}:${f.legs}:${f.kind}`)
+            .join(',')}`;
+        if (key === sillKey) return;
+        sillKey = key;
+        paintSill(sill.canvas, {env: sill.envelope, geo, dpr: DPR}, borderFigures, {
+            t: clockS,
+            still: reducedMotion,
+            seed,
+        });
     }
 
     /** The errand ledger on the bench front's second line (§6 Voice). The strip
@@ -763,7 +781,8 @@ export function initScene(opts) {
         drawBench(pen, geo);
         drawProps(pen, geo, fr);
         // behind the arch's plane: the pipe, the bells and the capsule cover any minion
-        drawErrandFloor();
+        const figures = floor.figures(geo, clockS);
+        drawErrandFloor(figures.filter((f) => f.layer === 'band'));
         drawArch(pen, geo);
         drawBell(pen, geo, geo.bell['mad-scientist']);
         drawBell(pen, geo, geo.bell.heretic);
@@ -774,6 +793,7 @@ export function initScene(opts) {
         drawVacancies();
         drawErrandLedger();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
+        paintRail(figures.filter((f) => f.layer === 'border'));
     }
 
     /** Tell the host the selected figure moved (or the drawing re-cut), so the
@@ -799,7 +819,8 @@ export function initScene(opts) {
     function tick(dt) {
         clockS += reducedMotion ? 0 : dt;
         bench.advance(dt);
-        for (const ev of floor.advance(receiptNowS())) onErrandEvent(ev);
+        const gate = {keystrokeQuietS: keystrokes.msSince() / 1000, pageActive: !rafPaused};
+        for (const ev of floor.advance(receiptNowS(), gate)) onErrandEvent(ev);
         render();
         markPhase();
         reportPlacement();
@@ -960,6 +981,19 @@ export function initScene(opts) {
         return outcome;
     }
 
+    /** The Rail (#00067 P2): the page's sill canvas and its measured envelope, or null — no sill
+     *  (a short window, a page mid-mount): no grip, a waiter keeps its post, the monkey sits. */
+    function setSill(next) {
+        sill = next && next.envelope ? next : null;
+        sillKey = '';
+        floor.setRail(sill ? {env: sill.envelope, plumbX: sill.plumbX ?? null} : null);
+        if (!sill && next && next.canvas) {
+            const sctx = next.canvas.getContext('2d');
+            if (sctx) sctx.clearRect(0, 0, next.canvas.width, next.canvas.height);
+        }
+        if (rafPaused || reducedMotion) render();
+    }
+
     /** Who the Mad Scientist sent out (#00067): one Semaphore board's minions,
      *  or null when his session ended (every errand swept, silently). The fold
      *  runs on the Mezzanine's RECEIPT clock, never the board's. A paused page
@@ -1024,6 +1058,7 @@ export function initScene(opts) {
         deliver,
         resize,
         setErrands,
+        setSill,
         getStationPos,
         getFloorSize,
         pauseRaf,

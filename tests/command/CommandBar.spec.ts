@@ -5,6 +5,7 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 import type {Scientist} from '../../src/roster/types';
 
 import CommandBar from '../../src/command/CommandBar.vue';
+import {_resetForTests, useLastKeystroke} from '../../src/command/useLastKeystroke';
 import {useRoster} from '../../src/roster/useRoster';
 import {useRosterBackend} from '../../src/roster/useRosterBackend';
 import {useScientistTerminals} from '../../src/roster/useScientistTerminals';
@@ -86,5 +87,13 @@ describe('CommandBar — Phase 2A', () => {
         await input.trigger('keydown.enter');
         await Promise.resolve();
         expect(mockedInvoke).not.toHaveBeenCalledWith('write_to_scientist', expect.anything());
+    });
+
+    it('notes every keystroke for the Errand Floor: a minion never climbs over a line being written (#00067 P2)', async () => {
+        _resetForTests();
+        const wrapper = mount(CommandBar);
+        expect(useLastKeystroke().msSince()).toBe(Number.POSITIVE_INFINITY);
+        await wrapper.get('[data-command-input]').trigger('keydown', {key: 'a'});
+        expect(useLastKeystroke().msSince()).toBeLessThan(1000);
     });
 });
