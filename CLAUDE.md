@@ -235,6 +235,12 @@ regression test in `pty/substrate.rs` is part of the test suite.
   canvas mounts one `Terminal` per dispatched scientist (lazy on first
   selection, kept alive until recall). xterm's own scrollback (5000
   lines) renders ANSI from `claude` directly.
+- **The copy chord (v0.3.5):** Ctrl+C with a selection on either bench
+  copies it through `navigator.clipboard` and sends nothing to the pty; no
+  selection keeps the interrupt; Ctrl+Shift+C always copies. Lifted from the
+  war-tent's seat chord (WR-0912): `src/roster/copyChord.ts` is the pure
+  layer, `useScientistTerminals` arms it before `onData`. A refused clipboard
+  write on a plain Ctrl+C falls back to the interrupt.
 - **Async:** `tokio` for the Tauri runtime; the reader thread per
   scientist is a dedicated `std::thread::spawn` (blocking pty read).
 - **Persistence:** `tauri-plugin-store` for first-run wizard config
@@ -339,6 +345,7 @@ mezzanine/
 │   │   ├── useRoster.ts ...... Singleton roster + recalled-strip + selection state
 │   │   ├── useRosterBackend.ts IPC bridge — wires dispatch / recall / list / events
 │   │   ├── useScientistTerminals.ts xterm.js Terminal pool, keyed by ScientistId
+│   │   ├── copyChord.ts ...... Ctrl+C copies a selection, else interrupts (pure)
 │   │   ├── useIdleWarning.ts . 1h idle threshold, ticks every minute
 │   │   ├── PulseDot.vue ...... 5-state animated indicator + idle-warning treatment
 │   │   ├── RecentlyRecalledStrip.vue  5-minute dim strip — docked under the Balustrade while populated (#00059 J-3 re-home; data/TTL logic untouched. ScientistRow + the railing plates retired with the DOM roster — every duty migrated to the canvas margin captions)
