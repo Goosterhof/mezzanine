@@ -70,8 +70,9 @@ impl SessionSpec {
             cwd.to_string_lossy().trim_end_matches('/')
         );
         // The lab's Claude Mods for this colleague: the Bench Warden (the
-        // CWD Guard, shadow mode) and the Tube Doorbell (the Speaking Tube's
-        // bell, which replaced the development channel). ':' is the
+        // CWD Guard, shadow mode), the Tube Doorbell (the Speaking Tube's
+        // bell, which replaced the development channel) and the Semaphore
+        // (the board the Long Bench reads). ':' is the
         // path-list separator of the bash the session runs in.
         let lab = cwd.to_string_lossy();
         let lab = lab.trim_end_matches('/');
@@ -95,19 +96,23 @@ impl SessionSpec {
                     ),
                     ("SPEAKING_TUBE_DATABASE".into(), database),
                     ("SPEAKING_TUBE_CONNECTION_ID".into(), connection_id.into()),
-                    // The lab's mods (`.claude/mods/bench-warden`,
-                    // `.claude/mods/tube-doorbell`) load for THIS colleague
-                    // only. Launch-scoped on purpose: the engine reads
-                    // CLAUDE_CODE_PLUGIN_DIRS from the process env or user
-                    // settings, never project settings, and user settings
-                    // would load them into every Claude session on the
-                    // machine. The paths come from the lab root, so both
-                    // benches (`~/code`, `~/Code`) resolve their own.
                     ("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS".into(), "1".into()),
-                    ("CLAUDE_CODE_PLUGIN_DIRS".into(), plugin_dirs),
                     ("MEZZANINE_SEMAPHORE_PATH".into(), semaphore),
                 ];
                 spec.args = vec![
+                    // The lab's mods load for THIS colleague only, through
+                    // `--settings`, never the process env. A user-settings
+                    // `env` block beats the process env, so the war room's
+                    // machine-wide CLAUDE_CODE_PLUGIN_DIRS silently replaced
+                    // an exported list on the installed v0.3.4 balcony; the
+                    // flag's settings outrank user settings, and
+                    // `--plugin-dir` does not load a mod at all (measured
+                    // 2026-10-07, Claude Code 2.1.292). The paths come from
+                    // the lab root, so both benches (`~/code`, `~/Code`)
+                    // resolve their own.
+                    "--settings".into(),
+                    serde_json::json!({ "env": { "CLAUDE_CODE_PLUGIN_DIRS": plugin_dirs } })
+                        .to_string(),
                     // A fixed display name, so peers address this session as
                     // `mad-scientist` (ListAgents, SendMessage) on every
                     // launch. No channel flag: the Tube Doorbell mod rings
@@ -605,9 +610,25 @@ mod tests {
             assert!(claude
                 .env
                 .contains(&("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS".into(), "1".into())));
-            assert!(claude.env.contains(&(
-                "CLAUDE_CODE_PLUGIN_DIRS".into(),
+            // The mod list rides `--settings`, never the process env: a
+            // user-settings `env` block would override an exported one.
+            assert!(!claude
+                .env
+                .iter()
+                .any(|(key, _)| key == "CLAUDE_CODE_PLUGIN_DIRS"));
+            let flag = claude
+                .args
+                .iter()
+                .position(|arg| arg == "--settings")
+                .expect("the Mad Scientist launches with --settings");
+            let settings: serde_json::Value =
+                serde_json::from_str(&claude.args[flag + 1]).expect("--settings carries JSON");
+            assert_eq!(
+                settings["env"]["CLAUDE_CODE_PLUGIN_DIRS"],
                 format!("{lab}/.claude/mods/bench-warden:{lab}/.claude/mods/tube-doorbell:{lab}/.claude/mods/semaphore")
+            );
+            assert!(inner_shell_command(&claude).contains(&format!(
+                "'--settings' '{{\"env\":{{\"CLAUDE_CODE_PLUGIN_DIRS\":\"{lab}/.claude/mods/bench-warden:"
             )));
             assert!(claude.env.contains(&(
                 "MEZZANINE_SEMAPHORE_PATH".into(),
@@ -626,6 +647,7 @@ mod tests {
             .iter()
             .any(|(key, _)| key.starts_with("CLAUDE_CODE_") || key == "MEZZANINE_SEMAPHORE_PATH"));
         assert!(!codex.args.contains(&"--name".into()));
+        assert!(!codex.args.contains(&"--settings".into()));
         // Ordinary dispatches stay unmodded.
         let dispatched = SessionSpec::for_target(
             Path::new("/home/scientist/code/zmuuzn"),
