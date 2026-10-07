@@ -811,3 +811,18 @@ describe('the sill as a recorded place (PR #177 review)', () => {
         expect(figure(coarse, 'a')?.y).toBeCloseTo(figure(fine, 'a')?.y ?? Number.NaN, 6);
     });
 });
+
+describe('a paused page lands the sill too (PR #177 review)', () => {
+    it('should count a climb into the sill as a transit, and land it at its place', () => {
+        const floor = railed();
+        floor.ingest(live([minion('w')]), 'running', 1);
+        floor.land();
+        floor.ingest(live([minion('w', {state: 'waiting'})]), 'running', 2);
+        floor.advance(3.6, QUIET);
+        expect(floor.inTransit()).toBe(1);
+        expect(figure(floor, 'w')).toMatchObject({arms: 'idle', walking: true});
+        floor.land();
+        expect(floor.inTransit()).toBe(0);
+        expect(figure(floor, 'w')).toMatchObject({layer: 'border', arms: 'point', legs: 'hang'});
+    });
+});

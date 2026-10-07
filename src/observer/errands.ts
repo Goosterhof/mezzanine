@@ -1122,6 +1122,15 @@ function poolsOf(st: FloorState, geo: BenchGeometry): {x: number; rx: number}[] 
     return out;
 }
 
+/** The climbs into the sill and the walks back down still under way (they are transits too). */
+function sillWalks(st: FloorState): number {
+    let n = 0;
+    const hold = st.sill;
+    if (hold?.reason === 'permission' && eff(st, hold.since, hold.since + SILL_RISE_S) < hold.since + SILL_RISE_S) n++;
+    for (const left of st.sillExits.values()) if (eff(st, left, left + SILL_RETURN_S) < left + SILL_RETURN_S) n++;
+    return n;
+}
+
 /** A slip lands when its runner reaches the tray — at once, if that departure has settled. */
 function trayOf(st: FloorState): TraySlip[] {
     return st.slips
@@ -1266,7 +1275,8 @@ export function createErrandFloor(reducedMotion = false): ErrandFloor {
         nextDeadline: () => nextDeadline(st),
         inTransit() {
             const moving = new Set<ErrandPhase>(['born', 'hop', 'grip', 'home']);
-            return [...st.errands.values()].filter((e) => moving.has(phaseAt(st, e, 1))).length;
+            const walking = [...st.errands.values()].filter((e) => moving.has(phaseAt(st, e, 1))).length;
+            return walking + sillWalks(st);
         },
         figures(geo, act) {
             const c: FigureCtx = {st, geo, s: minionScale(geo), act, rail: st.rail};

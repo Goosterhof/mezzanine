@@ -582,7 +582,7 @@ describe('the Long Bench renderer', () => {
         it("should wake a paused page at the floor's next deadline: a held wait still speaks without a loop (PR #177 review)", async () => {
             vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']});
             const onErrandEvent = vi.fn<(ev: unknown) => void>();
-            const {scene} = await floorScene({onErrandEvent});
+            const {scene, canvas} = await floorScene({onErrandEvent});
             scene.setErrands(errandBoard([minion('w')]), 'running');
             step(60);
             scene.pauseRaf();
@@ -598,6 +598,8 @@ describe('the Long Bench renderer', () => {
                 name: 'the Surgeon',
                 detail: 'Asking permission: Bash',
             });
+            // the climb into the sill lands at once on a paused page: nothing frozen mid-arc, nothing to replay
+            expect(canvas.dataset.errandsInTransit).toBe('0');
             // and it sleeps again once nothing is pending
             expect(vi.getTimerCount()).toBe(0);
             scene.destroy();

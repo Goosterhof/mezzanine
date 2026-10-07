@@ -999,6 +999,9 @@ export function initScene(opts) {
     function wake() {
         wakeHandle = 0;
         for (const ev of floor.advance(receiptNowS(), gateNow())) onErrandEvent(ev);
+        // nobody is watching a paused page: whatever the deadline set moving (a waiter's climb
+        // into the sill) lands at its place now, never frozen mid-arc, never replayed (§7)
+        floor.land();
         render();
         markPhase();
         scheduleWake();
