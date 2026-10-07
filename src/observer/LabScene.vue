@@ -2,7 +2,7 @@
 import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 
 import type {Colleague, ScientistId} from '../roster/types';
-import type {ActivityState} from './types';
+import type {ActivityState, ScientistErrands} from './types';
 
 import {COLLEAGUES, colleagueLabel, targetLabel} from '../roster/types';
 import {useColleagues} from '../roster/useColleagues';
@@ -42,7 +42,8 @@ interface SceneVacancy {
 // (the canvas is sized to its container), `setTube` (the bells' own words),
 // `setVacant` (a bench that failed to open) and `deliver` (one crossing per
 // rise of mail). `getStationPos` now answers with the figure's CURRENT
-// position, or null while that colleague has no figure (the D4 fix).
+// position, or null while that colleague has no figure (the D4 fix). The
+// errand floor (#00067) adds `setErrands`: the minions the Mad Scientist sent.
 interface SceneController {
     setRoster: (entries: SceneRosterEntry[]) => void;
     setSelected: (id: ScientistId | null) => void;
@@ -51,6 +52,7 @@ interface SceneController {
     setVacant: (list: SceneVacancy[]) => void;
     deliver: (receiver: Colleague) => 'started' | 'queued' | 'dropped';
     resize: (width: number) => void;
+    setErrands: (errands: ScientistErrands | null, scientistState: ActivityState) => void;
     getStationPos: (id: ScientistId) => {x: number; y: number} | null;
     getFloorSize: () => {w: number; h: number};
     pauseRaf: () => void;
@@ -131,6 +133,18 @@ const vacancies = computed<SceneVacancy[]>(() =>
     ),
 );
 
+// The errand floor (#00067): only the Mad Scientist sends minions out, so
+// only his board's errands reach the bench, with his activity (R5′ lights a
+// background errand's pool only while he idles).
+const madScientistErrands = computed<{errands: ScientistErrands | null; state: ActivityState}>(() => {
+    const ms = rosterEntries.value.find((e) => e.colleague === 'mad-scientist');
+    return {errands: ms ? (observer.errands.value.get(ms.id) ?? null) : null, state: ms?.activity ?? 'idle'};
+});
+
+function pushErrandsToScene(): void {
+    if (controller) controller.setErrands(madScientistErrands.value.errands, madScientistErrands.value.state);
+}
+
 function pushTubeToScene(): void {
     if (controller) controller.setTube(tubeWords.value);
 }
@@ -204,6 +218,7 @@ onMounted(async () => {
     pushTubeToScene();
     pushVacanciesToScene();
     if (!active) controller.pauseRaf();
+    pushErrandsToScene();
     // Reactively re-push when the roster or activity map changes.
     unwatchers.push(
         watch(rosterEntries, pushRosterToScene, {deep: true}),
@@ -212,6 +227,7 @@ onMounted(async () => {
         watch(() => strip, pushStripToScene),
         watch(tubeWords, pushTubeToScene, {deep: true}),
         watch(vacancies, pushVacanciesToScene, {deep: true}),
+        watch(madScientistErrands, pushErrandsToScene),
         watch(() => ({...colleagues.tubeArrivals.value}), crossOnArrival),
     );
     resizeObserver = new ResizeObserver(fitToContainer);

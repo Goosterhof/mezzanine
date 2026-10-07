@@ -7,7 +7,24 @@
 
 import {describe, expect, it} from 'vitest';
 
-import {AMBER, INK, MINT, PAPER, PENCIL, type Pt, RED, SHADE, SKIN, SketchPen} from '../../src/observer/pen';
+import * as Pen from '../../src/observer/pen';
+import {
+    AMBER,
+    CORK,
+    FUR,
+    GLASS,
+    INK,
+    MINT,
+    PAPER,
+    PENCIL,
+    type Pt,
+    RED,
+    SCORCH,
+    SHADE,
+    SHEET,
+    SKIN,
+    SketchPen,
+} from '../../src/observer/pen';
 
 interface RecordedCall {
     method: string;
@@ -73,6 +90,22 @@ describe('SketchPen — the ink toolkit (#00059 J-1)', () => {
 
         it('exports PAPER — the shared page colour the torn edge cannot drift from', () => {
             expect(PAPER).toBe('#f3ecdc');
+        });
+
+        it('exports the errand floor’s five inks, moved from the ruled prototype unchanged (#00067 blocker 6)', () => {
+            expect(FUR).toBe('#6b4a2a');
+            expect(GLASS).toBe('#9fb4c4');
+            expect(SHEET).toBe('#fffdf2');
+            expect(CORK).toBe('#a0764a');
+            expect(SCORCH).toBe('#e8d7b4');
+        });
+
+        it('never names one ink twice — each hex has one token', () => {
+            const inks = Object.values(Pen as Record<string, unknown>).filter(
+                (v): v is string => typeof v === 'string' && v.startsWith('#'),
+            );
+            expect(inks.length).toBeGreaterThanOrEqual(13);
+            expect(new Set(inks.map((v) => v.toLowerCase())).size).toBe(inks.length);
         });
     });
 

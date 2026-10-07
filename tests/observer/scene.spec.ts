@@ -8,7 +8,7 @@
 
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
-import type {ActivityState} from '../../src/observer/types';
+import type {ActivityState, SemaphoreMinion} from '../../src/observer/types';
 
 import {INK, PENCIL, RED} from '../../src/observer/pen';
 import {benchGeometry, benchStationX} from '../../src/observer/projection';
@@ -39,6 +39,10 @@ interface SceneController {
     setVacant: (list: {colleague: string; label: string}[]) => void;
     deliver: (receiver: 'mad-scientist' | 'heretic') => string;
     resize: (width: number) => void;
+    setErrands: (
+        errands: {minions: SemaphoreMinion[]; departed: {id: string; type: string; at: number}[]; at: number} | null,
+        state: ActivityState,
+    ) => void;
     getStationPos: (id: string) => {x: number; y: number} | null;
     getFloorSize: () => {w: number; h: number};
     pauseRaf: () => void;
@@ -63,6 +67,24 @@ function entry(colleague: 'mad-scientist' | 'heretic', activity: ActivityState, 
         crashed: false,
         ...extra,
     };
+}
+
+function minion(id: string, over: Partial<SemaphoreMinion> = {}): SemaphoreMinion {
+    return {
+        id,
+        type: 'surgeon',
+        task: `task ${id}`,
+        background: false,
+        spawnedAt: 0,
+        state: 'reading',
+        detail: 'Reading crossing.ts',
+        since: 0,
+        ...over,
+    };
+}
+
+function errandBoard(minions: SemaphoreMinion[]) {
+    return {minions, departed: [], at: 0};
 }
 
 function recordingCanvas() {
@@ -107,13 +129,28 @@ function step(n = 1): void {
     }
 }
 
-async function boot(opts: {onInteraction?: (msg: {action?: string}) => void; onPlaced?: () => void} = {}) {
+async function boot(
+    opts: {
+        onInteraction?: (msg: {action?: string}) => void;
+        onPlaced?: () => void;
+        onErrandEvent?: (ev: unknown) => void;
+    } = {},
+) {
     const mod = (await import('../../src/observer/scene.js')) as unknown as {
         initScene: (o: {canvas: unknown; onInteraction?: unknown; onPlaced?: unknown}) => SceneController;
     };
     const rec = recordingCanvas();
     const scene = mod.initScene({canvas: rec.canvas, ...opts});
     return {scene, ...rec};
+}
+
+/** A bench with both colleagues at work and the errand floor past its cold start. */
+async function floorScene(opts: {onErrandEvent?: (ev: unknown) => void} = {}) {
+    const booted = await boot(opts);
+    booted.scene.setRoster([entry('mad-scientist', 'running'), entry('heretic', 'idle')]);
+    booted.scene.setErrands(errandBoard([]), 'running');
+    step();
+    return booted;
 }
 
 describe('the Long Bench renderer', () => {
@@ -141,14 +178,25 @@ describe('the Long Bench renderer', () => {
         scene.destroy();
     });
 
-    it('seats exactly two figures, ever — a roster row with no colleague draws nothing (trip-wire 4)', async () => {
-        const {scene} = await boot();
+    it('seats exactly two colleagues, ever — a roster row with no colleague draws nothing, and an errand never takes a seat (trip-wire 4, amended)', async () => {
+        const onInteraction = vi.fn<(msg: {action?: string}) => void>();
+        const {scene, listeners} = await boot({onInteraction});
         scene.setRoster([
             entry('mad-scientist', 'writing'),
             {...entry('heretic', 'idle'), id: 'legacy', colleague: null},
         ]);
         expect(scene.getStationPos(MAD)).not.toBeNull();
         expect(scene.getStationPos('legacy')).toBeNull();
+        scene.setErrands(
+            errandBoard([minion('m1'), minion('m2', {type: 'librarian'}), minion('m3', {type: 'scribe'})]),
+            'running',
+        );
+        step();
+        for (const id of ['m1', 'm2', 'm3']) expect(scene.getStationPos(id)).toBeNull();
+        const geo = benchGeometry(W, false);
+        for (const dx of [0, -46, 46])
+            listeners.get('click')?.({clientX: W / 2 + dx, clientY: geo.benchTopY - 20} as MouseEvent);
+        expect(onInteraction).not.toHaveBeenCalled();
         scene.destroy();
     });
 
@@ -358,6 +406,101 @@ describe('the Long Bench renderer', () => {
             onInteraction.mockClear();
             click?.({clientX: W / 2, clientY: 20} as MouseEvent);
             expect(onInteraction).not.toHaveBeenCalled();
+            scene.destroy();
+        });
+    });
+    describe('the errand floor (#00067)', () => {
+        let reducedHandler: ((e: {matches: boolean}) => void) | null = null;
+        beforeEach(() => {
+            reducedHandler = null;
+            vi.spyOn(performance, 'now').mockImplementation(() => now);
+            vi.stubGlobal('matchMedia', (query: string) => ({
+                matches: false,
+                media: query,
+                addEventListener: (_type: string, fn: (e: {matches: boolean}) => void) => {
+                    reducedHandler = fn;
+                },
+                removeEventListener: () => {},
+            }));
+        });
+
+        it('should land a cold start: what was already out stands at its post, and nothing is said', async () => {
+            const onErrandEvent = vi.fn<(ev: unknown) => void>();
+            const {scene, canvas, written} = await boot({onErrandEvent});
+            scene.setErrands(
+                errandBoard([minion('m1'), minion('m2', {type: 'librarian', spawnedAt: 5000, since: 9})]),
+                'running',
+            );
+            step(40);
+            expect(onErrandEvent).not.toHaveBeenCalled();
+            expect(canvas.dataset.errandsInTransit).toBe('0');
+            expect(written.map((w) => w.text)).toContain('the Librarian · Reading crossing.ts · 1 more out');
+            scene.destroy();
+        });
+
+        it('should hop a new minion out of the flask, and speak its volley once the 400 ms hold ends', async () => {
+            const onErrandEvent = vi.fn<(ev: unknown) => void>();
+            const {scene, canvas} = await floorScene({onErrandEvent});
+            scene.setErrands(errandBoard([minion('m1')]), 'running');
+            step(3);
+            expect(canvas.dataset.errandsInTransit).toBe('1');
+            expect(onErrandEvent).not.toHaveBeenCalled();
+            // 43 frames ≈ 0.72 s: past the 0.4 s volley hold and the 0.6 s hop
+            step(40);
+            expect(onErrandEvent).toHaveBeenCalledWith({kind: 'volley', names: ['the Surgeon']});
+            expect(canvas.dataset.errandsInTransit).toBe('0');
+            scene.destroy();
+        });
+
+        it('should land every errand when reduced motion turns on mid-hop (§2 scene.js (g))', async () => {
+            const {scene, canvas} = await floorScene();
+            scene.setErrands(errandBoard([minion('m1'), minion('m2', {type: 'scribe', spawnedAt: 100})]), 'running');
+            step(10);
+            expect(canvas.dataset.errandsInTransit).toBe('2');
+            reducedHandler?.({matches: true});
+            expect(canvas.dataset.errandsInTransit).toBe('0');
+            scene.destroy();
+        });
+
+        it('should land a hop when the page leaves, and land an arrival that comes in while it is away', async () => {
+            const {scene, canvas} = await floorScene();
+            scene.setErrands(errandBoard([minion('m1')]), 'running');
+            step(5);
+            expect(canvas.dataset.errandsInTransit).toBe('1');
+            scene.pauseRaf();
+            expect(canvas.dataset.errandsInTransit).toBe('0');
+            scene.setErrands(errandBoard([minion('m1'), minion('m2', {type: 'Explore', spawnedAt: 9000})]), 'running');
+            expect(canvas.dataset.errandsInTransit).toBe('0');
+            scene.destroy();
+        });
+
+        it('should write the ledger and the "+N" on the bench, and sweep them both when his session ends', async () => {
+            const {scene, written} = await floorScene();
+            const four = [
+                minion('a'),
+                minion('b', {type: 'librarian'}),
+                minion('c', {type: 'scribe'}),
+                minion('d', {type: 'synchronizer', since: 7}),
+            ];
+            scene.setErrands(errandBoard(four), 'running');
+            step(60);
+            const texts = written.map((w) => w.text);
+            expect(texts).toContain('the Synchronizer · Reading crossing.ts · 3 more out');
+            expect(texts).toContain('+1');
+            written.length = 0;
+            scene.setErrands(null, 'idle');
+            step();
+            expect(written.map((w) => w.text).some((t) => t.includes('more out') || t === '+1')).toBe(false);
+            scene.destroy();
+        });
+
+        it('should keep the ledger off the compact crop, where the bench front is cut away', async () => {
+            const {scene, written} = await floorScene();
+            scene.setErrands(errandBoard([minion('a')]), 'running');
+            scene.setStrip(true);
+            written.length = 0;
+            step(40);
+            expect(written.map((w) => w.text).some((t) => t.startsWith('the Surgeon'))).toBe(false);
             scene.destroy();
         });
     });

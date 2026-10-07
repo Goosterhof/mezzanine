@@ -21,16 +21,21 @@
 //
 // The controller surface is extended, not broken: setRoster / setSelected /
 // setStrip / getStationPos / getFloorSize / pauseRaf / resumeRaf / destroy,
-// plus resize / setTube / setVacant / deliver. `getStationPos` now answers
+// plus resize / setTube / setVacant / deliver, plus setErrands (the errand
+// floor, #00067: the minions the Mad Scientist sent out, drawn by
+// errands.ts + specimen.ts + errandFurniture.ts). `getStationPos` now answers
 // with the figure's CURRENT position — the D4 fix (#00041 §2.3): the old
 // seam returned the walk destination and the plumb-line led the figure by
 // up to 223 px.
 // =============================================================================
 
 import {createLongBench, archPath, quadAt} from './crossing';
+import {drawCork, corkRoll, drawLedger, flaskFoam, inTray, lightPool, overflowGlyph} from './errandFurniture';
+import {createErrandFloor, flaskX, POST_OFFSETS, receiptNowS, trayX} from './errands';
 import {drawScientist} from './figure';
 import {AMBER, INK, MINT, PAPER, PENCIL, RED, SHADE, SketchPen} from './pen';
 import * as Projection from './projection';
+import {drawSpecimen} from './specimen';
 
 // How many 60fps frames each ink pose holds before re-jittering.
 // 14 ≈ 4.3 redraws/sec — a calm, deliberate boil.
@@ -523,6 +528,8 @@ export function initScene(opts) {
     const canvas = opts.canvas;
     const onInteraction = typeof opts.onInteraction === 'function' ? opts.onInteraction : () => {};
     const onPlaced = typeof opts.onPlaced === 'function' ? opts.onPlaced : () => {};
+    // P1 (#00067): nothing listens yet; the Rail (P2) carries these to the live region.
+    const onErrandEvent = typeof opts.onErrandEvent === 'function' ? opts.onErrandEvent : () => {};
 
     const ctx = canvas.getContext('2d');
     const DPR = window.devicePixelRatio || 1;
@@ -557,9 +564,16 @@ export function initScene(opts) {
         typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
     let reducedMotion = reducedMotionQuery ? reducedMotionQuery.matches : false;
     bench.setReducedMotion(reducedMotion);
+    // The errand floor (#00067). One deliberate deviation from the colleagues
+    // (#00042 §2.8): under the clamp they still walk, but minions SNAP — an
+    // arrival is a transit, and a transit lands. Turning the clamp on mid-arc
+    // lands every errand at once.
+    const floor = createErrandFloor(reducedMotion);
     function onReducedMotionChange(e) {
         reducedMotion = e.matches;
         bench.setReducedMotion(reducedMotion);
+        floor.setReducedMotion(reducedMotion);
+        markPhase();
     }
     reducedMotionQuery?.addEventListener('change', onReducedMotionChange);
 
@@ -695,6 +709,44 @@ export function initScene(opts) {
         }
     }
 
+    /** One minion in ink, its feet on the benchtop (or wherever its hop has it). */
+    function drawMinion(fig) {
+        ctx.save();
+        ctx.translate(fig.x, fig.y);
+        ctx.scale(fig.s, fig.s);
+        drawSpecimen(pen, {
+            ...fig,
+            t: clockS,
+            frame: reducedMotion ? 0 : Math.floor(clockS * 60),
+            part: 'all',
+            still: reducedMotion,
+        });
+        ctx.restore();
+        pen.s = 1;
+    }
+
+    /** The errand floor (#00067 P1): the cork, the foam, the in-tray, the R5′
+     *  pools, the "+N", and every minion out, all on the benchtop. */
+    function drawErrandFloor() {
+        const b = geo.benchTopY;
+        const flask = {x: flaskX(geo), b};
+        const f = floor.furniture(geo);
+        drawCork(pen, flask, f.corkOut, corkRoll(f.now, f.corkAt, reducedMotion));
+        flaskFoam(pen, flask, f.now, f);
+        inTray(pen, {x: trayX(geo), b}, f.tray);
+        for (const pool of f.pools) lightPool(ctx, pool.x, b, pool.rx);
+        const lastPost = Math.max(...POST_OFFSETS[3]);
+        overflowGlyph(ctx, [geo.w / 2 + lastPost + 30, b - 5], f.overflow);
+        for (const fig of floor.figures(geo, clockS)) drawMinion(fig);
+    }
+
+    /** The errand ledger on the bench front's second line (§6 Voice). The strip
+     *  crop loses the bench front, so the compact posture shows no ledger. */
+    function drawErrandLedger() {
+        const line = floor.ledgerLine();
+        if (line && !stripMode) drawLedger(ctx, line, {w: geo.w, y: geo.benchTopY + 37});
+    }
+
     function render() {
         if (!ctx || !pen || destroyed) return;
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -710,6 +762,8 @@ export function initScene(opts) {
         for (const v of views) drawThoughtTrail(pen, geo, v);
         drawBench(pen, geo);
         drawProps(pen, geo, fr);
+        // behind the arch's plane: the pipe, the bells and the capsule cover any minion
+        drawErrandFloor();
         drawArch(pen, geo);
         drawBell(pen, geo, geo.bell['mad-scientist']);
         drawBell(pen, geo, geo.bell.heretic);
@@ -718,6 +772,7 @@ export function initScene(opts) {
         drawCaptions();
         drawTubeWords();
         drawVacancies();
+        drawErrandLedger();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
@@ -734,12 +789,17 @@ export function initScene(opts) {
     }
 
     function markPhase() {
-        if (canvas.dataset && canvas.dataset.benchPhase !== bench.phase) canvas.dataset.benchPhase = bench.phase;
+        if (!canvas.dataset) return;
+        if (canvas.dataset.benchPhase !== bench.phase) canvas.dataset.benchPhase = bench.phase;
+        // the errand floor's own mark: how many minions are mid-flight (0 once landed)
+        const transit = String(floor.inTransit());
+        if (canvas.dataset.errandsInTransit !== transit) canvas.dataset.errandsInTransit = transit;
     }
 
     function tick(dt) {
         clockS += reducedMotion ? 0 : dt;
         bench.advance(dt);
+        for (const ev of floor.advance(receiptNowS())) onErrandEvent(ev);
         render();
         markPhase();
         reportPlacement();
@@ -843,8 +903,10 @@ export function initScene(opts) {
 
     // --- Controller surface ---
 
-    /** Exactly two figures, ever (trip-wire 4): only the two colleagues are
-     *  seated. A roster row with no colleague draws nothing. */
+    /** Exactly two COLLEAGUES, ever (trip-wire 4, amended by #00042 R): only
+     *  the two colleagues are seated here; minions are drawn by the errand
+     *  floor and are never seated, selectable or captioned. A roster row with
+     *  no colleague draws nothing. */
     function setRoster(rosterEntries) {
         const list = Array.isArray(rosterEntries) ? rosterEntries : [];
         for (const id of COLLEAGUE_IDS) {
@@ -898,6 +960,20 @@ export function initScene(opts) {
         return outcome;
     }
 
+    /** Who the Mad Scientist sent out (#00067): one Semaphore board's minions,
+     *  or null when his session ended (every errand swept, silently). The fold
+     *  runs on the Mezzanine's RECEIPT clock, never the board's. A paused page
+     *  or the clamp lands what arrived: the investor did not see it fly. */
+    function setErrands(scientistErrands, scientistState) {
+        const state = Projection.isActivityState(scientistState) ? scientistState : 'idle';
+        for (const ev of floor.ingest(scientistErrands ?? null, state, receiptNowS())) onErrandEvent(ev);
+        if (rafPaused || reducedMotion) floor.land();
+        if (rafPaused) {
+            render();
+            markPhase();
+        }
+    }
+
     function getStationPos(scientistId) {
         const id = COLLEAGUE_IDS.find((c) => scientistIdOf.get(c) === scientistId);
         const a = id ? bench.actor(id) : null;
@@ -914,8 +990,10 @@ export function initScene(opts) {
         rafHandle = 0;
         // A capsule in the pipe has no place to be, so it lands; a walk holds
         // exactly where it stands (§5.6). Redraw once so a visible-but-
-        // unfocused window never shows either frozen in transit.
+        // unfocused window never shows either frozen in transit. An errand in
+        // flight lands at its post or in the in-tray, never replayed (#00067 §7).
         bench.land();
+        floor.land();
         render();
         markPhase();
     }
@@ -945,6 +1023,7 @@ export function initScene(opts) {
         setVacant,
         deliver,
         resize,
+        setErrands,
         getStationPos,
         getFloorSize,
         pauseRaf,
