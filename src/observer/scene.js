@@ -550,6 +550,8 @@ export function initScene(opts) {
     let sill = null;
     let sillKey = '';
     const keystrokes = useLastKeystroke();
+    /** The grip gate as it stands NOW: how long since the investor typed, whether the page is watched. */
+    const gateNow = () => ({keystrokeQuietS: keystrokes.msSince() / 1000, pageActive: !rafPaused});
 
     /** Caption notes per colleague: target label, startedAtMs, idle, crash. */
     const notes = new Map();
@@ -819,8 +821,7 @@ export function initScene(opts) {
     function tick(dt) {
         clockS += reducedMotion ? 0 : dt;
         bench.advance(dt);
-        const gate = {keystrokeQuietS: keystrokes.msSince() / 1000, pageActive: !rafPaused};
-        for (const ev of floor.advance(receiptNowS(), gate)) onErrandEvent(ev);
+        for (const ev of floor.advance(receiptNowS(), gateNow())) onErrandEvent(ev);
         render();
         markPhase();
         reportPlacement();
@@ -1000,7 +1001,7 @@ export function initScene(opts) {
      *  or the clamp lands what arrived: the investor did not see it fly. */
     function setErrands(scientistErrands, scientistState) {
         const state = Projection.isActivityState(scientistState) ? scientistState : 'idle';
-        for (const ev of floor.ingest(scientistErrands ?? null, state, receiptNowS())) onErrandEvent(ev);
+        for (const ev of floor.ingest(scientistErrands ?? null, state, receiptNowS(), gateNow())) onErrandEvent(ev);
         if (rafPaused || reducedMotion) floor.land();
         if (rafPaused) {
             render();

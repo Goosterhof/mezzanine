@@ -253,7 +253,12 @@ export interface ErrandGate {
 export interface ErrandFloor {
     /** Fold one board in. null = the session ended or exited → sweep, silently.
      *  The FIRST board after mount (or after a sweep) lands directly: no fling, 0 events. */
-    ingest(board: ScientistErrands | null, scientistState: ActivityState, nowS: number): ErrandEvent[];
+    ingest(
+        board: ScientistErrands | null,
+        scientistState: ActivityState,
+        nowS: number,
+        gate?: ErrandGate,
+    ): ErrandEvent[];
     /** Time passes: a held volley speaks, a wait that held 1.5 s speaks. */
     advance(nowS: number, gate?: ErrandGate): ErrandEvent[];
     /** Page return / reduced motion: every transit lands, nothing replays. */
@@ -1180,9 +1185,12 @@ export function createErrandFloor(reducedMotion = false): ErrandFloor {
         for (const v of st.pending) v.dueAt = st.now;
     };
     return {
-        ingest(board, scientistState, nowS) {
+        ingest(board, scientistState, nowS, gate) {
             st.now = Math.max(st.now, nowS);
             st.scientistState = scientistState;
+            // the grip gate is sampled at FOLD time: typing since the last frame, or a page that
+            // came back since, decides this board's arrivals (not the last frame's view of them)
+            if (gate) st.gate = gate;
             compact(st);
             if (board !== null) return foldBoard(st, board);
             // the session ended or exited: every errand swept, silently; the next board is a cold start
