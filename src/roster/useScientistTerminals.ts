@@ -11,6 +11,8 @@ import {Terminal, type IDisposable} from '@xterm/xterm';
 
 import type {ScientistId} from './types';
 
+import {makeCopyChordHandler} from './copyChord';
+
 export interface TerminalSlot {
     terminal: Terminal;
     fit: FitAddon;
@@ -61,6 +63,21 @@ function createSlot(id: ScientistId): TerminalSlot {
     });
     const fit = new FitAddon();
     terminal.loadAddon(fit);
+    // The copy chord, armed before onData can see a key: Ctrl+C with a
+    // selection copies it and never reaches the pty; no selection falls
+    // through to onData and interrupts, as before. Laws in copyChord.ts. The
+    // webview's navigator.clipboard is the lane (no Tauri clipboard plugin is
+    // registered); a rejected write falls back to the interrupt.
+    terminal.attachCustomKeyEventHandler(
+        makeCopyChordHandler(terminal, {
+            copy: async (text) => navigator.clipboard.writeText(text),
+            interrupt: () => {
+                if (dataHandler) {
+                    void dataHandler(id, '\u0003');
+                }
+            },
+        }),
+    );
     const dataDisposable = terminal.onData((data) => {
         if (dataHandler) {
             void dataHandler(id, data);

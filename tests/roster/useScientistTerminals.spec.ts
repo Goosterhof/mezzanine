@@ -1,6 +1,21 @@
+import {Terminal} from '@xterm/xterm';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {useScientistTerminals} from '../../src/roster/useScientistTerminals';
+
+const ctrlC = () => new KeyboardEvent('keydown', {ctrlKey: true, key: 'c'});
+const flush = () => new Promise((resolve) => setTimeout(resolve));
+
+// xterm keeps its custom key handler private: capture what the pool
+// attaches, so the wiring (not just the pure chord) is under test.
+const armedChord = (id: string) => {
+    const attach = vi.spyOn(Terminal.prototype, 'attachCustomKeyEventHandler');
+    const slot = useScientistTerminals().get(id);
+    const chord = attach.mock.calls[0]?.[0];
+    attach.mockRestore();
+    if (!chord) throw new Error('no custom key handler was attached');
+    return {slot, chord};
+};
 
 describe('useScientistTerminals — Phase 2A', () => {
     beforeEach(() => {
@@ -65,6 +80,42 @@ describe('useScientistTerminals — Phase 2A', () => {
         // Give microtasks a chance to flush, then assert.
         await Promise.resolve();
         expect(handler).toHaveBeenCalledWith('a', 'hi');
+    });
+
+    describe('the copy chord on every bench', () => {
+        it('should copy a standing selection to the clipboard and send no ^C', async () => {
+            const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+            vi.stubGlobal('navigator', {clipboard: {writeText}});
+            const handler = vi.fn<(id: string, data: string) => void>();
+            useScientistTerminals().setDataHandler(handler);
+            const {slot, chord} = armedChord('a');
+            vi.spyOn(slot.terminal, 'hasSelection').mockReturnValue(true);
+            vi.spyOn(slot.terminal, 'getSelection').mockReturnValue('the reply');
+
+            expect(chord(ctrlC())).toBe(false);
+            await flush();
+            expect(writeText).toHaveBeenCalledWith('the reply');
+            expect(handler).not.toHaveBeenCalled();
+            vi.unstubAllGlobals();
+        });
+
+        it('should let Ctrl+C through to the pty when nothing is selected', () => {
+            const {chord} = armedChord('a');
+            expect(chord(ctrlC())).toBe(true);
+        });
+
+        it('should interrupt the colleague by hand when the clipboard refuses', async () => {
+            vi.stubGlobal('navigator', {clipboard: {writeText: () => Promise.reject(new Error('denied'))}});
+            const handler = vi.fn<(id: string, data: string) => void>();
+            useScientistTerminals().setDataHandler(handler);
+            const {slot, chord} = armedChord('a');
+            vi.spyOn(slot.terminal, 'hasSelection').mockReturnValue(true);
+
+            expect(chord(ctrlC())).toBe(false);
+            await flush();
+            expect(handler).toHaveBeenCalledWith('a', '\u0003');
+            vi.unstubAllGlobals();
+        });
     });
 
     it('setting the data handler to null silences keystroke routing', async () => {
