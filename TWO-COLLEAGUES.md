@@ -50,7 +50,7 @@ in the Windows app. The installation receipts below describe the earlier build.
 
 Claude uses the laboratory's one project MCP definition, with a launch-scoped
 connection UUID. Since v0.3.3 its doorbell is the lab's Tube Doorbell mod
-(launch-scoped via `CLAUDE_CODE_PLUGIN_DIRS`), not the development channel
+(launch-scoped via `--settings` env `CLAUDE_CODE_PLUGIN_DIRS`), not the development channel
 opt-in. Codex uses explicit per-launch MCP arguments
 and an opening turn that reads its own `CODEX_THREAD_ID` and calls `tube_connect`.
 No hook installation, trust bypass, latest-session guess or detached background

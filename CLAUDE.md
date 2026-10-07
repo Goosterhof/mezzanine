@@ -87,16 +87,23 @@ ordinary colleague restarts do not produce extra archives.
   That listener belongs to the MCP session and stops when it closes.
 - The Mad Scientist always launches as `claude --name mad-scientist`, so
   sibling sessions address it by that name; the opening prompt is the last
-  argument. Its launch also exports `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`
-  and `CLAUDE_CODE_PLUGIN_DIRS=<lab root>/.claude/mods/bench-warden:<lab
-  root>/.claude/mods/tube-doorbell:<lab root>/.claude/mods/semaphore` (`:`,
-  the bash path-list separator), loading the lab's Claude Mods (the Bench
-  Warden since v0.3.1, the Tube Doorbell since v0.3.3, the Semaphore since
-  v0.3.4) for this colleague only, plus `MEZZANINE_SEMAPHORE_PATH=<lab
-  root>/.claude/mods/semaphore/var/<scientist-id>.json`. They are launch-scoped
-  because the engine reads that variable only from the process env or user
-  settings, never a project's, and user settings would load them into every
-  session on the machine. The Heretic and ordinary dispatches carry neither.
+  argument. Its launch exports `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` and
+  `MEZZANINE_SEMAPHORE_PATH=<lab
+  root>/.claude/mods/semaphore/var/<scientist-id>.json`, and passes
+  `--settings '{"env":{"CLAUDE_CODE_PLUGIN_DIRS":"<lab
+  root>/.claude/mods/bench-warden:<lab root>/.claude/mods/tube-doorbell:<lab
+  root>/.claude/mods/semaphore"}}'` (`:`, the bash path-list separator),
+  loading the lab's Claude Mods (the Bench Warden, the Tube Doorbell and the
+  Semaphore) for this colleague only. The engine reads that variable only from
+  the process env or user settings, never a project's, and user settings
+  would load the mods into every session on the machine, so they stay
+  launch-scoped. **The flag, not the env (v0.3.5):** a user-settings `env`
+  block beats the process env, so the war room's machine-wide
+  `CLAUDE_CODE_PLUGIN_DIRS` (in place by 2026-10-02) silently replaced the
+  exported list, and no lab mod loaded on the installed v0.3.4 balcony. `--settings`
+  outranks user settings; `--plugin-dir` does not load a mod at all (measured
+  2026-10-07, Claude Code 2.1.292). The Heretic and ordinary dispatches carry
+  neither.
 - **The Semaphore (v0.3.4):** the Observer's activity was dead. It handed raw
   pty `ChronicleTurn`s to `inferActivity`, which needs Claude transcript
   JSON, so it returned `null` every time and every Long Bench figure sat
