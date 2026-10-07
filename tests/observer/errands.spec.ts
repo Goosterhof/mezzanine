@@ -65,10 +65,12 @@ function minion(id: string, over: Partial<SemaphoreMinion> = {}): SemaphoreMinio
         ...over,
     };
 }
+/** A fresh board: the mod stamps every new board later than the last (`at` only ever rises). */
+let boardClock = 0;
 const live = (minions: SemaphoreMinion[], departed: ScientistErrands['departed'] = []): ScientistErrands => ({
     minions,
     departed,
-    at: 0,
+    at: ++boardClock,
 });
 
 /** A floor already past its cold start, with nothing out. */
@@ -492,5 +494,42 @@ describe('the review round (PR #176)', () => {
         expect(floor.retained()).toBe(1);
         expect(floor.figures(GEO, 0)).toHaveLength(1);
         expect(floor.tray()).toHaveLength(3);
+    });
+});
+
+describe('the review round, second pass (PR #176 at 5752538)', () => {
+    const cached = {minions: [], departed: [{id: 'a', type: 'surgeon', at: 2000}], at: 2000};
+
+    it('should never fabricate a homecoming from a cached board re-pushed after its departure was forgotten', () => {
+        const floor = createErrandFloor();
+        floor.ingest({minions: [], departed: [], at: 0}, 'running', 0);
+        floor.ingest({minions: [minion('a')], departed: [], at: 1000}, 'running', 1);
+        floor.ingest(cached, 'running', 2);
+        floor.advance(3);
+        expect(floor.tray()).toStrictEqual([{at: 2.8, task: 'task a', scorched: false}]);
+        floor.advance(62.1);
+        floor.ingest(cached, 'idle', 62.1);
+        expect(floor.tray()).toStrictEqual([{at: 2.8, task: 'task a', scorched: false}]);
+    });
+
+    it('should still take his new activity from a repeated board, and still speak what is due', () => {
+        const floor = warm();
+        const board = live([minion('a', {background: true})]);
+        floor.ingest(board, 'running', 1);
+        floor.land();
+        expect(floor.lit()).toStrictEqual([]);
+        floor.ingest(board, 'idle', 2);
+        expect(floor.lit()).toStrictEqual(['a']);
+    });
+
+    it('should remember a departure while the board still shows its row, even past a minute', () => {
+        const floor = createErrandFloor();
+        floor.ingest({minions: [], departed: [], at: 0}, 'running', 0);
+        floor.ingest({minions: [minion('a')], departed: [], at: 1000}, 'running', 1);
+        floor.ingest(cached, 'running', 2);
+        floor.advance(70);
+        // a NEWER board that still carries the old row (a stalled mod) files nothing new either
+        floor.ingest({...cached, at: 70_000}, 'running', 70);
+        expect(floor.tray()).toHaveLength(1);
     });
 });

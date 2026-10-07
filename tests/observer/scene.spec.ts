@@ -83,8 +83,10 @@ function minion(id: string, over: Partial<SemaphoreMinion> = {}): SemaphoreMinio
     };
 }
 
+/** A fresh Semaphore board: every new board is stamped later than the last. */
+let boardClock = 0;
 function errandBoard(minions: SemaphoreMinion[]) {
-    return {minions, departed: [], at: 0};
+    return {minions, departed: [], at: ++boardClock};
 }
 
 function recordingCanvas() {

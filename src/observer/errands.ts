@@ -312,6 +312,10 @@ interface FloorState {
     pending: PendingVolley[];
     scientistState: ActivityState;
     cold: boolean;
+    /** board clock (ms) of the last board folded in: an older or repeated board never re-folds */
+    boardAt: number;
+    /** departure rows on that board: still on the board, still remembered */
+    boardDeparted: Set<string>;
     landedAt: number;
     now: number;
     reduced: boolean;
@@ -325,6 +329,8 @@ function freshState(reduced: boolean): FloorState {
         pending: [],
         scientistState: 'idle',
         cold: true,
+        boardAt: Number.NEGATIVE_INFINITY,
+        boardDeparted: new Set(),
         landedAt: Number.NEGATIVE_INFINITY,
         now: 0,
         reduced,
@@ -689,7 +695,8 @@ const FORGET_HOME_AFTER_S = 60;
 function compact(st: FloorState): void {
     for (const [id, e] of st.errands)
         if (e.departedAt !== null && st.now > e.departedAt + RETIRE_AFTER_S) st.errands.delete(id);
-    for (const [id, at] of st.homeIds) if (st.now > at + FORGET_HOME_AFTER_S) st.homeIds.delete(id);
+    for (const [id, at] of st.homeIds)
+        if (st.now > at + FORGET_HOME_AFTER_S && !st.boardDeparted.has(id)) st.homeIds.delete(id);
     st.slips = st.slips.filter((s) => st.now < s.at + FILE_AFTER_S);
 }
 
@@ -722,6 +729,12 @@ function furnitureOf(st: FloorState, geo: BenchGeometry): ErrandFurnitureState {
 
 /** Fold one live board in (never null, never cold). */
 function foldBoard(st: FloorState, board: ScientistErrands): ErrandEvent[] {
+    // The host re-pushes the SAME cached board whenever anything else on the page changes, and
+    // the mod rewrites its file only on a new board. A board no newer than the last one folded
+    // changes nothing: re-folding it once its departures were forgotten would fabricate them.
+    if (board.at <= st.boardAt) return [...flushVolleys(st), ...permissionEvents(st)];
+    st.boardAt = board.at;
+    st.boardDeparted = new Set(board.departed.map((d) => d.id));
     for (const m of board.minions) {
         const fresh = foldMinion(st, m);
         const e = st.errands.get(m.id);
