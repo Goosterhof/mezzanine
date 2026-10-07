@@ -731,3 +731,84 @@ describe("the live region's lines (AC-10, §6 Voice)", () => {
         expect(voiceLine(event)).toBe(line);
     });
 });
+
+// The Heretic's review of PR #177 at d153187: the sill must be a RECORDED place.
+describe('the sill as a recorded place (PR #177 review)', () => {
+    const wait = (id: string, state: SemaphoreMinion['state'], spawnedAt = 0): SemaphoreMinion =>
+        minion(id, {state, spawnedAt});
+    const borders = (floor: ErrandFloor) => floor.figures(GEO, 0).filter((f) => f.layer === 'border');
+
+    it('should never put a grip and a held wait in the sill together: a maturing wait refuses the grip', () => {
+        const floor = railed();
+        floor.ingest(live([wait('w', 'running')]), 'running', 1);
+        floor.land();
+        floor.ingest(live([wait('w', 'waiting')]), 'running', 2);
+        floor.ingest(live([wait('w', 'waiting'), wait('arrival', 'running', 5000)]), 'running', 3.4);
+        floor.advance(4.1, QUIET);
+        expect(borders(floor).map((f) => f.id)).toStrictEqual(['w']);
+        expect(floor.sillOccupant()).toStrictEqual({id: 'w', reason: 'permission'});
+    });
+
+    it('should not walk a waiter back from a sill it never took', () => {
+        const floor = railed();
+        floor.ingest(live([wait('a', 'running'), wait('b', 'running', 100)]), 'running', 1);
+        floor.land();
+        floor.ingest(live([wait('a', 'waiting'), wait('b', 'waiting', 100)]), 'running', 2);
+        floor.advance(5, QUIET);
+        floor.ingest(live([wait('a', 'waiting'), wait('b', 'running', 100)]), 'running', 5.01);
+        floor.advance(5.01, QUIET);
+        expect(figure(floor, 'b')).toMatchObject({layer: 'band', y: GEO.benchTopY});
+        expect(borders(floor).map((f) => f.id)).toStrictEqual(['a']);
+    });
+
+    it('should hand the sill on only when it is free: the next waiter climbs from its own post', () => {
+        const floor = railed();
+        floor.ingest(live([wait('a', 'running'), wait('b', 'running', 100)]), 'running', 1);
+        floor.land();
+        floor.ingest(live([wait('a', 'waiting'), wait('b', 'waiting', 100)]), 'running', 2);
+        floor.advance(5, QUIET);
+        floor.ingest(live([wait('a', 'running'), wait('b', 'waiting', 100)]), 'running', 5.01);
+        floor.advance(5.01, QUIET);
+        expect(floor.sillOccupant()).toStrictEqual({id: 'b', reason: 'permission'});
+        expect(figure(floor, 'b')?.y).toBeCloseTo(GEO.benchTopY, 2);
+        floor.advance(5.7, QUIET);
+        expect(figure(floor, 'b')).toMatchObject({layer: 'border', arms: 'point'});
+    });
+
+    it('should never seat a "+N" waiter (it has no post to climb from), nor let it block a posted one', () => {
+        const floor = railed();
+        const rows = [
+            wait('a', 'running'),
+            wait('b', 'running', 100),
+            wait('c', 'running', 200),
+            wait('d', 'running', 300),
+        ];
+        floor.ingest(live(rows), 'running', 1);
+        floor.land();
+        floor.ingest(live(rows.map((r) => (r.id === 'd' ? {...r, state: 'waiting'} : r))), 'running', 2);
+        floor.advance(5, QUIET);
+        expect(floor.sillOccupant()).toBeNull();
+        expect(figure(floor, 'd')).toBeUndefined();
+        floor.ingest(
+            live(rows.map((r) => (r.id === 'd' || r.id === 'a' ? {...r, state: 'waiting'} : r))),
+            'running',
+            6,
+        );
+        floor.advance(7.6, QUIET);
+        expect(floor.sillOccupant()).toStrictEqual({id: 'a', reason: 'permission'});
+    });
+
+    it('should record the same entry on a coarse tick and a fine one', () => {
+        const coarse = railed();
+        const fine = railed();
+        for (const floor of [coarse, fine]) {
+            floor.ingest(live([wait('a', 'running')]), 'running', 1);
+            floor.land();
+            floor.ingest(live([wait('a', 'waiting')]), 'running', 2);
+        }
+        coarse.advance(3.8, QUIET);
+        for (let t = 2; t <= 3.8; t += 1 / 60) fine.advance(t, QUIET);
+        fine.advance(3.8, QUIET);
+        expect(figure(coarse, 'a')?.y).toBeCloseTo(figure(fine, 'a')?.y ?? Number.NaN, 6);
+    });
+});

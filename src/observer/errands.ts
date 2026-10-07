@@ -381,6 +381,22 @@ interface FloorState {
     gate: ErrandGate;
     /** the monkey's dry blots: each lands at his POP and is filed with the slips */
     blots: FiledSlip[];
+    /** who is in the sill, why, and since when — a RECORDED place, one occupant at a time */
+    sill: SillHold | null;
+    /** when the sill last came free (an occupant entered no earlier) */
+    sillFreeAt: number;
+    /** when each errand left the sill after a held wait: the walk back down starts there */
+    sillExits: Map<string, number>;
+}
+
+/** The sill's occupant: a grip reserves it from arrival; a held wait owns it until answered. */
+interface SillHold {
+    id: string;
+    reason: 'grip' | 'permission';
+    /** receipt clock: when it took the sill (a permission rise starts here) */
+    since: number;
+    /** the held wait's start (permission only) */
+    w0: number;
 }
 
 function freshState(
@@ -391,6 +407,9 @@ function freshState(
         rail: carry.rail,
         gate: carry.gate,
         blots: [],
+        sill: null,
+        sillFreeAt: Number.NEGATIVE_INFINITY,
+        sillExits: new Map(),
         errands: new Map(),
         slips: [],
         homeIds: new Map(),
@@ -550,22 +569,68 @@ function landCold(st: FloorState): void {
 /** When an arrival's transit ends: a grip takes the long way, over the brass. */
 const arrivalEnd = (e: Errand): number => (e.grip ? GRIP_ARRIVE_S : ARRIVE_S);
 
-/** Someone other than `e` is on its way over the brass right now: one sill, one occupant. */
-function gripping(st: FloorState, except: Errand): boolean {
-    for (const x of st.errands.values()) {
-        if (x !== except && x.grip && !settled(st, x.seenAt) && st.now < x.seenAt + GRIP_ARRIVE_S) return true;
-    }
-    return false;
+/** A posted minion's wait that is still maturing (< 1.5 s): it will want the sill. */
+function waitPending(st: FloorState): boolean {
+    return [...st.errands.values()].some(
+        (e) => !isMonkey(e) && isOut(e) && openWait(e) !== undefined && postXAt(st, e, st.now, 1) !== null,
+    );
 }
 
 /** The arrival grip's gates (#00042 §7.4), decided once, at arrival: a measured sill, a watched
- *  page, no keystroke in the last 1.5 s, no clamp, and nobody already in the sill. A skipped grip
- *  is never replayed. */
+ *  page, no keystroke in the last 1.5 s, no clamp, an EMPTY sill, and no posted wait maturing
+ *  toward it (a held wait outranks a grip, even one that matures mid-grip). A skipped grip is
+ *  never replayed. A granted grip reserves the sill from its arrival. */
 function canGrip(st: FloorState, e: Errand): boolean {
     if (st.rail === null || st.reduced || !st.gate.pageActive) return false;
     if (st.gate.keystrokeQuietS < KEYSTROKE_QUIET_S) return false;
-    if (occupantOf(st) !== null || gripping(st, e)) return false;
+    if (st.sill !== null || waitPending(st)) return false;
     return isMonkey(e) || postXAt(st, e, st.now, 1) !== null;
+}
+
+/** When the holder let go of the sill, or null while it still holds it. */
+function releasedAt(st: FloorState, hold: SillHold): number | null {
+    const e = st.errands.get(hold.id);
+    if (!e) return st.now;
+    if (hold.reason === 'grip') {
+        if (settled(st, e.seenAt)) return Math.max(e.seenAt, Math.min(st.now, st.landedAt));
+        const end = e.seenAt + GRIP_HOLD_END_S;
+        return st.now >= end ? end : null;
+    }
+    const w = e.waits.find((x) => x[0] === hold.w0);
+    return w?.[1] ?? null;
+}
+
+/** The earliest-started wait held ≥ 1.5 s among minions that HOLD A POST (a "+N" has no place to climb from). */
+function heldWaiter(st: FloorState): {e: Errand; w0: number} | null {
+    let best: {e: Errand; w0: number} | null = null;
+    for (const e of st.errands.values()) {
+        const w = openWait(e);
+        if (isMonkey(e) || !isOut(e) || !w || st.now < w[0] + PERMISSION_DEBOUNCE_S) continue;
+        if (postXAt(st, e, st.now, 1) === null) continue;
+        if (!best || w[0] < best.w0) best = {e, w0: w[0]};
+    }
+    return best;
+}
+
+/** Keep the sill's ledger: release a holder that let go, then seat the next held wait — never
+ *  before its 1.5 s, never before the sill came free. Deterministic in receipt time, so a coarse
+ *  tick and a fine one record the same entry. */
+function updateSill(st: FloorState): void {
+    if (st.sill) {
+        const at = releasedAt(st, st.sill);
+        if (at === null) return;
+        if (st.sill.reason === 'permission') st.sillExits.set(st.sill.id, at);
+        st.sillFreeAt = at;
+        st.sill = null;
+    }
+    const next = heldWaiter(st);
+    if (next)
+        st.sill = {
+            id: next.e.id,
+            reason: 'permission',
+            since: Math.max(next.w0 + PERMISSION_DEBOUNCE_S, st.sillFreeAt),
+            w0: next.w0,
+        };
 }
 
 // --- placements -----------------------------------------------------------------------------
@@ -650,8 +715,6 @@ interface FigureCtx {
     s: number;
     act: number;
     rail: ErrandRail | null;
-    /** this frame's sill occupant (computed once per frame) */
-    occupant: Errand | null;
 }
 
 function baseFigure(c: FigureCtx, e: Errand, p: Pt): ErrandFigure {
@@ -779,11 +842,11 @@ function gripArrival(c: RailCtx, e: Errand, post: Pt, s0: number): ErrandFigure 
 
 /** A wait held 1.5 s: it climbs into the sill and points at his terminal, finger up — a place, so it holds. */
 function sillRise(c: RailCtx, e: Errand, post: Pt): ErrandFigure | null {
-    const w = openWait(e);
-    if (!w || c.occupant !== e) return null;
+    const hold = c.st.sill;
+    if (hold?.id !== e.id || hold.reason !== 'permission') return null;
     const {st, s} = c;
     const fit = specimenFit(e.type);
-    const r0 = w[0] + PERMISSION_DEBOUNCE_S;
+    const r0 = hold.since;
     const tr = eff(st, r0, r0 + SILL_RISE_S);
     const hip = sillHip(c, fit.sillTop, s);
     const p = route(c.geo, {from: post, to: [sillX(c, post[0]), hip], apex: hip}, easeOut(prog(tr, r0, SILL_RISE_S)));
@@ -802,9 +865,9 @@ function sillRise(c: RailCtx, e: Errand, post: Pt): ErrandFigure | null {
 
 /** The wait answered: back down from the sill to its post. */
 function sillReturn(c: RailCtx, e: Errand, post: Pt): ErrandFigure | null {
-    const w = e.waits.at(-1);
-    const end = w?.[1];
-    if (!w || end === null || end === undefined || end - w[0] < PERMISSION_DEBOUNCE_S) return null; // it never rose
+    // only from a RECORDED exit: a waiter that never took the sill never walks back from it
+    const end = c.st.sillExits.get(e.id);
+    if (end === undefined) return null;
     const tr = eff(c.st, end, end + SILL_RETURN_S);
     if (tr >= end + SILL_RETURN_S) return null;
     const fit = specimenFit(e.type);
@@ -1029,27 +1092,7 @@ function poolsOf(st: FloorState, geo: BenchGeometry): {x: number; rx: number}[] 
     return out;
 }
 
-/** One occupant for the sill: the earliest-started wait held ≥ 1.5 s. Never the monkey. */
-function occupantOf(st: FloorState): Errand | null {
-    let best: {e: Errand; w0: number} | null = null;
-    for (const e of st.errands.values()) {
-        const w = openWait(e);
-        if (isMonkey(e) || !isOut(e) || !w || st.now < w[0] + PERMISSION_DEBOUNCE_S) continue;
-        if (!best || w[0] < best.w0) best = {e, w0: w[0]};
-    }
-    return best?.e ?? null;
-}
-
 /** A slip lands when its runner reaches the tray — at once, if that departure has settled. */
-/** Whoever has their hands on the brass right now (the grip's hold), if anyone. */
-function gripOccupantOf(st: FloorState): Errand | null {
-    for (const e of st.errands.values()) {
-        if (!e.grip || settled(st, e.seenAt)) continue;
-        if (st.now >= e.seenAt + GRIP_HOP_S && st.now < e.seenAt + GRIP_HOLD_END_S) return e;
-    }
-    return null;
-}
-
 function trayOf(st: FloorState): TraySlip[] {
     return st.slips
         .filter((s) => (s.at <= st.now || settled(st, s.origin)) && st.now < s.at + FILE_AFTER_S)
@@ -1070,6 +1113,7 @@ function compact(st: FloorState): void {
         if (st.now > at + FORGET_HOME_AFTER_S && !st.boardDeparted.has(id)) st.homeIds.delete(id);
     st.slips = st.slips.filter((s) => st.now < s.at + FILE_AFTER_S);
     st.blots = st.blots.filter((b) => st.now < b.at + FILE_AFTER_S);
+    for (const [id, at] of st.sillExits) if (st.now > at + SILL_RETURN_S + 1) st.sillExits.delete(id);
 }
 
 function ledgerOf(st: FloorState): string | null {
@@ -1120,9 +1164,11 @@ function foldBoard(st: FloorState, board: ScientistErrands): ErrandEvent[] {
         landCold(st);
         return [];
     }
+    updateSill(st);
     for (const e of fresh.sort(bySpawn)) {
         queueVolley(st, e);
         e.grip = canGrip(st, e);
+        if (e.grip) st.sill = {id: e.id, reason: 'grip', since: e.seenAt, w0: e.seenAt};
     }
     return [...flushVolleys(st), ...permissionEvents(st)];
 }
@@ -1148,6 +1194,7 @@ export function createErrandFloor(reducedMotion = false): ErrandFloor {
             st.now = Math.max(st.now, nowS);
             if (gate) st.gate = gate;
             compact(st);
+            updateSill(st);
             return [...flushVolleys(st), ...permissionEvents(st)];
         },
         land,
@@ -1162,10 +1209,7 @@ export function createErrandFloor(reducedMotion = false): ErrandFloor {
         },
         overflow: () => Math.max(0, outAt(st, st.now).length - 3),
         sillOccupant() {
-            const e = occupantOf(st);
-            if (e) return {id: e.id, reason: 'permission'};
-            const g = gripOccupantOf(st);
-            return g ? {id: g.id, reason: 'grip'} : null;
+            return st.sill ? {id: st.sill.id, reason: st.sill.reason} : null;
         },
         setRail(rail) {
             st.rail = rail;
@@ -1191,7 +1235,7 @@ export function createErrandFloor(reducedMotion = false): ErrandFloor {
             return [...st.errands.values()].filter((e) => moving.has(phaseAt(st, e, 1))).length;
         },
         figures(geo, act) {
-            const c: FigureCtx = {st, geo, s: minionScale(geo), act, rail: st.rail, occupant: occupantOf(st)};
+            const c: FigureCtx = {st, geo, s: minionScale(geo), act, rail: st.rail};
             return [...st.errands.values()].map((e) => figureOf(c, e)).filter((f): f is ErrandFigure => f !== null);
         },
         furniture: (geo) => furnitureOf(st, geo),
