@@ -1,0 +1,799 @@
+{
+    "note": "Round-2 casting scenario (#00043 R2 \u00a710): ONE Surgeon alone from t 1 (the typical case); the Librarian joins at t 6 (two posts); the monkey at 6.6 (rail, no post); the Scribe at 9 and the Synchronizer at 9.5 as the FOURTH (three posts + '+1'); the Surgeon waits 12-16; the Scribe leaves at 18 so the Synchronizer takes a post; he idles at 20 with her working in the background (R5'); departures from 24; an Explore runs alone from 26.",
+    "t0Ms": 1790974060000,
+    "tubeDeliveries": [{"t": 8, "to": "mad-scientist"}],
+    "boards": [
+        {
+            "v": 1,
+            "seq": 1,
+            "at": 1790974060000,
+            "scientist": {"state": "thinking", "detail": "One errand at a time", "since": 1790974060000},
+            "minions": [],
+            "departed": []
+        },
+        {
+            "v": 1,
+            "seq": 2,
+            "at": 1790974061000,
+            "scientist": {"state": "running", "detail": "One errand at a time", "since": 1790974061000},
+            "minions": [
+                {
+                    "id": "b3e9d2b7c4f1a0e58",
+                    "type": "surgeon",
+                    "task": "Trace why a refused wake stays owed",
+                    "background": false,
+                    "spawnedAt": 1790974061000,
+                    "state": "thinking",
+                    "detail": "Weighing it",
+                    "since": 1790974061000
+                }
+            ],
+            "departed": []
+        },
+        {
+            "v": 1,
+            "seq": 3,
+            "at": 1790974062600,
+            "scientist": {"state": "running", "detail": "One errand at a time", "since": 1790974062600},
+            "minions": [
+                {
+                    "id": "b3e9d2b7c4f1a0e58",
+                    "type": "surgeon",
+                    "task": "Trace why a refused wake stays owed",
+                    "background": false,
+                    "spawnedAt": 1790974061000,
+                    "state": "reading",
+                    "detail": "Reading crossing.ts",
+                    "since": 1790974062600
+                }
+            ],
+            "departed": []
+        },
+        {
+            "v": 1,
+            "seq": 4,
+            "at": 1790974064000,
+            "scientist": {"state": "running", "detail": "One errand at a time", "since": 1790974064000},
+            "minions": [
+                {
+                    "id": "b3e9d2b7c4f1a0e58",
+                    "type": "surgeon",
+                    "task": "Trace why a refused wake stays owed",
+                    "background": false,
+                    "spawnedAt": 1790974061000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974064000
+                }
+            ],
+            "departed": []
+        },
+        {
+            "v": 1,
+            "seq": 5,
+            "at": 1790974066000,
+            "scientist": {"state": "running", "detail": "One errand at a time", "since": 1790974066000},
+            "minions": [
+                {
+                    "id": "b3e9d2b7c4f1a0e58",
+                    "type": "surgeon",
+                    "task": "Trace why a refused wake stays owed",
+                    "background": false,
+                    "spawnedAt": 1790974061000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974064000
+                },
+                {
+                    "id": "b90d4e6f1b2c8a737",
+                    "type": "librarian",
+                    "task": "Check PAGES.md against the six pages",
+                    "background": false,
+                    "spawnedAt": 1790974066000,
+                    "state": "thinking",
+                    "detail": "Weighing it",
+                    "since": 1790974066000
+                }
+            ],
+            "departed": []
+        },
+        {
+            "v": 1,
+            "seq": 6,
+            "at": 1790974066600,
+            "scientist": {"state": "running", "detail": "One errand at a time", "since": 1790974066600},
+            "minions": [
+                {
+                    "id": "b3e9d2b7c4f1a0e58",
+                    "type": "surgeon",
+                    "task": "Trace why a refused wake stays owed",
+                    "background": false,
+                    "spawnedAt": 1790974061000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974064000
+                },
+                {
+                    "id": "b90d4e6f1b2c8a737",
+                    "type": "librarian",
+                    "task": "Check PAGES.md against the six pages",
+                    "background": false,
+                    "spawnedAt": 1790974066000,
+                    "state": "thinking",
+                    "detail": "Weighing it",
+                    "since": 1790974066000
+                },
+                {
+                    "id": "b7c1f0e2d9b4c3a10",
+                    "type": "chaos-monkey",
+                    "task": "Stress-test the crossing guards",
+                    "background": false,
+                    "spawnedAt": 1790974066600,
+                    "state": "running",
+                    "detail": "Writing 00123-chaos-casting.md",
+                    "since": 1790974066600
+                }
+            ],
+            "departed": []
+        },
+        {
+            "v": 1,
+            "seq": 7,
+            "at": 1790974067400,
+            "scientist": {"state": "running", "detail": "One errand at a time", "since": 1790974067400},
+            "minions": [
+                {
+                    "id": "b3e9d2b7c4f1a0e58",
+                    "type": "surgeon",
+                    "task": "Trace why a refused wake stays owed",
+                    "background": false,
+                    "spawnedAt": 1790974061000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974064000
+                },
+                {
+                    "id": "b90d4e6f1b2c8a737",
+                    "type": "librarian",
+                    "task": "Check PAGES.md against the six pages",
+                    "background": false,
+                    "spawnedAt": 1790974066000,
+                    "state": "reading",
+                    "detail": "Reading crossing.ts",
+                    "since": 1790974067400
+                },
+                {
+                    "id": "b7c1f0e2d9b4c3a10",
+                    "type": "chaos-monkey",
+                    "task": "Stress-test the crossing guards",
+                    "background": false,
+                    "spawnedAt": 1790974066600,
+                    "state": "running",
+                    "detail": "Writing 00123-chaos-casting.md",
+                    "since": 1790974066600
+                }
+            ],
+            "departed": []
+        },
+        {
+            "v": 1,
+            "seq": 8,
+            "at": 1790974069000,
+            "scientist": {"state": "running", "detail": "One errand at a time", "since": 1790974069000},
+            "minions": [
+                {
+                    "id": "b3e9d2b7c4f1a0e58",
+                    "type": "surgeon",
+                    "task": "Trace why a refused wake stays owed",
+                    "background": false,
+                    "spawnedAt": 1790974061000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974064000
+                },
+                {
+                    "id": "b90d4e6f1b2c8a737",
+                    "type": "librarian",
+                    "task": "Check PAGES.md against the six pages",
+                    "background": false,
+                    "spawnedAt": 1790974066000,
+                    "state": "reading",
+                    "detail": "Reading crossing.ts",
+                    "since": 1790974067400
+                },
+                {
+                    "id": "b7c1f0e2d9b4c3a10",
+                    "type": "chaos-monkey",
+                    "task": "Stress-test the crossing guards",
+                    "background": false,
+                    "spawnedAt": 1790974066600,
+                    "state": "running",
+                    "detail": "Writing 00123-chaos-casting.md",
+                    "since": 1790974066600
+                },
+                {
+                    "id": "b2b6c9d1e4f7a0b33",
+                    "type": "scribe",
+                    "task": "Draft the Long Bench release note",
+                    "background": false,
+                    "spawnedAt": 1790974069000,
+                    "state": "thinking",
+                    "detail": "Weighing it",
+                    "since": 1790974069000
+                }
+            ],
+            "departed": []
+        },
+        {
+            "v": 1,
+            "seq": 9,
+            "at": 1790974069500,
+            "scientist": {"state": "running", "detail": "One errand at a time", "since": 1790974069500},
+            "minions": [
+                {
+                    "id": "b3e9d2b7c4f1a0e58",
+                    "type": "surgeon",
+                    "task": "Trace why a refused wake stays owed",
+                    "background": false,
+                    "spawnedAt": 1790974061000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974064000
+                },
+                {
+                    "id": "b90d4e6f1b2c8a737",
+                    "type": "librarian",
+                    "task": "Check PAGES.md against the six pages",
+                    "background": false,
+                    "spawnedAt": 1790974066000,
+                    "state": "reading",
+                    "detail": "Reading crossing.ts",
+                    "since": 1790974067400
+                },
+                {
+                    "id": "b7c1f0e2d9b4c3a10",
+                    "type": "chaos-monkey",
+                    "task": "Stress-test the crossing guards",
+                    "background": false,
+                    "spawnedAt": 1790974066600,
+                    "state": "running",
+                    "detail": "Writing 00123-chaos-casting.md",
+                    "since": 1790974066600
+                },
+                {
+                    "id": "b2b6c9d1e4f7a0b33",
+                    "type": "scribe",
+                    "task": "Draft the Long Bench release note",
+                    "background": false,
+                    "spawnedAt": 1790974069000,
+                    "state": "thinking",
+                    "detail": "Weighing it",
+                    "since": 1790974069000
+                },
+                {
+                    "id": "b6f0e3d8c1b5a9d21",
+                    "type": "synchronizer",
+                    "task": "Align the gadget gitlinks with origin",
+                    "background": true,
+                    "spawnedAt": 1790974069500,
+                    "state": "thinking",
+                    "detail": "Weighing it",
+                    "since": 1790974069500
+                }
+            ],
+            "departed": []
+        },
+        {
+            "v": 1,
+            "seq": 10,
+            "at": 1790974070200,
+            "scientist": {"state": "running", "detail": "One errand at a time", "since": 1790974070200},
+            "minions": [
+                {
+                    "id": "b3e9d2b7c4f1a0e58",
+                    "type": "surgeon",
+                    "task": "Trace why a refused wake stays owed",
+                    "background": false,
+                    "spawnedAt": 1790974061000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974064000
+                },
+                {
+                    "id": "b90d4e6f1b2c8a737",
+                    "type": "librarian",
+                    "task": "Check PAGES.md against the six pages",
+                    "background": false,
+                    "spawnedAt": 1790974066000,
+                    "state": "reading",
+                    "detail": "Reading crossing.ts",
+                    "since": 1790974067400
+                },
+                {
+                    "id": "b7c1f0e2d9b4c3a10",
+                    "type": "chaos-monkey",
+                    "task": "Stress-test the crossing guards",
+                    "background": false,
+                    "spawnedAt": 1790974066600,
+                    "state": "running",
+                    "detail": "Writing 00123-chaos-casting.md",
+                    "since": 1790974066600
+                },
+                {
+                    "id": "b2b6c9d1e4f7a0b33",
+                    "type": "scribe",
+                    "task": "Draft the Long Bench release note",
+                    "background": false,
+                    "spawnedAt": 1790974069000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974070200
+                },
+                {
+                    "id": "b6f0e3d8c1b5a9d21",
+                    "type": "synchronizer",
+                    "task": "Align the gadget gitlinks with origin",
+                    "background": true,
+                    "spawnedAt": 1790974069500,
+                    "state": "running",
+                    "detail": "Running npm test",
+                    "since": 1790974070200
+                }
+            ],
+            "departed": []
+        },
+        {
+            "v": 1,
+            "seq": 11,
+            "at": 1790974072000,
+            "scientist": {"state": "thinking", "detail": "One errand at a time", "since": 1790974072000},
+            "minions": [
+                {
+                    "id": "b3e9d2b7c4f1a0e58",
+                    "type": "surgeon",
+                    "task": "Trace why a refused wake stays owed",
+                    "background": false,
+                    "spawnedAt": 1790974061000,
+                    "state": "waiting",
+                    "detail": "Waiting on you: Bash",
+                    "since": 1790974072000
+                },
+                {
+                    "id": "b90d4e6f1b2c8a737",
+                    "type": "librarian",
+                    "task": "Check PAGES.md against the six pages",
+                    "background": false,
+                    "spawnedAt": 1790974066000,
+                    "state": "reading",
+                    "detail": "Reading crossing.ts",
+                    "since": 1790974067400
+                },
+                {
+                    "id": "b7c1f0e2d9b4c3a10",
+                    "type": "chaos-monkey",
+                    "task": "Stress-test the crossing guards",
+                    "background": false,
+                    "spawnedAt": 1790974066600,
+                    "state": "writing",
+                    "detail": "Writing 00123-chaos-casting.md",
+                    "since": 1790974072000
+                },
+                {
+                    "id": "b2b6c9d1e4f7a0b33",
+                    "type": "scribe",
+                    "task": "Draft the Long Bench release note",
+                    "background": false,
+                    "spawnedAt": 1790974069000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974070200
+                },
+                {
+                    "id": "b6f0e3d8c1b5a9d21",
+                    "type": "synchronizer",
+                    "task": "Align the gadget gitlinks with origin",
+                    "background": true,
+                    "spawnedAt": 1790974069500,
+                    "state": "running",
+                    "detail": "Running npm test",
+                    "since": 1790974070200
+                }
+            ],
+            "departed": []
+        },
+        {
+            "v": 1,
+            "seq": 12,
+            "at": 1790974076000,
+            "scientist": {"state": "thinking", "detail": "One errand at a time", "since": 1790974076000},
+            "minions": [
+                {
+                    "id": "b3e9d2b7c4f1a0e58",
+                    "type": "surgeon",
+                    "task": "Trace why a refused wake stays owed",
+                    "background": false,
+                    "spawnedAt": 1790974061000,
+                    "state": "running",
+                    "detail": "Running npm test",
+                    "since": 1790974076000
+                },
+                {
+                    "id": "b90d4e6f1b2c8a737",
+                    "type": "librarian",
+                    "task": "Check PAGES.md against the six pages",
+                    "background": false,
+                    "spawnedAt": 1790974066000,
+                    "state": "reading",
+                    "detail": "Reading crossing.ts",
+                    "since": 1790974067400
+                },
+                {
+                    "id": "b7c1f0e2d9b4c3a10",
+                    "type": "chaos-monkey",
+                    "task": "Stress-test the crossing guards",
+                    "background": false,
+                    "spawnedAt": 1790974066600,
+                    "state": "writing",
+                    "detail": "Writing 00123-chaos-casting.md",
+                    "since": 1790974072000
+                },
+                {
+                    "id": "b2b6c9d1e4f7a0b33",
+                    "type": "scribe",
+                    "task": "Draft the Long Bench release note",
+                    "background": false,
+                    "spawnedAt": 1790974069000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974070200
+                },
+                {
+                    "id": "b6f0e3d8c1b5a9d21",
+                    "type": "synchronizer",
+                    "task": "Align the gadget gitlinks with origin",
+                    "background": true,
+                    "spawnedAt": 1790974069500,
+                    "state": "running",
+                    "detail": "Running npm test",
+                    "since": 1790974070200
+                }
+            ],
+            "departed": []
+        },
+        {
+            "v": 1,
+            "seq": 13,
+            "at": 1790974077000,
+            "scientist": {"state": "thinking", "detail": "One errand at a time", "since": 1790974077000},
+            "minions": [
+                {
+                    "id": "b3e9d2b7c4f1a0e58",
+                    "type": "surgeon",
+                    "task": "Trace why a refused wake stays owed",
+                    "background": false,
+                    "spawnedAt": 1790974061000,
+                    "state": "running",
+                    "detail": "Running npm test",
+                    "since": 1790974076000
+                },
+                {
+                    "id": "b90d4e6f1b2c8a737",
+                    "type": "librarian",
+                    "task": "Check PAGES.md against the six pages",
+                    "background": false,
+                    "spawnedAt": 1790974066000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974077000
+                },
+                {
+                    "id": "b7c1f0e2d9b4c3a10",
+                    "type": "chaos-monkey",
+                    "task": "Stress-test the crossing guards",
+                    "background": false,
+                    "spawnedAt": 1790974066600,
+                    "state": "writing",
+                    "detail": "Writing 00123-chaos-casting.md",
+                    "since": 1790974072000
+                },
+                {
+                    "id": "b2b6c9d1e4f7a0b33",
+                    "type": "scribe",
+                    "task": "Draft the Long Bench release note",
+                    "background": false,
+                    "spawnedAt": 1790974069000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974070200
+                },
+                {
+                    "id": "b6f0e3d8c1b5a9d21",
+                    "type": "synchronizer",
+                    "task": "Align the gadget gitlinks with origin",
+                    "background": true,
+                    "spawnedAt": 1790974069500,
+                    "state": "running",
+                    "detail": "Running npm test",
+                    "since": 1790974070200
+                }
+            ],
+            "departed": []
+        },
+        {
+            "v": 1,
+            "seq": 14,
+            "at": 1790974078000,
+            "scientist": {"state": "thinking", "detail": "One errand at a time", "since": 1790974078000},
+            "minions": [
+                {
+                    "id": "b3e9d2b7c4f1a0e58",
+                    "type": "surgeon",
+                    "task": "Trace why a refused wake stays owed",
+                    "background": false,
+                    "spawnedAt": 1790974061000,
+                    "state": "running",
+                    "detail": "Running npm test",
+                    "since": 1790974076000
+                },
+                {
+                    "id": "b90d4e6f1b2c8a737",
+                    "type": "librarian",
+                    "task": "Check PAGES.md against the six pages",
+                    "background": false,
+                    "spawnedAt": 1790974066000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974077000
+                },
+                {
+                    "id": "b7c1f0e2d9b4c3a10",
+                    "type": "chaos-monkey",
+                    "task": "Stress-test the crossing guards",
+                    "background": false,
+                    "spawnedAt": 1790974066600,
+                    "state": "writing",
+                    "detail": "Writing 00123-chaos-casting.md",
+                    "since": 1790974072000
+                },
+                {
+                    "id": "b6f0e3d8c1b5a9d21",
+                    "type": "synchronizer",
+                    "task": "Align the gadget gitlinks with origin",
+                    "background": true,
+                    "spawnedAt": 1790974069500,
+                    "state": "running",
+                    "detail": "Running npm test",
+                    "since": 1790974070200
+                }
+            ],
+            "departed": [{"id": "b2b6c9d1e4f7a0b33", "type": "scribe", "at": 1790974078000}]
+        },
+        {
+            "v": 1,
+            "seq": 15,
+            "at": 1790974080000,
+            "scientist": {"state": "idle", "detail": "One errand at a time", "since": 1790974080000},
+            "minions": [
+                {
+                    "id": "b3e9d2b7c4f1a0e58",
+                    "type": "surgeon",
+                    "task": "Trace why a refused wake stays owed",
+                    "background": false,
+                    "spawnedAt": 1790974061000,
+                    "state": "running",
+                    "detail": "Running npm test",
+                    "since": 1790974076000
+                },
+                {
+                    "id": "b90d4e6f1b2c8a737",
+                    "type": "librarian",
+                    "task": "Check PAGES.md against the six pages",
+                    "background": false,
+                    "spawnedAt": 1790974066000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974077000
+                },
+                {
+                    "id": "b7c1f0e2d9b4c3a10",
+                    "type": "chaos-monkey",
+                    "task": "Stress-test the crossing guards",
+                    "background": false,
+                    "spawnedAt": 1790974066600,
+                    "state": "writing",
+                    "detail": "Writing 00123-chaos-casting.md",
+                    "since": 1790974072000
+                },
+                {
+                    "id": "b6f0e3d8c1b5a9d21",
+                    "type": "synchronizer",
+                    "task": "Align the gadget gitlinks with origin",
+                    "background": true,
+                    "spawnedAt": 1790974069500,
+                    "state": "reading",
+                    "detail": "Reading crossing.ts",
+                    "since": 1790974080000
+                }
+            ],
+            "departed": [{"id": "b2b6c9d1e4f7a0b33", "type": "scribe", "at": 1790974078000}]
+        },
+        {
+            "v": 1,
+            "seq": 16,
+            "at": 1790974084000,
+            "scientist": {"state": "idle", "detail": "One errand at a time", "since": 1790974084000},
+            "minions": [
+                {
+                    "id": "b3e9d2b7c4f1a0e58",
+                    "type": "surgeon",
+                    "task": "Trace why a refused wake stays owed",
+                    "background": false,
+                    "spawnedAt": 1790974061000,
+                    "state": "running",
+                    "detail": "Running npm test",
+                    "since": 1790974076000
+                },
+                {
+                    "id": "b90d4e6f1b2c8a737",
+                    "type": "librarian",
+                    "task": "Check PAGES.md against the six pages",
+                    "background": false,
+                    "spawnedAt": 1790974066000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974077000
+                },
+                {
+                    "id": "b6f0e3d8c1b5a9d21",
+                    "type": "synchronizer",
+                    "task": "Align the gadget gitlinks with origin",
+                    "background": true,
+                    "spawnedAt": 1790974069500,
+                    "state": "reading",
+                    "detail": "Reading crossing.ts",
+                    "since": 1790974080000
+                }
+            ],
+            "departed": [
+                {"id": "b2b6c9d1e4f7a0b33", "type": "scribe", "at": 1790974078000},
+                {"id": "b7c1f0e2d9b4c3a10", "type": "chaos-monkey", "at": 1790974084000}
+            ]
+        },
+        {
+            "v": 1,
+            "seq": 17,
+            "at": 1790974084200,
+            "scientist": {"state": "idle", "detail": "One errand at a time", "since": 1790974084200},
+            "minions": [
+                {
+                    "id": "b90d4e6f1b2c8a737",
+                    "type": "librarian",
+                    "task": "Check PAGES.md against the six pages",
+                    "background": false,
+                    "spawnedAt": 1790974066000,
+                    "state": "writing",
+                    "detail": "Writing the notes",
+                    "since": 1790974077000
+                },
+                {
+                    "id": "b6f0e3d8c1b5a9d21",
+                    "type": "synchronizer",
+                    "task": "Align the gadget gitlinks with origin",
+                    "background": true,
+                    "spawnedAt": 1790974069500,
+                    "state": "reading",
+                    "detail": "Reading crossing.ts",
+                    "since": 1790974080000
+                }
+            ],
+            "departed": [
+                {"id": "b2b6c9d1e4f7a0b33", "type": "scribe", "at": 1790974078000},
+                {"id": "b7c1f0e2d9b4c3a10", "type": "chaos-monkey", "at": 1790974084000},
+                {"id": "b3e9d2b7c4f1a0e58", "type": "surgeon", "at": 1790974084200}
+            ]
+        },
+        {
+            "v": 1,
+            "seq": 18,
+            "at": 1790974084400,
+            "scientist": {"state": "idle", "detail": "One errand at a time", "since": 1790974084400},
+            "minions": [
+                {
+                    "id": "b6f0e3d8c1b5a9d21",
+                    "type": "synchronizer",
+                    "task": "Align the gadget gitlinks with origin",
+                    "background": true,
+                    "spawnedAt": 1790974069500,
+                    "state": "reading",
+                    "detail": "Reading crossing.ts",
+                    "since": 1790974080000
+                }
+            ],
+            "departed": [
+                {"id": "b2b6c9d1e4f7a0b33", "type": "scribe", "at": 1790974078000},
+                {"id": "b7c1f0e2d9b4c3a10", "type": "chaos-monkey", "at": 1790974084000},
+                {"id": "b3e9d2b7c4f1a0e58", "type": "surgeon", "at": 1790974084200},
+                {"id": "b90d4e6f1b2c8a737", "type": "librarian", "at": 1790974084400}
+            ]
+        },
+        {
+            "v": 1,
+            "seq": 19,
+            "at": 1790974085200,
+            "scientist": {"state": "idle", "detail": "One errand at a time", "since": 1790974085200},
+            "minions": [],
+            "departed": [
+                {"id": "b2b6c9d1e4f7a0b33", "type": "scribe", "at": 1790974078000},
+                {"id": "b7c1f0e2d9b4c3a10", "type": "chaos-monkey", "at": 1790974084000},
+                {"id": "b3e9d2b7c4f1a0e58", "type": "surgeon", "at": 1790974084200},
+                {"id": "b90d4e6f1b2c8a737", "type": "librarian", "at": 1790974084400},
+                {"id": "b6f0e3d8c1b5a9d21", "type": "synchronizer", "at": 1790974085200}
+            ]
+        },
+        {
+            "v": 1,
+            "seq": 20,
+            "at": 1790974086000,
+            "scientist": {"state": "idle", "detail": "One errand at a time", "since": 1790974086000},
+            "minions": [
+                {
+                    "id": "b51b8c0d3e7f2a946",
+                    "type": "Explore",
+                    "task": "Find every RAF loop in the Mezzanine",
+                    "background": false,
+                    "spawnedAt": 1790974086000,
+                    "state": "thinking",
+                    "detail": "Weighing it",
+                    "since": 1790974086000
+                }
+            ],
+            "departed": [
+                {"id": "b2b6c9d1e4f7a0b33", "type": "scribe", "at": 1790974078000},
+                {"id": "b7c1f0e2d9b4c3a10", "type": "chaos-monkey", "at": 1790974084000},
+                {"id": "b3e9d2b7c4f1a0e58", "type": "surgeon", "at": 1790974084200},
+                {"id": "b90d4e6f1b2c8a737", "type": "librarian", "at": 1790974084400},
+                {"id": "b6f0e3d8c1b5a9d21", "type": "synchronizer", "at": 1790974085200}
+            ]
+        },
+        {
+            "v": 1,
+            "seq": 21,
+            "at": 1790974087000,
+            "scientist": {"state": "idle", "detail": "One errand at a time", "since": 1790974087000},
+            "minions": [
+                {
+                    "id": "b51b8c0d3e7f2a946",
+                    "type": "Explore",
+                    "task": "Find every RAF loop in the Mezzanine",
+                    "background": false,
+                    "spawnedAt": 1790974086000,
+                    "state": "running",
+                    "detail": "Running npm test",
+                    "since": 1790974087000
+                }
+            ],
+            "departed": [
+                {"id": "b2b6c9d1e4f7a0b33", "type": "scribe", "at": 1790974078000},
+                {"id": "b7c1f0e2d9b4c3a10", "type": "chaos-monkey", "at": 1790974084000},
+                {"id": "b3e9d2b7c4f1a0e58", "type": "surgeon", "at": 1790974084200},
+                {"id": "b90d4e6f1b2c8a737", "type": "librarian", "at": 1790974084400},
+                {"id": "b6f0e3d8c1b5a9d21", "type": "synchronizer", "at": 1790974085200}
+            ]
+        },
+        {
+            "v": 1,
+            "seq": 22,
+            "at": 1790974089400,
+            "scientist": {"state": "idle", "detail": "One errand at a time", "since": 1790974089400},
+            "minions": [],
+            "departed": [
+                {"id": "b2b6c9d1e4f7a0b33", "type": "scribe", "at": 1790974078000},
+                {"id": "b7c1f0e2d9b4c3a10", "type": "chaos-monkey", "at": 1790974084000},
+                {"id": "b3e9d2b7c4f1a0e58", "type": "surgeon", "at": 1790974084200},
+                {"id": "b90d4e6f1b2c8a737", "type": "librarian", "at": 1790974084400},
+                {"id": "b6f0e3d8c1b5a9d21", "type": "synchronizer", "at": 1790974085200},
+                {"id": "b51b8c0d3e7f2a946", "type": "Explore", "at": 1790974089400}
+            ]
+        }
+    ]
+}

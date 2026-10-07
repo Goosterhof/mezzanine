@@ -21,6 +21,20 @@ export const SHADE = '#8a8273';
  *  (#00059 §10 divergence #6). */
 export const PAPER = '#f3ecdc';
 
+// The errand floor's inks (#00067 blocker 6, Pattern 013): the hexes the
+// ruled Minion Errand prototype named in its pen copy, moved here with their
+// values unchanged so no ruled pixel moves.
+/** the Chaos Monkey's fur wash */
+export const FUR = '#6b4a2a';
+/** glass: a head mirror, a lens */
+export const GLASS = '#9fb4c4';
+/** a sheet of paper in a hand: pages and slips */
+export const SHEET = '#fffdf2';
+/** the flask's cork */
+export const CORK = '#a0764a';
+/** a scorched slip: an errand that came home burnt */
+export const SCORCH = '#e8d7b4';
+
 export type Pt = [number, number];
 
 /** Deterministic chaos — inlined from the Atelier's

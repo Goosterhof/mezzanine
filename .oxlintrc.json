@@ -160,7 +160,9 @@
             // (line/ellipse/scribble carry x/y/size/width/color/alpha) and the
             // figure's seven-state acting are the design contract; the
             // war-room ceilings would force a rewrite of ratified geometry.
-            "files": ["src/observer/pen.ts", "src/observer/figure.ts"],
+            // The Specimens (#00067) are the same kind of contract: Lot 8 was
+            // ruled on its rendered stage and moved here verbatim.
+            "files": ["src/observer/pen.ts", "src/observer/figure.ts", "src/observer/specimen.ts"],
             "rules": {"max-params": "off", "complexity": "off", "max-lines-per-function": "off"}
         },
         {"files": ["src/**/*.ts"], "rules": {"import/no-default-export": "error"}},
