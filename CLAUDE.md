@@ -41,6 +41,31 @@ first snapshot and on a replaced connection. A missing field is ignored. One
 crossing plays per rise, with at most one queued. A paused page or reduced motion
 lands the letter at once; a walk in progress holds its place and resumes.
 
+**The Errand Floor (v0.3.6, #00067; wireframe #00042 Ruling R, cast #00043 R2
+Lot 8).** The minions the Mad Scientist sends out live on his bench, never in a
+panel. The Semaphore's board (`scientist-signal`) is folded by `errands.ts` on
+the Mezzanine's RECEIPT clock, never the board's. A minion hops out of the
+flask (the cork pops while anything is out) and kneels at one of three posts
+under the arch: centre, ±22, then centre and ±46 (D1). A fourth and later show
+only as "+N". Each one is a Specimen in its jar (`specimen.ts`), its stature
+baked in `specimenFit.ts`. A homecoming files a slip into the in-tray (at most
+three, filed after 600 s), and a background errand still working while he
+idles gets the R5′ AMBER pool. The Chaos Monkey never takes a post: he hangs by
+his fuse-tail from the brass above the flask. **The Rail (P2):** above the
+bench, a pointer-less sill canvas (`sill.ts` measures the envelope from the
+page, `sillPainter.ts` paints it) carries an arriving minion's 1.2 s grip on
+the brass. It also carries the one minion whose permission wait has held
+1.5 s, Kilroy over the rail and pointing at his terminal. The ceiling is the
+command input's lowest text edge + 3, so no minion ink can reach the
+investor's writing (tier 3). A dev-only alarm reads the sill's pixels after
+every paint. A keystroke in the last 1.5 s (`useLastKeystroke`), a paused page
+or reduced motion skips a grip, and a skipped grip is never replayed. Reduced
+motion lands every errand at its place. Exactly two COLLEAGUES, ever: a minion
+is never seated, selected or captioned. **The witness:**
+`scripts/witness-errand.mjs` runs the real app against the frozen R2 boards
+(tier-3 sweep over six postures, the provoked alarm, Kilroy, pipe clearance,
+click-through). `--only perf --headed` is the Windows host's frame gate (AC-13).
+
 Never fit a hidden or zero-size terminal. Preserve the reading line with xterm
 markers across visible fits, and restore after the scrollbar layout settles.
 Hidden canvases pause; the Holotable and Grind initialize on their first visit
@@ -182,6 +207,16 @@ panel label this gadget will ever ship.
 | Brief placeholder | *"What is the mission? Free-form — the scientist receives this as the opening prompt."* |
 | Command bar placeholder | *"Speak to the selected scientist…"* |
 | Crashed scientist | *"Mission ended in failure. Recall the row to clear it; the chronicle survives."* |
+| Errand ledger (bench front, second line, Caveat 15, INK 0.85) | *"the Surgeon · Reading crossing.ts · 2 more out"*: name · the Semaphore's `detail` verbatim · overflow. Shows the minion whose state changed most recently (#00067 §6) |
+| Minion names | *"the Chaos Monkey"*, *"the Surgeon"*; Hired: *"an Explore errand"*, *"a general-purpose errand"*, *"a Plan errand"* (`voiceName`) |
+| The errand itself | *"out on an errand"*, the phrase the live region uses; never "agent", "task" or "job" |
+| Overflow glyph (benchtop, 30 px right of the last post) | *"+2"*: a glyph, never an object |
+| Live region: a volley | *"The Surgeon is out on an errand."* / *"The Surgeon and 2 more are out on errands."* |
+| Live region: a Hired volley leader | *"An Explore errand went out."* / *"An Explore errand and 2 more went out."* (never "an errand is out on an errand"); `voiceName` is sentence-cased at line start |
+| Live region: the Chaos Monkey arrives alone | *"The Chaos Monkey is loose."* (the specimen who got out) |
+| Live region: the Chaos Monkey inside a volley | *"The Chaos Monkey is loose, and 2 more are out on errands."* (one line, never two; 1 → *"and 1 more is out on an errand."*) |
+| Live region: a permission wait held 1.5 s | *"The Surgeon · Asking permission: Bash"* (the ledger form) |
+| Returns, flash errands, the session-ended sweep | silent |
 
 ## The Architecture
 
@@ -333,7 +368,9 @@ mezzanine/
 ├── scripts/
 │   ├── version.mjs ........... The Ascent (#00056) — version lockstep across package.json / tauri.conf.json / Cargo.toml / package-lock.json (`check` / `bump` — four manifests must agree)
 │   ├── tauri-pairs.mjs ....... Blocking lockstep step — every `@tauri-apps/*` npm package must share major.minor with its crate in Cargo.lock, else `tauri build` refuses the release (the v0.3.4 tag died on a Dependabot split, 2026-10-06)
-│   └── release-readiness.mjs . Advisory PR job — warns when a feat/fix lands without a version bump (Decision 017 / Pattern 024: non-blocking, always exits 0)
+│   ├── release-readiness.mjs . Advisory PR job — warns when a feat/fix lands without a version bump (Decision 017 / Pattern 024: non-blocking, always exits 0)
+│   ├── witness-pages.cjs ..... Dev-only page-navigation witness: the real Vue/xterm app on `vite dev`, the Tauri boundary mocked at `__TAURI_INTERNALS__`
+│   └── witness-errand.mjs .... Dev-only Errand Floor witness (#00067 P3): the same mock emits the frozen R2 boards as `scientist-signal`; tier-3 sweep (6 postures), the provoked alarm on a real raster, Kilroy per type, pipe gap per post, click-through; `--only perf --headed` is the Windows frame gate. Not in CI
 ├── src/
 │   ├── App.vue ............... The two-storey frame (#00057, reframed by #00059): Balustrade (+ RecentlyRecalledStrip dock while populated) / ScientistCanvas + CommandBar / RailingDivider / TornPaperEdge / LabFloor (permanent — no v-if, no v-show) + the four summonable panels (MC/DD/HT/GR) + Dispatch + FirstRunWizard + AscentPrompt; opens the two colleague benches after setup. Owns isShortWindow (<820px → 64px floor-strip) and the plumb-line geometry (plumbX / plumbLength / plumbDropping). The DOM nameplate railing retired in #00059 J-3 — the roster lives only on the page
 │   ├── main.ts ............... createApp + UnoCSS
@@ -345,7 +382,8 @@ mezzanine/
 │   │   ├── Balustrade.vue .... The single ~76px brass cap (merged BalconyRail + TopBar, both retired): identity, two signs (Reserved tile dropped), MC/DD/HT/GR glyphs (OB retired), Brief ▾ trigger
 │   │   ├── RailingDivider.vue  Brass-post SVG balustrade between the storeys — hosts the PENCIL plumb-line + sketched nail mark (#00059 J-4; 300ms stroke-dashoffset draw-on, reduced-motion instant; imports PENCIL from ../observer/pen — constants cross the slice boundary, logic does not)
 │   │   ├── TornPaperEdge.vue . The seam between the storeys (#00059 J-4) — static SVG zigzag, fill = PAPER from ../observer/pen, aria-hidden; the plumb-line (z-10) hangs OVER it (z-[5])
-│   │   ├── ConversationPage.vue .. persistent two-colleague page, floor and plumb-line geometry
+│   │   ├── ConversationPage.vue .. persistent two-colleague page, floor and plumb-line geometry; measures the Rail's envelope and hosts the pointer-less sill canvas (#00067 P2)
+│   │   ├── brass.ts .......... The balcony's brass in one home (#00067 AC-9): BRASS / BRASS_DIM, read by the rail, the terminals' cursor, the Holotable, the Grind and the sill's re-stroke
 │   │   └── useShell.ts ....... page + navigate singleton; six destinations, no overlay toggles
 │   ├── roster/                The dispatched-scientist domain
 │   │   ├── types.ts .......... Scientist / Target / MissionState / TARGET_OPTIONS / targetLabel / targetKey
@@ -384,9 +422,17 @@ mezzanine/
 │   │   ├── scene.js .......... The Field Journal renderer (#00059 J-2/J-3/J-4; pixel engine retired) — boiling-ink figures + four ink stations + watercolour washes + Caveat margin captions (crash voice, idle warn, [ recall ] hit-region) + canvas empty voice on a pre-rendered paper blit (full-DPR, 1:1). Controller unchanged: setRoster / setSelected / setStrip / getStationPos / getFloorSize / pauseRaf / resumeRaf / destroy; consumes projection.ts for all geometry; emits selectScientist:<id> + recallScientist:<id>
 │   │   ├── LabScene.vue ...... `<canvas>` host — pushes roster/selection/strip down (entries widened in #00059 J-3 with target / mission / startedAtMs / idleWarn / crashed for the captions); parses parseRecallScientistAction → backend.recall and parseSelectScientistAction → roster.select
 │   │   └── LabFloor.vue ...... THE PERMANENT FLOOR (#00057) — never a toggle; 40vh / 64px strip (never zero); CSS perspective gradient + light pools (opacity = total function of ActivityState; positions re-read behind a double rAF — the scene assigns stations inside its own tick, and a nextTick-only read strands the pool a station behind the figure, #00059 ratification wound); RAF gated by window focus + matchMedia (the DOM empty-voice overlay retired in #00059 J-3 — the canvas speaks)
+│   │   ├── errands.ts ........ The Errand Floor (#00067): folds Semaphore boards on the receipt clock into errands: posts (`POST_OFFSETS`, `POST_POSE_MAX_PX` 52), "+N", volleys, the sill's one occupant, the grip gates, the tray, the ledger, the live-region voice (`voiceLine`); total and replayable, fully specced
+│   │   ├── specimen.ts ....... The Specimens in ink (#00043 R2 Lot 8): heron, owl, octopus, snail, Fairground Goldfish for Hired; 15 moments per type; `EYE_STAGE` is the Kilroy readout
+│   │   ├── specimenFit.ts .... Each type's stature, baked (the prototype's runtime `inkBox` probes removed: the first-frame spike, §3 #4)
+│   │   ├── errandFurniture.ts  The flask's cork, foam and burp, the in-tray and its slips, the R5′ AMBER pool, the "+N" glyph, the errand ledger
+│   │   ├── monkey.ts ......... The Chaos Monkey: hangs by his fuse-tail from the brass above the flask, swings while he works, goes home with a POP
+│   │   ├── sill.ts ........... The Rail's envelope from measured page rects (ceiling = text bottom + 3; null is a legitimate state) + `tier3Hits`, the alarm's pure core
+│   │   ├── sillPainter.ts .... Paints the sill: paper die-cut, brass re-stroked over a body behind the balustrade, fingers over it; DEV-only tier-3 alarm + `sillReadout` (breach count, Kilroy eye rows) for the witness. Coverage-excluded (jsdom has no Canvas 2D)
 │   ├── grind/                 Arc 3 (#00053) — the lab economy: gameCore.ts + useGrind + GrindRenderer + GrindHud + GrindPanel (GR glyph)
 │   ├── command/               Always-on input tray
-│   │   └── CommandBar.vue .... Always-focused bottom input → write_to_scientist(selected, text + "\n")
+│   │   ├── CommandBar.vue .... Always-focused bottom input → write_to_scientist(selected, text + "\n")
+│   │   └── useLastKeystroke.ts When the investor last typed (the command bar, and the Mad Scientist's xterm keydown, never `onData`): the 1.5 s grip gate
 │   ├── wizard/                First-run wizard (Phase 2C) — three steps, balcony voice
 │   │   ├── types.ts .......... WizardState / WizardDetected / WizardSubmission + WIZARD_STEP_ORDER
 │   │   ├── useWizard.ts ...... Singleton state + IPC (loadStatus / goNext / goBack / submit)
@@ -406,7 +452,7 @@ mezzanine/
 ├── tests/                      Mirrors src/ slices — all *.spec.ts live here
 │   ├── ascent/ ................ useAscent (flow states) + AscentPrompt (render / actions / balcony voice)
 │   ├── balcony/ ............... BalconySign + BriefingLibrary + useBalconySigns + useBriefingLibrary + useDispatch
-│   ├── observer/ .............. LabFloor (floor invariants, pool totality, RAF gating, canvas empty voice via recorded mock ctx) + projection (the geometric spine + both wire formats) + pen (seeded-stroke determinism) + figure (7-state totality, ghost geometry) + useObserver + activityInference + types
+│   ├── observer/ .............. LabFloor (floor invariants, pool totality, RAF gating, canvas empty voice via recorded mock ctx) + projection (the geometric spine + both wire formats) + pen (seeded-stroke determinism) + figure (7-state totality, ghost geometry) + useObserver + activityInference + types + the Errand Floor (errands replayed over the frozen R2 fixture, specimen ink, errandFurniture, sill, monkey)
 │   ├── roster/ ................ ScientistCanvas (both panes, focus and resize) + ColleagueBenches + RecentlyRecalledStrip + PulseDot + composables
 │   ├── wizard/ ................ useWizard + FirstRunWizard + Steps (StepLaboratory / StepBinary / StepChronicle)
 │   ├── mission/ ............... MissionControl + sections + useMissionControl
