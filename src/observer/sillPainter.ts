@@ -27,7 +27,27 @@ import {drawSlip} from './errandFurniture';
 import {drawHangingTail, drawMonkey} from './monkey';
 import {INK, PAPER, SketchPen} from './pen';
 import {tier3Hits} from './sill';
-import {drawSpecimen} from './specimen';
+import {drawSpecimen, EYE_STAGE} from './specimen';
+
+/** One border figure's eye against the brass, as the last sill paint placed it. */
+export interface KilroyReading {
+    id: string;
+    type: string;
+    kind: ErrandFigure['kind'];
+    arms: ErrandFigure['arms'];
+    /** the brass top-rail's y minus the eye-centre's y, section px (+ = the eye clears the rail) */
+    eyeAboveRailPx: number;
+}
+
+/**
+ * DEV only: what the sill's paints held, for the P3 witness (scripts/witness-errand.mjs,
+ * #00067 AC-7c and AC-11). Paints and breaching paints are counted, and each border
+ * figure's eye is read off the same body pass that drew it. Production never writes it.
+ */
+export const sillReadout = {paints: 0, breachPaints: 0, breaches: [] as string[], kilroy: [] as KilroyReading[]};
+
+/** The monkey's eyes, local units about his hip: head centre (2.5, −29), eyes 2.5 above it (monkey.ts). */
+const MONKEY_EYE = {x: 2.5 + 0.6, y: -29 - 2.5};
 
 /** One figure in ink at the current transform (its hip/feet at the origin). */
 export function inkFigure(
@@ -186,12 +206,29 @@ function paintFigure(p: PaintCtx, fig: ErrandFigure): void {
     const px = fig.x + p.env.benchLeft;
     const py = fig.y - p.geo.cropTop + p.env.benchTop;
     const at = {ox: px - half, oy: py - half, size: half * 2};
+    if (import.meta.env.DEV) readKilroy(p.env, fig, [px, py]);
     margin(p, offBody, at);
     p.sill.drawImage(offBody, at.ox, at.oy, at.size, at.size);
     if (!split) return;
     restrokeBrass(p.sill, p.env, [px - half * 0.7, px + half * 0.7]);
     margin(p, offHands, at);
     p.sill.drawImage(offHands, at.ox, at.oy, at.size, at.size);
+}
+
+/** DEV only: where the body pass put this figure's eye (inkFigure: rotate, then scale by s). */
+function readKilroy(env: SillEnvelope, fig: ErrandFigure, at: [number, number]): void {
+    if (fig.kind === 'slip') return;
+    const e = fig.kind === 'monkey' ? MONKEY_EYE : EYE_STAGE;
+    if (!Number.isFinite(e.y)) return;
+    const rot = fig.rot ?? 0;
+    const eyeY = at[1] + fig.s * (e.x * Math.sin(rot) + e.y * Math.cos(rot));
+    sillReadout.kilroy.push({
+        id: fig.id,
+        type: fig.type,
+        kind: fig.kind,
+        arms: fig.arms,
+        eyeAboveRailPx: env.railY - eyeY,
+    });
 }
 
 /** Size the sill canvas to its envelope and paint every border figure into it. */
@@ -213,6 +250,7 @@ export function paintSill(
     // section px → this canvas: its top-left sits at (env.x, env.top)
     sill.setTransform(dpr, 0, 0, dpr, -env.x * dpr, -env.top * dpr);
     const p: PaintCtx = {sill, env, geo, dpr, seed: clock.seed, clock};
+    if (import.meta.env.DEV) sillReadout.kilroy = [];
     for (const fig of figures) paintFigure(p, fig);
     sill.setTransform(1, 0, 0, 1, 0, 0);
     if (import.meta.env.DEV) tier3Alarm(sill, env, dpr);
@@ -224,7 +262,11 @@ function tier3Alarm(sill: CanvasRenderingContext2D, env: SillEnvelope, dpr: numb
     const rgba = sill.getImageData(0, 0, w, h).data;
     const alpha = new Uint8ClampedArray(w * h);
     for (let i = 0; i < alpha.length; i++) alpha[i] = rgba[i * 4 + 3] ?? 0;
-    for (const name of tier3Hits({alpha, w, h}, {x: env.x, y: env.top, dpr}, env.tier3)) {
+    const hits = tier3Hits({alpha, w, h}, {x: env.x, y: env.top, dpr}, env.tier3);
+    sillReadout.paints++;
+    if (hits.length > 0) sillReadout.breachPaints++;
+    for (const name of hits) {
+        if (!sillReadout.breaches.includes(name)) sillReadout.breaches.push(name);
         // oxlint-disable-next-line no-console -- the alarm IS a console line, in dev only
         console.error(`TIER 3 BREACH: ${name}`);
     }
