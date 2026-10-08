@@ -42,7 +42,8 @@ const MS = 'mad-scientist';
 const TYPES = ['surgeon', 'librarian', 'scribe', 'synchronizer', 'general-purpose', 'Explore', 'Plan'];
 const KILROY_MIN = 0.5;
 const PIPE_MIN = 4;
-/** errands.ts POST_OFFSETS, every count folded together */
+/** errands.ts POST_OFFSETS, per count of minions out, and every count folded together */
+const POST_OFFSETS = {1: [0], 2: [-22, 22], 3: [0, -46, 46]};
 const POSTS = [0, -22, 22, -46, 46];
 
 // --- the mocked Tauri boundary (the shape of witness-pages.cjs) ------------------------------
@@ -110,17 +111,27 @@ async function installInstruments(page) {
         const {benchGeometry} = await import('/src/observer/projection.ts');
         const dark = (d, k) => d[k + 3] > 120 && 0.3 * d[k] + 0.59 * d[k + 1] + 0.11 * d[k + 2] < 150;
         // Each run of columns where a minion's ink appears: its centre, and its smallest gap to the
-        // first dark pipe pixel above it on the empty bench. Read only under the arch (the posts:
-        // centre ±80) and above the benchtop a post minion stands on: the captions keep time and
-        // the ledger changes, never there. A minion's pixel is dark in the frame with NO empty-bench
-        // ink within 2 rows: the pen boils from one sequence per frame and the minions draw before
-        // the arch, so a minion on the bench moves the arch's strokes by a pixel. A figure that
-        // truly touches the pipe still reads <= 2 px, under the 4 px gate.
+        // pipe. Read only under the arch (the posts: centre ±80) and above the benchtop a post
+        // minion stands on: the captions keep time and the ledger changes, never there. A minion's
+        // pixel is dark in the frame with NO empty-bench ink within 2 rows: the pen boils from one
+        // sequence per frame and the minions draw before the arch, so a minion on the bench moves
+        // the arch's strokes by a pixel. A figure that truly touches the pipe still reads <= 2 px.
+        // The gap is measured to the pipe's LOWEST ink in each column (the arch band only), never
+        // by scanning up from the figure: a figure whose ink rises past the pipe reads 0 and is
+        // marked `crossed` (the Heretic's #178 review: scanning up, a crossing read as Infinity).
         const SLACK = 2;
         const inkNear = (d, {W, x, y}) => {
             for (let dy = -SLACK; dy <= SLACK; dy++) if (y + dy >= 0 && dark(d, ((y + dy) * W + x) * 4)) return true;
             return false;
         };
+        /** the lowest dark row of the empty bench's pipe in column x, or -1 where the pipe is absent */
+        function pipeLow(base, x) {
+            const W = base.width;
+            const geo = benchGeometry(W, false);
+            const band = Math.floor(geo.archApexY - geo.cropTop + 24);
+            for (let y = band; y >= 0; y--) if (dark(base.data, (y * W + x) * 4)) return y;
+            return -1;
+        }
         function figureClusters(base, img) {
             const W = base.width;
             const geo = benchGeometry(W, false);
@@ -128,30 +139,31 @@ async function installInstruments(page) {
             const [c0, c1] = [Math.floor(W / 2 - 80), Math.ceil(W / 2 + 80)];
             const a = base.data;
             const b = img.data;
-            const tops = new Array(W).fill(-1);
-            for (let x = c0; x < c1; x++) {
-                for (let y = 0; y < H; y++) {
-                    const k = (y * W + x) * 4;
-                    if (dark(b, k) && !inkNear(a, {W, x, y})) {
-                        tops[x] = y;
-                        break;
-                    }
-                }
-            }
             const out = [];
             let cur = null;
             for (let x = c0; x <= c1; x++) {
-                if (x < c1 && tops[x] >= 0) {
-                    cur ??= {x0: x, x1: x, gap: Infinity};
-                    cur.x1 = x;
-                    for (let y = tops[x] - 1; y >= 0; y--) {
-                        if (dark(a, (y * W + x) * 4)) {
-                            cur.gap = Math.min(cur.gap, tops[x] - y - 1);
+                let top = -1;
+                if (x < c1) {
+                    for (let y = 0; y < H; y++) {
+                        if (dark(b, (y * W + x) * 4) && !inkNear(a, {W, x, y})) {
+                            top = y;
                             break;
                         }
                     }
+                }
+                if (top >= 0) {
+                    cur ??= {x0: x, x1: x, gap: Infinity, crossed: false, piped: 0};
+                    cur.x1 = x;
+                    const low = pipeLow(base, x);
+                    if (low >= 0) {
+                        cur.piped++;
+                        const g = top - low - 1;
+                        if (g < 0) cur.crossed = true;
+                        cur.gap = Math.min(cur.gap, Math.max(0, g));
+                    }
                 } else if (cur) {
-                    if (cur.x1 - cur.x0 >= 6) out.push({centre: (cur.x0 + cur.x1) / 2, gap: cur.gap});
+                    if (cur.x1 - cur.x0 >= 6)
+                        out.push({centre: (cur.x0 + cur.x1) / 2, gap: cur.gap, crossed: cur.crossed, piped: cur.piped});
                     cur = null;
                 }
             }
@@ -240,7 +252,22 @@ async function installInstruments(page) {
             /** each minion's ink against the empty bench: its offset from the centre, and its pipe gap */
             clusters() {
                 const W = bench().width;
-                return figureClusters(w.base, pixels()).map((k) => ({dx: k.centre - W / 2, gap: k.gap}));
+                return figureClusters(w.base, pixels()).map((k) => ({...k, dx: k.centre - W / 2}));
+            },
+            /** the reader's own controls: a block painted at the centre post, read in the same task
+             *  (before the next frame repaints), its top `rise` px above (+) or below (−) the pipe */
+            provokedRead(rise) {
+                const c = bench();
+                const x0 = Math.round(c.width / 2) - 6;
+                const low = pipeLow(w.base, x0 + 6);
+                const top = low - rise;
+                const ctx = c.getContext('2d');
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(x0, top, 13, 24);
+                ctx.restore();
+                return {low, top, clusters: w.clusters()};
             },
         };
         window.__witness = w;
@@ -481,13 +508,17 @@ async function kilroy(browser) {
 }
 
 // --- AC-12: the pipe gap at every used post, every type, every post pose ----------------------
-const nearestPost = (dx) => {
-    const best = POSTS.reduce((a, o) => (Math.abs(dx - o) < Math.abs(dx - a) ? o : a), POSTS[0]);
-    return Math.abs(dx - best) <= 12 ? best : null;
-};
+/** An invalid reading keeps its frame as evidence, beside the --out file (or not at all). */
+async function keepFrame(page, name) {
+    const out = arg('--out');
+    if (!out) return;
+    const url = await page.evaluate(() => document.querySelector('[data-observer-canvas]').toDataURL());
+    writeFileSync(resolve(dirname(out), `${name}.png`), Buffer.from(url.split(',')[1], 'base64'));
+}
 
-/** Under reduced motion the boil pins to one seed, so the pipe's ink is the same pixels in every
- *  frame: a minion's ink is exactly what differs from the empty bench. */
+/** Under reduced motion the boil pins to one seed, so the empty bench is one fixed raster to read
+ *  every minion against. Two controls run first (a block crossing the pipe reads crossed, a block 11
+ *  rows under it reads exactly 10), and every case must give each of its posts a finite reading. */
 async function pipe(browser) {
     const STATES = ['thinking', 'reading', 'writing', 'running', 'waiting'];
     const out = [];
@@ -509,7 +540,19 @@ async function pipe(browser) {
         await emit(board([], []));
         await settle();
         await page.evaluate(() => window.__witness.snapBase());
+        // the reader's controls, before any case: a block crossing the pipe must read crossed,
+        // and a block whose top sits exactly 11 rows under the pipe's lowest ink must read gap 10
+        const crossing = await page.evaluate(() => window.__witness.provokedRead(16));
+        await page.waitForTimeout(150); // the next frame repaints the bench over the first block
+        const measured = await page.evaluate(() => window.__witness.provokedRead(-11));
+        const at = (r) => r.clusters.find((k) => Math.abs(k.dx) <= 12);
+        const control = {crossed: at(crossing)?.crossed ?? null, crossGap: at(crossing)?.gap ?? null, knownGap: at(measured)?.gap ?? null};
+        console.log(`pipe ${vp.join('×')} controls: crossing block → crossed ${control.crossed}, gap ${control.crossGap}; block 11 rows under → gap ${control.knownGap} (want 10)`);
+        gate(control.crossed === true && control.crossGap === 0, `AC-12 control: ${vp.join('×')} a block crossing the pipe did not read crossed`);
+        gate(control.knownGap === 10, `AC-12 control: ${vp.join('×')} a block 11 rows under the pipe read ${control.knownGap}, not 10`);
+        await settle();
         const gaps = new Map(POSTS.map((o) => [o, {gap: Infinity, cast: '', state: '', n: 0}]));
+        const invalid = [];
         let caseNo = 0;
         for (const n of [1, 2, 3]) {
             for (let r = 0; r < TYPES.length; r++) {
@@ -520,19 +563,47 @@ async function pipe(browser) {
                     const ms = cast.map((type, i) => minion(`pipe-${caseNo}-${i}`, type, state, now + i));
                     await emit(board(ms, []));
                     await settle();
+                    // Every posted figure must yield a finite reading at its own post. A figure can read
+                    // as several clusters (the goldfish's raised hand stands clear of its bag), so each
+                    // cluster belongs to the nearest expected post within half the pitch; ink further out
+                    // belongs to no post and is invalid.
+                    const want = POST_OFFSETS[n];
+                    const half = want.length > 1 ? Math.min(...want.flatMap((a) => want.filter((b) => b !== a).map((b) => Math.abs(a - b)))) / 2 : 80;
+                    const perPost = new Map(want.map((o) => [o, []]));
                     for (const cluster of await page.evaluate(() => window.__witness.clusters())) {
-                        const off = nearestPost(cluster.dx);
-                        if (off === null) continue;
+                        const off = want.reduce((a, o) => (Math.abs(cluster.dx - o) < Math.abs(cluster.dx - a) ? o : a), want[0]);
+                        if (Math.abs(cluster.dx - off) > half) {
+                            invalid.push(`${cast.join('+')} ${state}: ink at dx ${cluster.dx.toFixed(1)}, no post of ${n}`);
+                            await keepFrame(page, `pipe-${vp.join('x')}-case${caseNo}`);
+                            continue;
+                        }
+                        perPost.get(off).push(cluster);
+                    }
+                    for (const [off, parts] of perPost) {
+                        const piped = parts.filter((k) => k.piped > 0);
+                        const gap = piped.length ? Math.min(...piped.map((k) => k.gap)) : Infinity;
+                        const crossed = parts.some((k) => k.crossed);
+                        if (parts.length === 0 || !Number.isFinite(gap) || crossed) {
+                            invalid.push(`${cast.join('+')} ${state} post ${off}: ${parts.length} clusters, gap ${gap}${crossed ? ', crossed' : ''}`);
+                            await keepFrame(page, `pipe-${vp.join('x')}-case${caseNo}`);
+                        }
                         const g = gaps.get(off);
                         g.n++;
-                        if (cluster.gap < g.gap) Object.assign(g, {gap: cluster.gap, cast: cast.join('+'), state});
+                        if (gap < g.gap) Object.assign(g, {gap, cast: cast.join('+'), state});
                     }
                     await emit(board([], ms.map((m) => ({id: m.id, type: m.type, at: now}))));
                     await settle();
                 }
             }
         }
-        const row = {viewport: vp.join('×'), cases: caseNo, posts: [...gaps].map(([offset, g]) => ({offset, ...g}))};
+        const row = {
+            viewport: vp.join('×'),
+            cases: caseNo,
+            control,
+            invalid,
+            posts: [...gaps].map(([offset, g]) => ({offset, ...g})),
+        };
+        gate(invalid.length === 0, `AC-12: ${vp.join('×')} ${invalid.length} invalid readings: ${invalid.slice(0, 4).join(' | ')}`);
         out.push(row);
         for (const p of row.posts) {
             console.log(
