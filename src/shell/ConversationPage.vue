@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 
+import type {ErrandSill} from '../observer/LabScene.vue';
+
 import CommandBar from '../command/CommandBar.vue';
+import {type ErrandEvent, voiceLine} from '../observer/errands';
 import LabFloor from '../observer/LabFloor.vue';
 import {SHORT_WINDOW_H} from '../observer/projection';
+import {type PageRect, type SillEnvelope, type SillRects, sillEnvelope} from '../observer/sill';
 import {useObserver} from '../observer/useObserver';
 import ColleagueBenches from '../roster/ColleagueBenches.vue';
 import RecentlyRecalledStrip from '../roster/RecentlyRecalledStrip.vue';
@@ -14,6 +18,8 @@ import TornPaperEdge from './TornPaperEdge.vue';
 
 const {active = true, compactFloor = false} = defineProps<{active?: boolean; compactFloor?: boolean}>();
 const labFloorRef = ref<InstanceType<typeof LabFloor> | null>(null);
+const sectionRef = ref<HTMLElement | null>(null);
+const sillRef = ref<HTMLCanvasElement | null>(null);
 const dividerRef = ref<InstanceType<typeof RailingDivider> | null>(null);
 const roster = useRoster();
 const observer = useObserver();
@@ -73,6 +79,61 @@ function dropPlumb(): void {
     }, 320);
 }
 
+// --- The Rail (#00067 P2) -------------------------------------------------
+// The sill a minion climbs into when it grips the brass is measured from the
+// page every time the layout moves, never hard-coded: the command bar, the
+// input and its two stamps (the investor's own text — tier 3), the divider,
+// the torn edge, the bench canvas and both terminal panes. Its top edge IS
+// the ceiling, so the canvas cannot reach the investor's text. A null
+// envelope is a legitimate state: no grip, a waiter keeps its post.
+const sillEnv = ref<SillEnvelope | null>(null);
+
+function rectIn(section: DOMRect, el: Element | null, name: string): PageRect | undefined {
+    if (!el) return undefined;
+    const r = el.getBoundingClientRect();
+    return {x: r.left - section.left, y: r.top - section.top, w: r.width, h: r.height, name};
+}
+
+function measureSill(): void {
+    const section = sectionRef.value;
+    if (!section || !active) return;
+    const box = section.getBoundingClientRect();
+    const q = (sel: string): Element | null => section.querySelector(sel);
+    const bar = q('[data-command-bar]');
+    const rects: Partial<SillRects> = {
+        bar: rectIn(box, bar, 'command bar'),
+        input: rectIn(box, q('[data-command-input]'), 'command input'),
+        stamps: [...(bar?.querySelectorAll('.mz-stamp-label') ?? [])].map(
+            (el, i) => rectIn(box, el, i === 0 ? 'DIRECT stamp' : 'TO: stamp') as PageRect,
+        ),
+        divider: rectIn(box, q('[data-railing-divider]'), 'divider'),
+        torn: rectIn(box, q('[data-torn-paper-edge]'), 'torn'),
+        bench: rectIn(box, q('[data-observer-canvas]'), 'bench'),
+        paneMs: rectIn(box, q('[data-terminal-pane="mad-scientist"]'), 'Mad Scientist pane'),
+        paneHer: rectIn(box, q('[data-terminal-pane="heretic"]'), 'Heretic pane'),
+    };
+    sillEnv.value = sillEnvelope(rects);
+}
+
+/** The plumb-line in the section's own coordinates (the sill keeps clear of it, ±24). */
+const plumbInSection = computed(() => {
+    if (plumbX.value === null || !sectionRef.value) return null;
+    return plumbX.value + dividerOrigin().left - sectionRef.value.getBoundingClientRect().left;
+});
+
+const sill = computed<ErrandSill | null>(() =>
+    sillEnv.value ? {canvas: sillRef.value, envelope: sillEnv.value, plumbX: plumbInSection.value} : null,
+);
+
+// The live region (#00042 §15, the Gift): one polite line per volley and per
+// held wait; returns make no event, so they stay silent.
+const errandVoice = ref('');
+function onErrand(event: ErrandEvent): void {
+    errandVoice.value = voiceLine(event);
+}
+
+let sectionObserver: ResizeObserver | null = null;
+
 // The Recently Recalled strip lost its dock when the railing plates
 // retired (#00059 J-3 — it sat at the rail's right end inside the
 // plate rail). The 5-minute TTL ledger survives; it docks directly
@@ -82,11 +143,24 @@ const hasRecalledStrip = computed(() => roster.recalledStrip.value.length > 0);
 function onWindowResize(): void {
     shortWindow.value = window.innerHeight < SHORT_WINDOW_H;
     recomputePlumb();
+    measureSill();
 }
 
-onMounted(() => window.addEventListener('resize', onWindowResize));
+onMounted(() => {
+    window.addEventListener('resize', onWindowResize);
+    void nextTick(measureSill);
+    if (sectionRef.value) {
+        sectionObserver = new ResizeObserver(measureSill);
+        sectionObserver.observe(sectionRef.value);
+        // the bench canvas takes its real size only after the scene's async start: measure again then
+        const bench = sectionRef.value.querySelector('[data-observer-canvas]');
+        if (bench) sectionObserver.observe(bench);
+    }
+});
 onBeforeUnmount(() => {
     window.removeEventListener('resize', onWindowResize);
+    sectionObserver?.disconnect();
+    sectionObserver = null;
     if (plumbDropTimer) clearTimeout(plumbDropTimer);
 });
 // Selection → the signature gesture (#00057 §4, reframed by #00059 §4:
@@ -130,6 +204,7 @@ watch(
     () => {
         void nextTick(() => {
             recomputePlumb();
+            measureSill();
         });
     },
 );
@@ -137,12 +212,21 @@ watch(
 watch(
     () => active,
     (visible) => {
-        if (visible) void nextTick(recomputePlumb);
+        if (!visible) return;
+        void nextTick(() => {
+            recomputePlumb();
+            measureSill();
+        });
     },
 );
 </script>
 <template>
-    <section class="flex flex-col h-full min-h-0 min-w-0" aria-label="Conversation" data-page="conversation">
+    <section
+        ref="sectionRef"
+        class="relative flex flex-col h-full min-h-0 min-w-0"
+        aria-label="Conversation"
+        data-page="conversation"
+    >
         <ColleagueBenches />
         <RecentlyRecalledStrip v-if="hasRecalledStrip" />
         <ScientistCanvas :active="active" />
@@ -154,7 +238,31 @@ watch(
             v-model:collapsed="floorCompact"
             :forced="shortWindow"
             :active="active"
+            :sill="sill"
             @placed="recomputePlumb"
+            @errand="onErrand"
         />
+        <!-- The Rail (#00042 §7.4): bounds come from the measured envelope, never hard-coded.
+             Its top edge IS the ceiling, so the canvas physically cannot paint into tier 3. -->
+        <canvas
+            v-show="sillEnv !== null"
+            ref="sillRef"
+            class="absolute pointer-events-none z-20"
+            :style="
+                sillEnv
+                    ? {
+                          left: `${sillEnv.x}px`,
+                          top: `${sillEnv.top}px`,
+                          width: `${sillEnv.w}px`,
+                          height: `${sillEnv.h}px`,
+                      }
+                    : {}
+            "
+            aria-hidden="true"
+            tabindex="-1"
+            data-errand-sill
+        ></canvas>
+        <!-- One line per volley and per held wait; returns are silent (§6 Voice) -->
+        <p class="sr-only" aria-live="polite" data-errand-voice>{{ errandVoice }}</p>
     </section>
 </template>

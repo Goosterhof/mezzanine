@@ -161,8 +161,9 @@
             // figure's seven-state acting are the design contract; the
             // war-room ceilings would force a rewrite of ratified geometry.
             // The Specimens (#00067) are the same kind of contract: Lot 8 was
-            // ruled on its rendered stage and moved here verbatim.
-            "files": ["src/observer/pen.ts", "src/observer/figure.ts", "src/observer/specimen.ts"],
+            // ruled on its rendered stage and moved here verbatim, and so was
+            // the Chaos Monkey (#00067 P2).
+            "files": ["src/observer/pen.ts", "src/observer/figure.ts", "src/observer/specimen.ts", "src/observer/monkey.ts"],
             "rules": {"max-params": "off", "complexity": "off", "max-lines-per-function": "off"}
         },
         {"files": ["src/**/*.ts"], "rules": {"import/no-default-export": "error"}},

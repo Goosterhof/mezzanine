@@ -17,11 +17,14 @@ import {
     FILE_AFTER_S,
     POST_OFFSETS,
     sentenceCase,
+    voiceLine,
     voiceName,
     type ErrandEvent,
     type ErrandFloor,
+    type ErrandRail,
 } from '../../src/observer/errands';
 import {benchGeometry} from '../../src/observer/projection';
+import {type PageRect, sillEnvelope} from '../../src/observer/sill';
 import scenario from './fixtures/scenario-casting-r2.json';
 
 const BOARDS = scenario.boards as unknown as SemaphoreBoard[];
@@ -531,5 +534,295 @@ describe('the review round, second pass (PR #176 at 5752538)', () => {
         // a NEWER board that still carries the old row (a stalled mod) files nothing new either
         floor.ingest({...cached, at: 70_000}, 'running', 70);
         expect(floor.tray()).toHaveLength(1);
+    });
+});
+
+// --- P2: the Rail -------------------------------------------------------------------------------
+
+const box = (name: string, [x, y, w, h]: [number, number, number, number]): PageRect => ({name, x, y, w, h});
+/** The 1440×900 chrome the R2 organ measured: barTop 628, the bench canvas from y 700. */
+const ENV = sillEnvelope({
+    bar: box('command bar', [0, 628, 1440, 48]),
+    input: box('command input', [96, 642, 1140, 20.5]),
+    stamps: [box('DIRECT stamp', [24, 644, 60, 16]), box('TO: stamp', [1250, 644, 166, 18.5])],
+    divider: box('divider', [0, 676, 1440, 16]),
+    torn: box('torn', [0, 692, 1440, 8]),
+    bench: box('bench', [0, 700, 1440, 200]),
+    paneMs: box('Mad Scientist pane', [0, 76, 719.5, 552]),
+    paneHer: box('Heretic pane', [720.5, 76, 719.5, 552]),
+});
+if (!ENV) throw new Error('the measured chrome must yield a sill');
+const RAIL: ErrandRail = {env: ENV, plumbX: null};
+const QUIET = {keystrokeQuietS: 60, pageActive: true};
+
+/** A warm floor with the Rail measured and a quiet, watched page. */
+function railed(now = 0): ErrandFloor {
+    const floor = warm(now);
+    floor.setRail(RAIL);
+    floor.advance(now, QUIET);
+    return floor;
+}
+const figure = (floor: ErrandFloor, id: string, act = 0) => floor.figures(GEO, act).find((f) => f.id === id);
+
+describe('the arrival grip (AC-8)', () => {
+    it('should climb over the brass into the sill, Kilroy for 1.2 s, then drop to its post', () => {
+        const floor = railed();
+        floor.ingest(live([minion('a')]), 'running', 1);
+        floor.advance(1.2, QUIET);
+        expect(floor.phaseOf('a')).toBe('born');
+        floor.advance(1.9, QUIET);
+        expect(floor.phaseOf('a')).toBe('grip');
+        expect(floor.sillOccupant()).toStrictEqual({id: 'a', reason: 'grip'});
+        const grip = figure(floor, 'a');
+        expect(grip).toMatchObject({layer: 'border', behindRail: true, arms: 'grip', legs: 'hang'});
+        expect(grip?.gripY).toBeLessThan(0);
+        // the sill sits outboard of the arch, inside the Mad Scientist's pane
+        expect(grip?.x).toBeLessThan(GEO.bell['mad-scientist'] - 26);
+        floor.advance(3.2, QUIET);
+        expect(floor.phaseOf('a')).toBe('post');
+        expect(figure(floor, 'a')).toMatchObject({layer: 'band', legs: 'kneel', x: W / 2});
+    });
+
+    it('should skip the grip after a keystroke within 1.5 s, on an unwatched page, with no sill, or under the clamp — and never replay it', () => {
+        const typed = railed();
+        typed.advance(0.5, {keystrokeQuietS: 0.4, pageActive: true});
+        typed.ingest(live([minion('a')]), 'running', 1);
+        const away = railed();
+        away.advance(0.5, {keystrokeQuietS: 60, pageActive: false});
+        away.ingest(live([minion('a')]), 'running', 1);
+        const sill = warm();
+        sill.advance(0.5, QUIET);
+        sill.ingest(live([minion('a')]), 'running', 1);
+        const clamped = createErrandFloor(true);
+        clamped.ingest(live([]), 'running', 0);
+        clamped.setRail(RAIL);
+        clamped.ingest(live([minion('a')]), 'running', 1);
+        for (const floor of [typed, away, sill]) {
+            floor.advance(1.9, QUIET);
+            expect(floor.phaseOf('a')).toBe('post');
+            expect(floor.sillOccupant()).toBeNull();
+        }
+        expect(clamped.phaseOf('a')).toBe('post');
+    });
+
+    it('should give the sill one occupant: in a volley only the first grips', () => {
+        const floor = railed();
+        floor.ingest(
+            live([minion('a', {spawnedAt: 0}), minion('b', {type: 'librarian', spawnedAt: 100})]),
+            'running',
+            1,
+        );
+        floor.advance(1.9, QUIET);
+        expect(floor.sillOccupant()).toStrictEqual({id: 'a', reason: 'grip'});
+        expect(floor.phaseOf('b')).toBe('post');
+    });
+
+    it('should let a held wait outrank a grip: no grip while someone waits in the sill', () => {
+        const floor = railed();
+        floor.ingest(live([minion('w', {state: 'waiting'})]), 'running', 1);
+        floor.advance(3, QUIET);
+        expect(floor.sillOccupant()).toStrictEqual({id: 'w', reason: 'permission'});
+        floor.ingest(
+            live([minion('w', {state: 'waiting'}), minion('a', {type: 'librarian', spawnedAt: 9000})]),
+            'running',
+            3.1,
+        );
+        floor.advance(3.9, QUIET);
+        expect(floor.sillOccupant()).toStrictEqual({id: 'w', reason: 'permission'});
+        expect(floor.phaseOf('a')).toBe('post');
+    });
+});
+
+describe('the permission sill', () => {
+    it('should climb into the sill, finger up, once a wait has held 1.5 s — and walk back down when answered', () => {
+        const floor = railed();
+        floor.ingest(live([minion('w')]), 'running', 1);
+        floor.land();
+        floor.ingest(live([minion('w', {state: 'waiting'})]), 'running', 2);
+        floor.advance(3.4, QUIET);
+        expect(figure(floor, 'w')).toMatchObject({layer: 'band', legs: 'kneel', arms: 'waiting'});
+        floor.advance(4.2, QUIET);
+        expect(figure(floor, 'w')).toMatchObject({layer: 'border', behindRail: true, arms: 'point', legs: 'hang'});
+        floor.ingest(live([minion('w', {state: 'running'})]), 'running', 5);
+        floor.advance(5.2, QUIET);
+        expect(figure(floor, 'w')).toMatchObject({arms: 'idle', walking: true});
+        floor.advance(5.5, QUIET);
+        expect(figure(floor, 'w')).toMatchObject({layer: 'band', legs: 'kneel'});
+    });
+
+    it('should keep a waiter at its post when there is no sill to climb into', () => {
+        const floor = warm();
+        floor.ingest(live([minion('w', {state: 'waiting'})]), 'running', 1);
+        floor.advance(5, QUIET);
+        expect(figure(floor, 'w')).toMatchObject({layer: 'band', legs: 'kneel', arms: 'waiting'});
+    });
+});
+
+describe('the Chaos Monkey on the Rail', () => {
+    it('should hang upside down by his tail from the brass over the flask, head no lower than y 30', () => {
+        const floor = railed();
+        floor.ingest(live([minion('m', {type: 'chaos-monkey'})]), 'running', 1);
+        floor.land();
+        const m = figure(floor, 'm', 2);
+        expect(m).toMatchObject({kind: 'monkey', layer: 'border', behindRail: true, legs: 'tuck'});
+        expect(m?.rot).toBeCloseTo(Math.PI, 1);
+        expect(m?.tail?.coils).toBe(2);
+        expect(m?.tail?.rail).toBeLessThan(0);
+        expect(Math.round(m?.x ?? 0)).toBe(Math.round(GEO.w * 0.175 - 34));
+    });
+
+    it('should grip the brass with a grin on arrival when the gates allow it', () => {
+        const floor = railed();
+        floor.ingest(live([minion('m', {type: 'chaos-monkey'})]), 'running', 1);
+        floor.advance(1.9, QUIET);
+        expect(figure(floor, 'm')).toMatchObject({kind: 'monkey', arms: 'grip', legs: 'dangle'});
+        expect(floor.sillOccupant()).toStrictEqual({id: 'm', reason: 'grip'});
+    });
+
+    it('should POP home: the spark down the tail, his scorecard fluttering into the tray, and a blot left behind', () => {
+        const floor = railed();
+        floor.ingest(live([minion('m', {type: 'chaos-monkey'})]), 'running', 1);
+        floor.land();
+        floor.ingest(live([], [{id: 'm', type: 'chaos-monkey', at: 0}]), 'running', 10);
+        floor.advance(10.3, QUIET);
+        expect(figure(floor, 'm')?.tail?.burn).toBeGreaterThan(0);
+        floor.advance(11, QUIET);
+        expect(figure(floor, 'm')).toMatchObject({kind: 'slip', layer: 'band'});
+        expect(floor.furniture(GEO).blots).toHaveLength(1);
+        floor.advance(12, QUIET);
+        expect(figure(floor, 'm')).toBeUndefined();
+        expect(floor.tray()).toHaveLength(1);
+        floor.advance(10 + 0.6 + FILE_AFTER_S + 1, QUIET);
+        expect(floor.furniture(GEO).blots).toStrictEqual([]);
+    });
+
+    it('should sit on the torn edge in the compact posture, and on the band with no sill at all', () => {
+        const compact = railed();
+        compact.ingest(live([minion('m', {type: 'chaos-monkey'})]), 'running', 1);
+        compact.land();
+        const crop = benchGeometry(W, true);
+        expect(compact.figures(crop, 0)[0]).toMatchObject({layer: 'border', legs: 'dangle', tail: {mode: 'seated'}});
+        const bare = warm();
+        bare.ingest(live([minion('m', {type: 'chaos-monkey'})]), 'running', 1);
+        expect(figure(bare, 'm')).toMatchObject({layer: 'band', legs: 'dangle', tail: {mode: 'seated'}});
+    });
+});
+
+describe("the live region's lines (AC-10, §6 Voice)", () => {
+    it.each<[ErrandEvent, string]>([
+        [{kind: 'volley', names: ['the Surgeon']}, 'The Surgeon is out on an errand.'],
+        [
+            {kind: 'volley', names: ['the Surgeon', 'the Librarian', 'the Scribe']},
+            'The Surgeon and 2 more are out on errands.',
+        ],
+        [{kind: 'volley', names: ['an Explore errand']}, 'An Explore errand went out.'],
+        [
+            {kind: 'volley', names: ['an Explore errand', 'a Plan errand', 'the Surgeon']},
+            'An Explore errand and 2 more went out.',
+        ],
+        [{kind: 'loose', others: 0}, 'The Chaos Monkey is loose.'],
+        [{kind: 'loose', others: 1}, 'The Chaos Monkey is loose, and 1 more is out on an errand.'],
+        [{kind: 'loose', others: 2}, 'The Chaos Monkey is loose, and 2 more are out on errands.'],
+        [
+            {kind: 'permission', name: 'the Surgeon', detail: 'Asking permission: Bash'},
+            'The Surgeon · Asking permission: Bash',
+        ],
+    ])('should voice %j as one line', (event, line) => {
+        expect(voiceLine(event)).toBe(line);
+    });
+});
+
+// The Heretic's review of PR #177 at d153187: the sill must be a RECORDED place.
+describe('the sill as a recorded place (PR #177 review)', () => {
+    const wait = (id: string, state: SemaphoreMinion['state'], spawnedAt = 0): SemaphoreMinion =>
+        minion(id, {state, spawnedAt});
+    const borders = (floor: ErrandFloor) => floor.figures(GEO, 0).filter((f) => f.layer === 'border');
+
+    it('should never put a grip and a held wait in the sill together: a maturing wait refuses the grip', () => {
+        const floor = railed();
+        floor.ingest(live([wait('w', 'running')]), 'running', 1);
+        floor.land();
+        floor.ingest(live([wait('w', 'waiting')]), 'running', 2);
+        floor.ingest(live([wait('w', 'waiting'), wait('arrival', 'running', 5000)]), 'running', 3.4);
+        floor.advance(4.1, QUIET);
+        expect(borders(floor).map((f) => f.id)).toStrictEqual(['w']);
+        expect(floor.sillOccupant()).toStrictEqual({id: 'w', reason: 'permission'});
+    });
+
+    it('should not walk a waiter back from a sill it never took', () => {
+        const floor = railed();
+        floor.ingest(live([wait('a', 'running'), wait('b', 'running', 100)]), 'running', 1);
+        floor.land();
+        floor.ingest(live([wait('a', 'waiting'), wait('b', 'waiting', 100)]), 'running', 2);
+        floor.advance(5, QUIET);
+        floor.ingest(live([wait('a', 'waiting'), wait('b', 'running', 100)]), 'running', 5.01);
+        floor.advance(5.01, QUIET);
+        expect(figure(floor, 'b')).toMatchObject({layer: 'band', y: GEO.benchTopY});
+        expect(borders(floor).map((f) => f.id)).toStrictEqual(['a']);
+    });
+
+    it('should hand the sill on only when it is free: the next waiter climbs from its own post', () => {
+        const floor = railed();
+        floor.ingest(live([wait('a', 'running'), wait('b', 'running', 100)]), 'running', 1);
+        floor.land();
+        floor.ingest(live([wait('a', 'waiting'), wait('b', 'waiting', 100)]), 'running', 2);
+        floor.advance(5, QUIET);
+        floor.ingest(live([wait('a', 'running'), wait('b', 'waiting', 100)]), 'running', 5.01);
+        floor.advance(5.01, QUIET);
+        expect(floor.sillOccupant()).toStrictEqual({id: 'b', reason: 'permission'});
+        expect(figure(floor, 'b')?.y).toBeCloseTo(GEO.benchTopY, 2);
+        floor.advance(5.7, QUIET);
+        expect(figure(floor, 'b')).toMatchObject({layer: 'border', arms: 'point'});
+    });
+
+    it('should never skip a "+N" waiter: it climbs out of the flask into the sill, and back into it (#00042 §7.4)', () => {
+        const floor = railed();
+        const rows = [
+            wait('a', 'running'),
+            wait('b', 'running', 100),
+            wait('c', 'running', 200),
+            wait('d', 'running', 300),
+        ];
+        floor.ingest(live(rows), 'running', 1);
+        floor.land();
+        expect(figure(floor, 'd')).toBeUndefined();
+        floor.ingest(live(rows.map((r) => (r.id === 'd' ? {...r, state: 'waiting'} : r))), 'running', 2);
+        floor.advance(5, QUIET);
+        expect(floor.sillOccupant()).toStrictEqual({id: 'd', reason: 'permission'});
+        expect(figure(floor, 'd')).toMatchObject({layer: 'border', arms: 'point'});
+        floor.ingest(live(rows), 'running', 6);
+        floor.advance(6.2, QUIET);
+        expect(figure(floor, 'd')).toMatchObject({arms: 'idle', walking: true});
+        floor.advance(6.6, QUIET);
+        expect(figure(floor, 'd')).toBeUndefined();
+    });
+
+    it('should record the same entry on a coarse tick and a fine one', () => {
+        const coarse = railed();
+        const fine = railed();
+        for (const floor of [coarse, fine]) {
+            floor.ingest(live([wait('a', 'running')]), 'running', 1);
+            floor.land();
+            floor.ingest(live([wait('a', 'waiting')]), 'running', 2);
+        }
+        coarse.advance(3.8, QUIET);
+        for (let t = 2; t <= 3.8; t += 1 / 60) fine.advance(t, QUIET);
+        fine.advance(3.8, QUIET);
+        expect(figure(coarse, 'a')?.y).toBeCloseTo(figure(fine, 'a')?.y ?? Number.NaN, 6);
+    });
+});
+
+describe('a paused page lands the sill too (PR #177 review)', () => {
+    it('should count a climb into the sill as a transit, and land it at its place', () => {
+        const floor = railed();
+        floor.ingest(live([minion('w')]), 'running', 1);
+        floor.land();
+        floor.ingest(live([minion('w', {state: 'waiting'})]), 'running', 2);
+        floor.advance(3.6, QUIET);
+        expect(floor.inTransit()).toBe(1);
+        expect(figure(floor, 'w')).toMatchObject({arms: 'idle', walking: true});
+        floor.land();
+        expect(floor.inTransit()).toBe(0);
+        expect(figure(floor, 'w')).toMatchObject({layer: 'border', arms: 'point', legs: 'hang'});
     });
 });

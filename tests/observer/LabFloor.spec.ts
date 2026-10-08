@@ -24,13 +24,18 @@ const fakeCanvas = typeof document === 'undefined' ? null : document.createEleme
 vi.mock('../../src/observer/LabScene.vue', () => ({
     default: {
         name: 'LabScene',
-        props: {strip: {type: Boolean, default: false}, active: {type: Boolean, default: true}},
-        emits: ['placed'],
+        props: {
+            strip: {type: Boolean, default: false},
+            active: {type: Boolean, default: true},
+            sill: {type: Object, default: null},
+        },
+        emits: ['placed', 'errand'],
         setup(_props: unknown, {expose}: {expose: (api: Record<string, unknown>) => void}) {
             expose({pauseRaf, resumeRaf, getStationPos, getFloorSize, getCanvasEl: () => fakeCanvas});
             return {};
         },
-        template: '<div data-mock-labscene :data-strip="strip" @click="$emit(\'placed\')"></div>',
+        template:
+            '<div data-mock-labscene :data-strip="strip" :data-sill-top="sill?.envelope?.top" @click="$emit(\'placed\')" @dblclick="$emit(\'errand\', {kind: \'loose\', others: 0})"></div>',
     },
 }));
 
@@ -202,5 +207,13 @@ describe('LabFloor — the Long Bench band (#00041 §5)', () => {
             window.dispatchEvent(new Event('blur'));
             expect(pauseRaf).not.toHaveBeenCalled();
         });
+    });
+
+    it('passes the measured Rail down to the scene and carries the floor’s voice up to the page (#00067 P2)', async () => {
+        const sill = {canvas: null, envelope: {top: 665.5}, plumbX: null};
+        const wrapper = mount(LabFloor, {props: {sill: sill as never}});
+        expect(wrapper.get('[data-mock-labscene]').attributes('data-sill-top')).toBe('665.5');
+        await wrapper.get('[data-mock-labscene]').trigger('dblclick');
+        expect(wrapper.emitted('errand')).toStrictEqual([[{kind: 'loose', others: 0}]]);
     });
 });

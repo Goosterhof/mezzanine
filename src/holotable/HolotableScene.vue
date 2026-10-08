@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {onBeforeUnmount, onMounted, ref, watch} from 'vue';
 
+import {BRASS} from '../shell/brass';
 import {useHolotable} from './useHolotable';
 
 interface SceneController {
@@ -184,7 +185,7 @@ defineExpose({pauseRaf, resumeRaf});
         color 0.1s;
 }
 :deep(.panel-action:hover) {
-    border-color: #d4a24c;
+    border-color: v-bind(BRASS);
     color: #e2e5e9;
 }
 </style>

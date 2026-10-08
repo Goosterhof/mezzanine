@@ -32,7 +32,9 @@ import type {Pt} from './pen';
 import type {Arms, Legs} from './specimen';
 import type {ActivityState, ScientistErrands, SemaphoreMinion} from './types';
 
+import {MONKEY_RATE, R2_MONKEY, type HangingTail} from './monkey';
 import {benchStationX, type BenchGeometry} from './projection';
+import {allowedX, type SillEnvelope} from './sill';
 import {specimenFit} from './specimenFit';
 
 export type MinionClass = 'bespoke' | 'lab' | 'hired';
@@ -98,6 +100,19 @@ export function voiceName(type: string): string {
     return `the ${pretty}`;
 }
 
+const moreOut = (n: number): string => (n === 1 ? '1 more is out on an errand.' : `${n} more are out on errands.`);
+
+/** The live region's one line for an event (§6 Voice). Returns are silent: they make no event. */
+export function voiceLine(ev: ErrandEvent): string {
+    if (ev.kind === 'permission') return `${sentenceCase(ev.name)} · ${ev.detail}`;
+    if (ev.kind === 'loose')
+        return ev.others === 0 ? 'The Chaos Monkey is loose.' : `The Chaos Monkey is loose, and ${moreOut(ev.others)}`;
+    const leader = sentenceCase(ev.names[0] ?? 'a minion');
+    const more = ev.names.length - 1;
+    if (/^an? /i.test(leader)) return more === 0 ? `${leader} went out.` : `${leader} and ${more} more went out.`;
+    return more === 0 ? `${leader} is out on an errand.` : `${leader} and ${more} more are out on errands.`;
+}
+
 /** Sentence case at the start of a line: capitalise the first letter only. */
 export function sentenceCase(text: string): string {
     return text.charAt(0).toUpperCase() + text.slice(1);
@@ -149,9 +164,11 @@ export interface Errand {
     postedAt: number | null;
     /** the start of the wait already spoken, so each wait speaks once */
     spokenWait: number | null;
+    /** decided ONCE, when it arrives: does it grip the brass on the way to its post? (never replayed) */
+    grip: boolean;
 }
 
-export type ErrandPhase = 'born' | 'hop' | 'post' | 'queued' | 'hanging' | 'home' | 'gone';
+export type ErrandPhase = 'born' | 'hop' | 'grip' | 'post' | 'queued' | 'hanging' | 'home' | 'gone';
 
 export type ErrandEvent =
     | {kind: 'volley'; names: string[]}
@@ -166,17 +183,33 @@ export interface TraySlip {
 
 /** One minion to draw this frame, in the bench's own drawing coordinates. */
 export interface ErrandFigure {
+    /** a Specimen, the Chaos Monkey, or his scorecard fluttering into the tray */
+    kind: 'specimen' | 'monkey' | 'slip';
+    /** 'band' = on the bench canvas; 'border' = the sill canvas, over the brass (P2) */
+    layer: 'band' | 'border';
+    /** the body is behind the balustrade: the brass is re-stroked over it, the fingers after */
+    behindRail?: boolean;
     id: string;
     type: string;
     cls: 'lab' | 'hired';
-    /** the figure's feet */
+    /** the figure's feet (a Specimen) or hip (the monkey), in the BENCH's drawing coordinates */
     x: number;
     y: number;
     /** px per local unit */
     s: number;
-    legs: Legs;
+    /** a Specimen's legs, or the monkey's ('tuck' while he hangs) */
+    legs: Legs | 'tuck';
     arms: Arms | 'post';
     mechT: number;
+    /** grip: the hands' y in stage units (negative = above the feet) */
+    gripY?: number;
+    /** the monkey hangs upside down: radians */
+    rot?: number;
+    /** the monkey's tail drawn from his rump (a hop), or coiled on the brass */
+    tailFromRump?: boolean;
+    tail?: HangingTail;
+    /** the scorecard's tilt */
+    angle?: number;
     birth?: number;
     home?: number;
     walking?: boolean;
@@ -202,6 +235,14 @@ export interface ErrandFurnitureState {
     pools: {x: number; rx: number}[];
     /** errands out beyond the three posts */
     overflow: number;
+    /** the monkey's dry blots where he hung (bench drawing coordinates) */
+    blots: {x: number; y: number}[];
+}
+
+/** The Rail as the floor needs it: the measured envelope and the plumb-line's x (section px). */
+export interface ErrandRail {
+    env: SillEnvelope;
+    plumbX: number | null;
 }
 
 export interface ErrandGate {
@@ -212,7 +253,12 @@ export interface ErrandGate {
 export interface ErrandFloor {
     /** Fold one board in. null = the session ended or exited → sweep, silently.
      *  The FIRST board after mount (or after a sweep) lands directly: no fling, 0 events. */
-    ingest(board: ScientistErrands | null, scientistState: ActivityState, nowS: number): ErrandEvent[];
+    ingest(
+        board: ScientistErrands | null,
+        scientistState: ActivityState,
+        nowS: number,
+        gate?: ErrandGate,
+    ): ErrandEvent[];
     /** Time passes: a held volley speaks, a wait that held 1.5 s speaks. */
     advance(nowS: number, gate?: ErrandGate): ErrandEvent[];
     /** Page return / reduced motion: every transit lands, nothing replays. */
@@ -222,8 +268,10 @@ export interface ErrandFloor {
     posts(width: number): {id: string; x: number}[];
     /** out beyond the three posts, the monkey excluded */
     overflow(): number;
-    /** One occupant: the earliest-started wait held ≥ 1.5 s. Never the monkey. (The grip joins in P2.) */
+    /** One occupant: the earliest-started wait held ≥ 1.5 s, else whoever is gripping the brass. Never a monkey's wait. */
     sillOccupant(): {id: string; reason: 'grip' | 'permission'} | null;
+    /** The measured Rail, or null: no sill (no grip, a waiter keeps its post, the monkey sits). */
+    setRail(rail: ErrandRail | null): void;
     /** ≤ TRAY_SHEETS slips, newest last; filed after FILE_AFTER_S */
     tray(): TraySlip[];
     /** true while any errand is out or still on its way home — the monkey counts */
@@ -235,6 +283,8 @@ export interface ErrandFloor {
     phaseOf(id: string): ErrandPhase;
     /** errands born, hopping or on the way home right now — 0 once landed */
     inTransit(): number;
+    /** the next receipt time something changes without a new board (a paused page wakes for it) */
+    nextDeadline(): number | null;
     /** errands the floor still remembers (out, or home less than RETIRE_AFTER_S ago) */
     retained(): number;
     figures(geo: BenchGeometry, act: number): ErrandFigure[];
@@ -256,6 +306,19 @@ const GLIDE_S = 0.45;
 const MONKEY_POP_S = 0.6;
 const MONKEY_SLIP_S = 1.6;
 const SLIP_AT_TRAY_S = 0.8;
+/** an arrival that grips the brass: the hop, the grip, the drop to its post */
+const GRIP_ARRIVE_S = 2.05;
+/** the hop from the flask up behind the rail */
+const GRIP_HOP_S = 0.35;
+/** the hands come off the brass */
+const GRIP_HOLD_END_S = 1.55;
+/** the climb from a post into the sill on a held wait, and the walk back down */
+const SILL_RISE_S = 0.6;
+const SILL_RETURN_S = 0.4;
+/** a minion's ink stays this far under the ceiling in the sill */
+const SILL_GAP = 5;
+/** no keystroke yet, the page watched: the gate a fresh floor starts with */
+const OPEN_GATE: ErrandGate = {keystrokeQuietS: Number.POSITIVE_INFINITY, pageActive: true};
 const FOAM_S = 0.9;
 const BURP_S = 0.6;
 
@@ -319,10 +382,41 @@ interface FloorState {
     landedAt: number;
     now: number;
     reduced: boolean;
+    /** the measured Rail; null = no sill (no grip, a waiter keeps its post, the monkey sits) */
+    rail: ErrandRail | null;
+    /** the last gate the scene reported: keystroke quiet time and whether the page is watched */
+    gate: ErrandGate;
+    /** the monkey's dry blots: each lands at his POP and is filed with the slips */
+    blots: FiledSlip[];
+    /** who is in the sill, why, and since when — a RECORDED place, one occupant at a time */
+    sill: SillHold | null;
+    /** when the sill last came free (an occupant entered no earlier) */
+    sillFreeAt: number;
+    /** when each errand left the sill after a held wait: the walk back down starts there */
+    sillExits: Map<string, number>;
 }
 
-function freshState(reduced: boolean): FloorState {
+/** The sill's occupant: a grip reserves it from arrival; a held wait owns it until answered. */
+interface SillHold {
+    id: string;
+    reason: 'grip' | 'permission';
+    /** receipt clock: when it took the sill (a permission rise starts here) */
+    since: number;
+    /** the held wait's start (permission only) */
+    w0: number;
+}
+
+function freshState(
+    reduced: boolean,
+    carry: {rail: ErrandRail | null; gate: ErrandGate} = {rail: null, gate: OPEN_GATE},
+): FloorState {
     return {
+        rail: carry.rail,
+        gate: carry.gate,
+        blots: [],
+        sill: null,
+        sillFreeAt: Number.NEGATIVE_INFINITY,
+        sillExits: new Map(),
         errands: new Map(),
         slips: [],
         homeIds: new Map(),
@@ -374,6 +468,7 @@ function newErrand(m: SemaphoreMinion, nowS: number): Errand {
         mechHeld: null,
         postedAt: null,
         spokenWait: null,
+        grip: false,
     };
 }
 
@@ -402,6 +497,8 @@ function sendHome(st: FloorState, e: Errand): void {
     st.homeIds.set(e.id, st.now);
     const lands = st.now + (isMonkey(e) ? MONKEY_SLIP_S : SLIP_AT_TRAY_S);
     st.slips.push({at: lands, origin: st.now, task: e.task, scorched: false});
+    // the monkey leaves a dry blot where he hung (the receiving surface), filed with the slips
+    if (isMonkey(e)) st.blots.push({at: st.now + MONKEY_POP_S, origin: st.now, task: '', scorched: false});
 }
 
 function foldDepartures(st: FloorState, board: ScientistErrands): void {
@@ -472,6 +569,90 @@ function landCold(st: FloorState): void {
         const w = openWait(e);
         if (w) e.spokenWait = w[0];
     }
+}
+
+// --- the arrival grip (P2) -------------------------------------------------------------------
+
+/** When an arrival's transit ends: a grip takes the long way, over the brass. */
+const arrivalEnd = (e: Errand): number => (e.grip ? GRIP_ARRIVE_S : ARRIVE_S);
+
+/** A minion's wait that is still open: it wants (or will want) the sill. */
+function waitPending(st: FloorState): boolean {
+    return [...st.errands.values()].some((e) => !isMonkey(e) && isOut(e) && openWait(e) !== undefined);
+}
+
+/** The arrival grip's gates (#00042 §7.4), decided once, at arrival: a measured sill, a watched
+ *  page, no keystroke in the last 1.5 s, no clamp, an EMPTY sill, and no posted wait maturing
+ *  toward it (a held wait outranks a grip, even one that matures mid-grip). A skipped grip is
+ *  never replayed. A granted grip reserves the sill from its arrival. */
+function canGrip(st: FloorState, e: Errand): boolean {
+    if (st.rail === null || st.reduced || !st.gate.pageActive) return false;
+    if (st.gate.keystrokeQuietS < KEYSTROKE_QUIET_S) return false;
+    if (st.sill !== null || waitPending(st)) return false;
+    return isMonkey(e) || postXAt(st, e, st.now, 1) !== null;
+}
+
+/** When the holder let go of the sill, or null while it still holds it. */
+function releasedAt(st: FloorState, hold: SillHold): number | null {
+    const e = st.errands.get(hold.id);
+    if (!e) return st.now;
+    if (hold.reason === 'grip') {
+        if (settled(st, e.seenAt)) return Math.max(e.seenAt, Math.min(st.now, st.landedAt));
+        const end = e.seenAt + GRIP_HOLD_END_S;
+        return st.now >= end ? end : null;
+    }
+    const w = e.waits.find((x) => x[0] === hold.w0);
+    return w?.[1] ?? null;
+}
+
+/** The earliest-started wait held ≥ 1.5 s. Never skipped (#00042 §7.4): a "+N" waiter has no
+ *  post, so it rises from the flask instead. */
+function heldWaiter(st: FloorState): {e: Errand; w0: number} | null {
+    let best: {e: Errand; w0: number} | null = null;
+    for (const e of st.errands.values()) {
+        const w = openWait(e);
+        if (isMonkey(e) || !isOut(e) || !w || st.now < w[0] + PERMISSION_DEBOUNCE_S) continue;
+        if (!best || w[0] < best.w0) best = {e, w0: w[0]};
+    }
+    return best;
+}
+
+/** The floor's next receipt-time deadline, so a PAUSED page (no animation loop: a blurred window,
+ *  reduced motion) still speaks and still seats a held wait on time. null: nothing pending. */
+function nextDeadline(st: FloorState): number | null {
+    const at: number[] = st.pending.map((v) => v.dueAt);
+    for (const e of st.errands.values()) {
+        const w = openWait(e);
+        if (w) at.push(w[0] + PERMISSION_DEBOUNCE_S);
+    }
+    if (st.sill?.reason === 'grip') {
+        const e = st.errands.get(st.sill.id);
+        if (e) at.push(e.seenAt + GRIP_HOLD_END_S);
+    }
+    for (const s of [...st.slips, ...st.blots]) at.push(s.at, s.at + FILE_AFTER_S);
+    const ahead = at.filter((t) => t > st.now);
+    return ahead.length > 0 ? Math.min(...ahead) : null;
+}
+
+/** Keep the sill's ledger: release a holder that let go, then seat the next held wait — never
+ *  before its 1.5 s, never before the sill came free. Deterministic in receipt time, so a coarse
+ *  tick and a fine one record the same entry. */
+function updateSill(st: FloorState): void {
+    if (st.sill) {
+        const at = releasedAt(st, st.sill);
+        if (at === null) return;
+        if (st.sill.reason === 'permission') st.sillExits.set(st.sill.id, at);
+        st.sillFreeAt = at;
+        st.sill = null;
+    }
+    const next = heldWaiter(st);
+    if (next)
+        st.sill = {
+            id: next.e.id,
+            reason: 'permission',
+            since: Math.max(next.w0 + PERMISSION_DEBOUNCE_S, st.sillFreeAt),
+            w0: next.w0,
+        };
 }
 
 // --- placements -----------------------------------------------------------------------------
@@ -555,10 +736,13 @@ interface FigureCtx {
     geo: BenchGeometry;
     s: number;
     act: number;
+    rail: ErrandRail | null;
 }
 
 function baseFigure(c: FigureCtx, e: Errand, p: Pt): ErrandFigure {
     return {
+        kind: 'specimen',
+        layer: 'band',
         id: e.id,
         type: e.type,
         cls: e.cls === 'hired' ? 'hired' : 'lab',
@@ -606,6 +790,7 @@ function departing(c: FigureCtx, e: Errand, d: number): ErrandFigure | null {
 
 /** The arrival, tier 0: born out of the flask mouth and hopped to the post. */
 function arriving(c: FigureCtx, e: Errand, post: Pt, s0: number): ErrandFigure | null {
+    if (e.grip && hasRail(c)) return gripArrival(c, e, post, s0);
     const {st, geo, s} = c;
     const te = eff(st, s0, s0 + ARRIVE_S);
     if (te >= s0 + ARRIVE_S) return null;
@@ -617,30 +802,299 @@ function arriving(c: FigureCtx, e: Errand, post: Pt, s0: number): ErrandFigure |
     return {...baseFigure(c, e, p), walking: true, airborne: p[1] < post[1] - 3, ...born};
 }
 
-function figureOf(c: FigureCtx, e: Errand): ErrandFigure | null {
-    if (isMonkey(e)) return null; // P1: the Chaos Monkey is in the ledger only
-    if (e.departedAt !== null) return departing(c, e, e.departedAt);
-    const {x, arriveAt} = slotOf(c.st, e, c.geo.w);
-    if (x === null || arriveAt === null || c.st.now < arriveAt) return null; // out, but only as "+N"
-    const post: Pt = [x, c.geo.benchTopY];
-    const arrival = arriving(c, e, post, arriveAt);
-    if (arrival) return arrival;
-    // at its post: the POST POSE — seated, ≤ 52 px
+// --- the Rail: the sill, measured on the page, mapped into the bench's own coordinates ---------
+
+type RailCtx = FigureCtx & {rail: ErrandRail};
+const hasRail = (c: FigureCtx): c is RailCtx => c.rail !== null;
+const pageX = (c: RailCtx, x: number): number => x + c.rail.env.benchLeft;
+const benchX = (c: RailCtx, x: number): number => x - c.rail.env.benchLeft;
+const benchY = (c: RailCtx, y: number): number => y - c.rail.env.benchTop + c.geo.cropTop;
+/** The hip y that puts a figure's ink SILL_GAP under the ceiling. */
+const sillHip = (c: RailCtx, topU: number, s: number): number => benchY(c, c.rail.env.ceiling + SILL_GAP + topU * s);
+/** Ink that rises above the bench canvas belongs on the sill canvas (border by geometry). */
+const layerFor = (c: FigureCtx, hipY: number, topU: number, s: number): 'band' | 'border' =>
+    c.rail !== null && hipY - topU * s < c.geo.cropTop ? 'border' : 'band';
+
+/** The sill x for a minion from `postX`: in the climbable span, outboard of the arch,
+ *  clear of the plumb-line (±24) and the monkey's hang (±32). */
+function sillX(c: RailCtx, postX: number): number {
+    const {env, plumbX} = c.rail;
+    const flask = pageX(c, flaskX(c.geo));
+    const avoid: [number, number][] = [[flask - 32, flask + 32]];
+    if (plumbX !== null) avoid.push([plumbX - 24, plumbX + 24]);
+    return benchX(c, allowedX(env, Math.min(pageX(c, postX), pageX(c, archGateX(c.geo)) - 12), avoid));
+}
+
+/** The arrival that grips: up behind the rail, Kilroy over the brass for 1.2 s, then down to its post. */
+function gripArrival(c: RailCtx, e: Errand, post: Pt, s0: number): ErrandFigure | null {
+    const {st, geo, s} = c;
+    const te = eff(st, s0, s0 + GRIP_ARRIVE_S);
+    if (te >= s0 + GRIP_ARRIVE_S) return null;
+    const fit = specimenFit(e.type);
+    const top = Math.max(fit.standTop, fit.sillTop);
+    const gx = sillX(c, post[0]);
+    const hipUp = sillHip(c, fit.sillTop, s);
+    const hipDown = hipUp + 12;
+    const f = baseFigure(c, e, post);
+    if (te < s0 + GRIP_HOP_S) {
+        const p = hop(mouth(geo), [gx, hipDown], hipDown - 6, easeOut(prog(te, s0, GRIP_HOP_S)));
+        const bu = prog(te, s0, BIRTH_S);
+        const born = bu < 1 ? {birth: bu, s: s * lerp(0.15, 1, easeOut(bu))} : {};
+        return {...f, x: p[0], y: p[1], airborne: true, layer: layerFor(c, p[1], top, s), ...born};
+    }
+    if (te < s0 + GRIP_HOLD_END_S) {
+        // fingers first, head 60 ms later, a sharp rise, and the drop faster than the rise
+        const rise = easeOut(prog(te, s0 + 0.41, 0.22));
+        const fall = easeIn(prog(te, s0 + 1.43, 0.12));
+        const hip = lerp(hipDown, hipUp, rise * (1 - fall));
+        const gripY = (benchY(c, c.rail.env.railY + 1) - hip) / s;
+        return {...f, x: gx, y: hip, arms: 'grip', legs: 'hang', layer: 'border', behindRail: true, gripY};
+    }
+    const p = route(geo, {from: [gx, hipDown], to: post, apex: hipDown}, easeIn(prog(te, s0 + GRIP_HOLD_END_S, 0.5)));
+    return {
+        ...f,
+        x: p[0],
+        y: p[1],
+        arms: 'idle',
+        walking: true,
+        airborne: p[1] < post[1] - 3,
+        layer: layerFor(c, p[1], top, s),
+    };
+}
+
+/** A wait held 1.5 s: it climbs into the sill and points at his terminal, finger up — a place, so it holds. */
+function sillRise(c: RailCtx, e: Errand, post: Pt): ErrandFigure | null {
+    const hold = c.st.sill;
+    if (hold?.id !== e.id || hold.reason !== 'permission') return null;
+    const {st, s} = c;
+    const fit = specimenFit(e.type);
+    const r0 = hold.since;
+    const tr = eff(st, r0, r0 + SILL_RISE_S);
+    const hip = sillHip(c, fit.sillTop, s);
+    const p = route(c.geo, {from: post, to: [sillX(c, post[0]), hip], apex: hip}, easeOut(prog(tr, r0, SILL_RISE_S)));
+    // compare times, not the progress: (4.1 − 3.5) / 0.6 is 0.9999999999999998
+    const up = tr >= r0 + SILL_RISE_S;
+    const layer = layerFor(c, p[1], Math.max(fit.standTop, fit.sillTop), s);
+    return {
+        ...baseFigure(c, e, p),
+        arms: up ? 'point' : 'idle',
+        legs: up ? 'hang' : 'stand',
+        walking: !up,
+        behindRail: up,
+        layer,
+    };
+}
+
+/** The wait answered: back down from the sill to its post. */
+function sillReturn(c: RailCtx, e: Errand, post: Pt): ErrandFigure | null {
+    // only from a RECORDED exit: a waiter that never took the sill never walks back from it
+    const end = c.st.sillExits.get(e.id);
+    if (end === undefined) return null;
+    const tr = eff(c.st, end, end + SILL_RETURN_S);
+    if (tr >= end + SILL_RETURN_S) return null;
+    const fit = specimenFit(e.type);
+    const from: Pt = [sillX(c, post[0]), sillHip(c, fit.sillTop, c.s)];
+    const p = route(c.geo, {from, to: post, apex: from[1]}, easeIn(prog(tr, end, SILL_RETURN_S)));
+    return {
+        ...baseFigure(c, e, p),
+        arms: 'idle',
+        walking: true,
+        layer: layerFor(c, p[1], Math.max(fit.standTop, fit.sillTop), c.s),
+    };
+}
+
+// --- the Chaos Monkey (P2): hanging by his fuse-tail from the investor's own railing ----------
+
+function monkeyBase(c: FigureCtx, e: Errand, p: Pt, s: number): ErrandFigure {
+    const arms: ErrandFigure['arms'] = e.state === 'waiting' ? 'point' : e.state;
+    return {
+        ...baseFigure(c, e, p),
+        kind: 'monkey',
+        s,
+        arms,
+        layer: 'border',
+        behindRail: true,
+        rot: 0,
+        mechT: c.act * MONKEY_RATE,
+    };
+}
+
+/** Where he hangs: the head ≤ drawing y 30, the pivot on the brass above the flask. */
+function hangGeometry(c: RailCtx): {pivot: Pt; hipY: number; s: number} {
+    const s = c.s * R2_MONKEY;
+    return {pivot: [flaskX(c.geo), benchY(c, c.rail.env.railY + 1)], hipY: 30 - 39.5 * s, s};
+}
+
+function tailFor(
+    c: RailCtx,
+    t: {s: number; hipY: number; mode: HangingTail['mode']; burn: number; dx: number},
+): HangingTail {
+    const {env} = c.rail;
+    return {
+        mode: t.mode,
+        rail: benchY(c, env.railY + 1) - t.hipY,
+        topOK: benchY(c, env.dividerTop + 1.2) - t.hipY,
+        s: t.s,
+        burn: t.burn,
+        dx: t.dx,
+        coils: 2,
+        t: c.act * MONKEY_RATE,
+    };
+}
+
+/** No sill, or the compact posture: he sits on the torn edge, head at the brass (or, with no
+ *  sill at all, on the top of the band) — §7.5's posture. */
+function seatedMonkey(c: FigureCtx, e: Errand): ErrandFigure | null {
+    const d = e.departedAt;
+    if (d !== null && eff(c.st, d, d + MONKEY_POP_S) >= d + MONKEY_POP_S) return null;
+    const s = c.s * R2_MONKEY;
+    const seated = (sb: number): HangingTail => ({
+        mode: 'seated',
+        rail: 0,
+        topOK: 0,
+        s: sb,
+        burn: 0,
+        dx: 0,
+        coils: 1,
+        t: c.act * MONKEY_RATE,
+    });
+    if (!hasRail(c)) {
+        const hip = c.geo.cropTop + 40 * s + 2;
+        return {
+            ...monkeyBase(c, e, [flaskX(c.geo), hip], s),
+            legs: 'dangle',
+            layer: 'band',
+            behindRail: false,
+            tail: seated(s),
+        };
+    }
+    const {env} = c.rail;
+    const hipPage = env.benchTop - 4;
+    const sb = Math.min(s, (hipPage - (env.dividerTop + 1.5)) / 40);
+    return {...monkeyBase(c, e, [flaskX(c.geo), benchY(c, hipPage)], sb), legs: 'dangle', tail: seated(sb)};
+}
+
+/** Out of the flask, a grip over the brass if he earned one, then over and down onto his tail. */
+function monkeyArriving(c: RailCtx, e: Errand, te: number): ErrandFigure {
+    const {pivot, hipY, s} = hangGeometry(c);
+    const s0 = e.seenAt;
+    const gripHip = sillHip(c, 40, s);
+    const hx = pivot[0];
+    if (te < s0 + GRIP_HOP_S) {
+        const y = lerp(mouth(c.geo)[1], gripHip + 12, easeOut(prog(te, s0, GRIP_HOP_S)));
+        return {
+            ...monkeyBase(c, e, [hx, y], s),
+            legs: 'dangle',
+            arms: 'running',
+            tailFromRump: true,
+            behindRail: false,
+            layer: layerFor(c, y, 40, s),
+        };
+    }
+    if (e.grip && te < s0 + GRIP_HOLD_END_S) {
+        const rise = easeOut(prog(te, s0 + 0.41, 0.22));
+        const fall = easeIn(prog(te, s0 + 1.43, 0.12));
+        const hip = lerp(gripHip + 12, gripHip, rise * (1 - fall));
+        return {
+            ...monkeyBase(c, e, [hx, hip], s),
+            legs: 'dangle',
+            arms: 'grip',
+            gripY: (pivot[1] - hip) / s,
+            tail: tailFor(c, {s, hipY: hip, mode: 'climb', burn: 0, dx: 0}),
+        };
+    }
+    const from = e.grip ? s0 + GRIP_HOLD_END_S : s0 + GRIP_HOP_S;
+    const u = easeIn(prog(te, from, s0 + arrivalEnd(e) - from));
+    const y = lerp(gripHip + 12, hipY, u);
+    return {
+        ...monkeyBase(c, e, [hx, y], s),
+        legs: 'tuck',
+        arms: 'idle',
+        rot: Math.PI * u,
+        tail: tailFor(c, {s, hipY: y, mode: 'hang', burn: 0, dx: 0}),
+    };
+}
+
+/** Hanging: he swings ±8° about the rail while he runs, and the fuse spits. */
+function monkeyOut(c: RailCtx, e: Errand): ErrandFigure {
+    const s0 = e.seenAt;
+    const te = eff(c.st, s0, s0 + arrivalEnd(e));
+    if (te < s0 + arrivalEnd(e)) return monkeyArriving(c, e, te);
+    const {pivot, hipY, s} = hangGeometry(c);
+    const swing =
+        e.state === 'running' && !c.st.reduced ? (Math.sin(c.act * MONKEY_RATE * 3.2) * 8 * Math.PI) / 180 : 0;
+    const dy = hipY - pivot[1];
+    const hip: Pt = [pivot[0] - Math.sin(swing) * dy, pivot[1] + Math.cos(swing) * dy];
+    const tail = tailFor(c, {s, hipY: hip[1], mode: 'hang', burn: 0, dx: hip[0] - pivot[0]});
+    return {...monkeyBase(c, e, hip, s), legs: 'tuck', rot: Math.PI + swing, tail};
+}
+
+/** The POP: the spark runs down the tail, he's gone, and his scorecard flutters into the in-tray. */
+function monkeyHome(c: RailCtx, e: Errand, d: number): ErrandFigure | null {
+    const tp = eff(c.st, d, d + MONKEY_SLIP_S);
+    if (tp >= d + MONKEY_SLIP_S) return null;
+    const {pivot, hipY, s} = hangGeometry(c);
+    if (tp < d + MONKEY_POP_S) {
+        const burn = prog(tp, d, MONKEY_POP_S);
+        return {
+            ...monkeyBase(c, e, [pivot[0], hipY], s),
+            legs: 'tuck',
+            rot: Math.PI,
+            tail: tailFor(c, {s, hipY, mode: 'hang', burn, dx: 0}),
+        };
+    }
+    const u = prog(tp, d + MONKEY_POP_S, MONKEY_SLIP_S - MONKEY_POP_S);
+    const to: Pt = [trayX(c.geo), c.geo.benchTopY - 4];
+    const p: Pt = [lerp(pivot[0], to[0], u) + Math.sin(u * 9) * 6, lerp(hipY, to[1], easeIn(u))];
+    return {...baseFigure(c, e, p), kind: 'slip', angle: Math.sin(u * 7) * 0.6};
+}
+
+function monkeyFigure(c: FigureCtx, e: Errand): ErrandFigure | null {
+    if (!hasRail(c) || c.geo.compact) return seatedMonkey(c, e);
+    return e.departedAt === null ? monkeyOut(c, e) : monkeyHome(c, e, e.departedAt);
+}
+
+/** Holding a post: arriving, in the sill or back from it, or seated in its POST POSE (≤ 52 px). */
+function atPost(c: FigureCtx, e: Errand, post: Pt, arriveAt: number): ErrandFigure {
+    const moving =
+        arriving(c, e, post, arriveAt) ?? (hasRail(c) ? (sillRise(c, e, post) ?? sillReturn(c, e, post)) : null);
+    if (moving) return moving;
     const lamp = e.background && c.st.scientistState === 'idle';
     return {...baseFigure(c, e, post), legs: 'kneel', arms: e.state, lamp};
 }
 
+function figureOf(c: FigureCtx, e: Errand): ErrandFigure | null {
+    if (isMonkey(e)) return monkeyFigure(c, e);
+    if (e.departedAt !== null) return departing(c, e, e.departedAt);
+    const {x, arriveAt} = slotOf(c.st, e, c.geo.w);
+    if (x === null || arriveAt === null || c.st.now < arriveAt) return overflowWaiter(c, e); // out, but only as "+N"
+    return atPost(c, e, [x, c.geo.benchTopY], arriveAt);
+}
+
+/** A "+N" minion is not drawn — unless its wait holds: then it climbs out of the flask into the
+ *  sill, and back into the flask when answered (#00042 §7.4, never skipped). */
+function overflowWaiter(c: FigureCtx, e: Errand): ErrandFigure | null {
+    if (!hasRail(c)) return null;
+    const flask: Pt = [flaskX(c.geo), c.geo.benchTopY];
+    return sillRise(c, e, flask) ?? sillReturn(c, e, flask);
+}
+
+/** A departure's phase: on its way home until its transit (or the monkey's pop) ends. */
+function goingPhase(st: FloorState, e: Errand, d: number): ErrandPhase {
+    if (isMonkey(e)) return eff(st, d, d + MONKEY_POP_S) < d + MONKEY_POP_S ? 'hanging' : 'gone';
+    return eff(st, d, d + DEP) < d + DEP ? 'home' : 'gone';
+}
+
 function phaseAt(st: FloorState, e: Errand, w: number): ErrandPhase {
-    if (isMonkey(e))
-        return e.departedAt === null || eff(st, e.departedAt, e.departedAt + MONKEY_POP_S) < e.departedAt + MONKEY_POP_S
-            ? 'hanging'
-            : 'gone';
-    if (e.departedAt !== null) return eff(st, e.departedAt, e.departedAt + DEP) < e.departedAt + DEP ? 'home' : 'gone';
+    if (e.departedAt !== null) return goingPhase(st, e, e.departedAt);
+    if (isMonkey(e)) return 'hanging';
     const {x, arriveAt} = slotOf(st, e, w);
     if (x === null || arriveAt === null) return 'queued';
-    const te = eff(st, arriveAt, arriveAt + ARRIVE_S);
-    if (te >= arriveAt + ARRIVE_S) return 'post';
-    return te < arriveAt + BIRTH_S ? 'born' : 'hop';
+    const end = arriveAt + arrivalEnd(e);
+    const te = eff(st, arriveAt, end);
+    if (te >= end) return 'post';
+    if (te < arriveAt + BIRTH_S) return 'born';
+    return e.grip && te < arriveAt + GRIP_HOLD_END_S ? 'grip' : 'hop';
 }
 
 /** still on its way home: the cork stays out until the last one is in */
@@ -661,21 +1115,20 @@ function poolsOf(st: FloorState, geo: BenchGeometry): {x: number; rx: number}[] 
     for (const e of outAt(st, st.now)) {
         if (!e.background) continue;
         const {x, arriveAt} = slotOf(st, e, geo.w);
-        if (x === null || arriveAt === null || eff(st, arriveAt, arriveAt + ARRIVE_S) < arriveAt + ARRIVE_S) continue;
+        if (x === null || arriveAt === null || eff(st, arriveAt, arriveAt + arrivalEnd(e)) < arriveAt + arrivalEnd(e))
+            continue;
         out.push({x: x - 3, rx: (specimenFit(e.type).postFootPx * 1.4) / 2});
     }
     return out;
 }
 
-/** One occupant for the sill: the earliest-started wait held ≥ 1.5 s. Never the monkey. */
-function occupantOf(st: FloorState): Errand | null {
-    let best: {e: Errand; w0: number} | null = null;
-    for (const e of st.errands.values()) {
-        const w = openWait(e);
-        if (isMonkey(e) || !isOut(e) || !w || st.now < w[0] + PERMISSION_DEBOUNCE_S) continue;
-        if (!best || w[0] < best.w0) best = {e, w0: w[0]};
-    }
-    return best?.e ?? null;
+/** The climbs into the sill and the walks back down still under way (they are transits too). */
+function sillWalks(st: FloorState): number {
+    let n = 0;
+    const hold = st.sill;
+    if (hold?.reason === 'permission' && eff(st, hold.since, hold.since + SILL_RISE_S) < hold.since + SILL_RISE_S) n++;
+    for (const left of st.sillExits.values()) if (eff(st, left, left + SILL_RETURN_S) < left + SILL_RETURN_S) n++;
+    return n;
 }
 
 /** A slip lands when its runner reaches the tray — at once, if that departure has settled. */
@@ -698,6 +1151,8 @@ function compact(st: FloorState): void {
     for (const [id, at] of st.homeIds)
         if (st.now > at + FORGET_HOME_AFTER_S && !st.boardDeparted.has(id)) st.homeIds.delete(id);
     st.slips = st.slips.filter((s) => st.now < s.at + FILE_AFTER_S);
+    st.blots = st.blots.filter((b) => st.now < b.at + FILE_AFTER_S);
+    for (const [id, at] of st.sillExits) if (st.now > at + SILL_RETURN_S + 1) st.sillExits.delete(id);
 }
 
 function ledgerOf(st: FloorState): string | null {
@@ -724,6 +1179,9 @@ function furnitureOf(st: FloorState, geo: BenchGeometry): ErrandFurnitureState {
         tray: trayOf(st),
         pools: poolsOf(st, geo),
         overflow: Math.max(0, outAt(st, st.now).length - 3),
+        blots: st.blots
+            .filter((b) => (b.at <= st.now || settled(st, b.origin)) && st.now < b.at + FILE_AFTER_S)
+            .map(() => ({x: flaskX(geo), y: Math.max(geo.cropTop + 8, 16)})),
     };
 }
 
@@ -735,15 +1193,21 @@ function foldBoard(st: FloorState, board: ScientistErrands): ErrandEvent[] {
     if (board.at <= st.boardAt) return [...flushVolleys(st), ...permissionEvents(st)];
     st.boardAt = board.at;
     st.boardDeparted = new Set(board.departed.map((d) => d.id));
+    const fresh: Errand[] = [];
     for (const m of board.minions) {
-        const fresh = foldMinion(st, m);
-        const e = st.errands.get(m.id);
-        if (fresh && e && !st.cold) queueVolley(st, e);
+        const e = foldMinion(st, m) ? st.errands.get(m.id) : undefined;
+        if (e) fresh.push(e);
     }
     foldDepartures(st, board);
     if (st.cold) {
         landCold(st);
         return [];
+    }
+    updateSill(st);
+    for (const e of fresh.sort(bySpawn)) {
+        queueVolley(st, e);
+        e.grip = canGrip(st, e);
+        if (e.grip) st.sill = {id: e.id, reason: 'grip', since: e.seenAt, w0: e.seenAt};
     }
     return [...flushVolleys(st), ...permissionEvents(st)];
 }
@@ -755,19 +1219,24 @@ export function createErrandFloor(reducedMotion = false): ErrandFloor {
         for (const v of st.pending) v.dueAt = st.now;
     };
     return {
-        ingest(board, scientistState, nowS) {
+        ingest(board, scientistState, nowS, gate) {
             st.now = Math.max(st.now, nowS);
             st.scientistState = scientistState;
+            // the grip gate is sampled at FOLD time: typing since the last frame, or a page that
+            // came back since, decides this board's arrivals (not the last frame's view of them)
+            if (gate) st.gate = gate;
             compact(st);
             if (board !== null) return foldBoard(st, board);
             // the session ended or exited: every errand swept, silently; the next board is a cold start
-            st = freshState(st.reduced);
+            st = freshState(st.reduced, {rail: st.rail, gate: st.gate});
             st.now = nowS;
             return [];
         },
-        advance(nowS) {
+        advance(nowS, gate) {
             st.now = Math.max(st.now, nowS);
+            if (gate) st.gate = gate;
             compact(st);
+            updateSill(st);
             return [...flushVolleys(st), ...permissionEvents(st)];
         },
         land,
@@ -782,8 +1251,10 @@ export function createErrandFloor(reducedMotion = false): ErrandFloor {
         },
         overflow: () => Math.max(0, outAt(st, st.now).length - 3),
         sillOccupant() {
-            const e = occupantOf(st);
-            return e ? {id: e.id, reason: 'permission'} : null;
+            return st.sill ? {id: st.sill.id, reason: st.sill.reason} : null;
+        },
+        setRail(rail) {
+            st.rail = rail;
         },
         tray: () => trayOf(st),
         corkOut: () => [...st.errands.values()].some((e) => homeward(st, e)),
@@ -801,12 +1272,14 @@ export function createErrandFloor(reducedMotion = false): ErrandFloor {
             return e ? phaseAt(st, e, 1) : 'gone';
         },
         retained: () => st.errands.size,
+        nextDeadline: () => nextDeadline(st),
         inTransit() {
-            const moving = new Set<ErrandPhase>(['born', 'hop', 'home']);
-            return [...st.errands.values()].filter((e) => moving.has(phaseAt(st, e, 1))).length;
+            const moving = new Set<ErrandPhase>(['born', 'hop', 'grip', 'home']);
+            const walking = [...st.errands.values()].filter((e) => moving.has(phaseAt(st, e, 1))).length;
+            return walking + sillWalks(st);
         },
         figures(geo, act) {
-            const c: FigureCtx = {st, geo, s: minionScale(geo), act};
+            const c: FigureCtx = {st, geo, s: minionScale(geo), act, rail: st.rail};
             return [...st.errands.values()].map((e) => figureOf(c, e)).filter((f): f is ErrandFigure => f !== null);
         },
         furniture: (geo) => furnitureOf(st, geo),

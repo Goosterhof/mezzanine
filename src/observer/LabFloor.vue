@@ -14,8 +14,9 @@
 import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 
 import type {ScientistId} from '../roster/types';
+import type {ErrandEvent} from './errands';
 
-import LabScene from './LabScene.vue';
+import LabScene, {type ErrandSill} from './LabScene.vue';
 import {PAPER} from './pen';
 import {BENCH_BAND_H, BENCH_STRIP_H, floorPointToPage} from './projection';
 
@@ -25,10 +26,13 @@ interface Props {
     /** The short window (< 820px tall) forces the crop whatever was chosen. */
     forced?: boolean;
     active?: boolean;
+    /** The Rail (#00067 P2), measured by the page; passed through to the scene. */
+    sill?: ErrandSill | null;
 }
 
-const {collapsed = false, forced = false, active = true} = defineProps<Props>();
-const emit = defineEmits<{'update:collapsed': [value: boolean]; placed: []}>();
+const {collapsed = false, forced = false, active = true, sill = null} = defineProps<Props>();
+// `errand` is re-emitted from the scene for the page's live region (#00067 §4 stub 1).
+const emit = defineEmits<{'update:collapsed': [value: boolean]; placed: []; errand: [event: ErrandEvent]}>();
 
 interface LabSceneApi {
     pauseRaf?: () => void;
@@ -136,7 +140,14 @@ defineExpose({stationToPage, sceneRef});
         aria-label="The lab floor below"
         @mouseleave="endPeek"
     >
-        <LabScene ref="sceneRef" :strip="!showFull" :active="active" @placed="emit('placed')" />
+        <LabScene
+            ref="sceneRef"
+            :strip="!showFull"
+            :active="active"
+            :sill="sill"
+            @placed="emit('placed')"
+            @errand="(event) => emit('errand', event)"
+        />
 
         <!-- The ⌃ control: on a tall window it flips the investor's choice
              between the whole bench and its crop; below the 820px cliff the

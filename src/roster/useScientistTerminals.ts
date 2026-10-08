@@ -11,6 +11,8 @@ import {Terminal, type IDisposable} from '@xterm/xterm';
 
 import type {ScientistId} from './types';
 
+import {useLastKeystroke} from '../command/useLastKeystroke';
+import {BRASS} from '../shell/brass';
 import {makeCopyChordHandler} from './copyChord';
 
 export interface TerminalSlot {
@@ -26,13 +28,13 @@ export interface TerminalSlot {
 const MEZZANINE_THEME = {
     background: '#0B0D10',
     foreground: '#E2E5E9',
-    cursor: '#D4A24C',
+    cursor: BRASS,
     cursorAccent: '#0B0D10',
     selectionBackground: 'rgba(212, 162, 76, 0.35)',
     black: '#0F1114',
     red: '#F87171',
     green: '#4ADE80',
-    yellow: '#D4A24C',
+    yellow: BRASS,
     blue: '#60A5FA',
     magenta: '#C084FC',
     cyan: '#67E8F9',
@@ -49,6 +51,10 @@ const MEZZANINE_THEME = {
 
 const slots = new Map<ScientistId, TerminalSlot>();
 let dataHandler: ((id: ScientistId, data: string) => void | Promise<void>) | null = null;
+/** The Mad Scientist's terminal: its keydowns gate a minion's grip on the rail (#00067 P2). It is
+ *  his terminal the minion climbs over; the Heretic's pane is the other bench. */
+let keystrokeWitness: ScientistId | null = null;
+const keystrokes = useLastKeystroke();
 
 function createSlot(id: ScientistId): TerminalSlot {
     const terminal = new Terminal({
@@ -68,16 +74,20 @@ function createSlot(id: ScientistId): TerminalSlot {
     // through to onData and interrupts, as before. Laws in copyChord.ts. The
     // webview's navigator.clipboard is the lane (no Tauri clipboard plugin is
     // registered); a rejected write falls back to the interrupt.
-    terminal.attachCustomKeyEventHandler(
-        makeCopyChordHandler(terminal, {
-            copy: async (text) => navigator.clipboard.writeText(text),
-            interrupt: () => {
-                if (dataHandler) {
-                    void dataHandler(id, '\u0003');
-                }
-            },
-        }),
-    );
+    const copyChord = makeCopyChordHandler(terminal, {
+        copy: async (text) => navigator.clipboard.writeText(text),
+        interrupt: () => {
+            if (dataHandler) {
+                void dataHandler(id, '\u0003');
+            }
+        },
+    });
+    // xterm keeps ONE custom key handler: it notes the witness's keystrokes (keydown only — never
+    // onData, which also carries pastes and the terminal's own replies), then hands every key on.
+    terminal.attachCustomKeyEventHandler((ev) => {
+        if (ev.type === 'keydown' && id === keystrokeWitness) keystrokes.note();
+        return copyChord(ev);
+    });
     const dataDisposable = terminal.onData((data) => {
         if (dataHandler) {
             void dataHandler(id, data);
@@ -117,6 +127,11 @@ export function useScientistTerminals() {
             return [...slots.keys()];
         },
 
+        /** Mark the Mad Scientist's terminal: its keydowns hold back a minion's grip. */
+        setKeystrokeWitness(id: ScientistId | null): void {
+            keystrokeWitness = id;
+        },
+
         setDataHandler(handler: ((id: ScientistId, data: string) => void | Promise<void>) | null): void {
             dataHandler = handler;
         },
@@ -129,6 +144,7 @@ export function useScientistTerminals() {
             }
             slots.clear();
             dataHandler = null;
+            keystrokeWitness = null;
         },
     };
 }

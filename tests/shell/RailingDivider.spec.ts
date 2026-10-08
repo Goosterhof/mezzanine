@@ -15,6 +15,7 @@ import {mount} from '@vue/test-utils';
 import {describe, expect, it} from 'vitest';
 
 import {PENCIL} from '../../src/observer/pen';
+import {BRASS} from '../../src/shell/brass';
 import RailingDivider from '../../src/shell/RailingDivider.vue';
 
 describe('RailingDivider — the Overlook #00057 · the Field Journal #00059', () => {
@@ -22,7 +23,7 @@ describe('RailingDivider — the Overlook #00057 · the Field Journal #00059', (
         const wrapper = mount(RailingDivider);
         const divider = wrapper.get('[data-railing-divider]');
         expect(divider.attributes('aria-hidden')).toBe('true');
-        expect(wrapper.get('[data-divider-toprail]').attributes('fill')).toBe('#D4A24C');
+        expect(wrapper.get('[data-divider-toprail]').attributes('fill')).toBe(BRASS);
     });
 
     it('draws no plumb-line when nothing is selected', () => {
@@ -36,7 +37,7 @@ describe('RailingDivider — the Overlook #00057 · the Field Journal #00059', (
         expect((svg.element as unknown as HTMLElement).style.left).toBe('240px');
         const line = svg.get('line');
         expect(line.attributes('stroke')).toBe(PENCIL);
-        expect(line.attributes('stroke')).not.toBe('#D4A24C');
+        expect(line.attributes('stroke')).not.toBe(BRASS);
         expect(line.attributes('stroke-width')).toBe('1.5');
         expect(line.attributes('y2')).toBe('180');
     });

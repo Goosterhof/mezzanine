@@ -49,6 +49,10 @@ export default defineConfig({
                 // only the Canvas and the RAF loop.
                 'src/observer/LabScene.vue',
                 'src/observer/scene.js',
+                // The Rail's painter (#00067 P2) rasterises offscreen canvases and reads
+                // the sill's pixels back for the tier-3 alarm; jsdom gives no Canvas 2D.
+                // Its pure parts (the envelope, the alarm's core) are in sill.ts, covered.
+                'src/observer/sillPainter.ts',
                 // The Grind's Canvas 2D renderer (Arc 3 #00053) draws
                 // through `canvas.getContext('2d')`; jsdom returns `null`
                 // for that context (see tests/setup.ts shim), making the

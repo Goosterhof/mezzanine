@@ -22,6 +22,7 @@
 // IS the lean.
 
 import {PENCIL} from '../observer/pen';
+import {BRASS, BRASS_DIM} from './brass';
 
 interface Props {
     /** x-position (px, relative to the divider's left edge) where the
@@ -48,12 +49,12 @@ const {selectedX = null, dropLength = 160, dropping = false} = defineProps<Props
         <svg class="absolute inset-0 w-full h-full" preserveAspectRatio="none">
             <defs>
                 <pattern id="mz-brass-posts" width="48" height="16" patternUnits="userSpaceOnUse">
-                    <rect x="23" y="4" width="2" height="12" fill="#8C6A2F" />
-                    <rect x="22" y="4" width="2" height="12" fill="#D4A24C" />
+                    <rect x="23" y="4" width="2" height="12" :fill="BRASS_DIM" />
+                    <rect x="22" y="4" width="2" height="12" :fill="BRASS" />
                 </pattern>
             </defs>
-            <rect x="0" y="2" width="100%" height="2" fill="#D4A24C" data-divider-toprail />
-            <rect x="0" y="4" width="100%" height="1" fill="#8C6A2F" />
+            <rect x="0" y="2" width="100%" height="2" :fill="BRASS" data-divider-toprail />
+            <rect x="0" y="4" width="100%" height="1" :fill="BRASS_DIM" />
             <rect x="0" y="5" width="100%" height="11" fill="url(#mz-brass-posts)" />
         </svg>
 

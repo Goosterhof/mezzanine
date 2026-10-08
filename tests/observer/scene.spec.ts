@@ -43,6 +43,7 @@ interface SceneController {
         errands: {minions: SemaphoreMinion[]; departed: {id: string; type: string; at: number}[]; at: number} | null,
         state: ActivityState,
     ) => void;
+    setSill: (sill: {canvas: unknown; envelope: unknown; plumbX: number | null} | null) => void;
     getStationPos: (id: string) => {x: number; y: number} | null;
     getFloorSize: () => {w: number; h: number};
     pauseRaf: () => void;
@@ -494,6 +495,115 @@ describe('the Long Bench renderer', () => {
             step();
             expect(written.map((w) => w.text).some((t) => t.includes('more out') || t === '+1')).toBe(false);
             scene.destroy();
+        });
+
+        it('should take a measured sill: an arrival then climbs over the brass, the long way (#00067 P2)', async () => {
+            const {scene, canvas} = await floorScene();
+            const sillCanvas = {width: 0, height: 0, getContext: () => null};
+            const envelope = {
+                x: 0,
+                top: 665.5,
+                w: W,
+                h: 234.5,
+                W,
+                H: 900,
+                barTop: 628,
+                dividerTop: 676,
+                railY: 679,
+                tornTop: 692,
+                benchTop: 700,
+                benchBottom: 900,
+                benchLeft: 0,
+                textBottom: 662.5,
+                ceiling: 665.5,
+                xspan: [0, 679.5],
+                tier3: [],
+            };
+            scene.setSill({canvas: sillCanvas, envelope, plumbX: null});
+            scene.setErrands(errandBoard([minion('m1')]), 'running');
+            step(60);
+            // 1 s in: a tier-0 hop (0.6 s) would have landed; the grip (2.05 s) is still over the brass
+            expect(canvas.dataset.errandsInTransit).toBe('1');
+            step(70);
+            expect(canvas.dataset.errandsInTransit).toBe('0');
+            scene.setSill(null);
+            scene.setErrands(errandBoard([minion('m1'), minion('m2', {type: 'scribe', spawnedAt: 5000})]), 'running');
+            step(40);
+            expect(canvas.dataset.errandsInTransit).toBe('0');
+            scene.destroy();
+        });
+
+        it('should sample the grip gate when a board arrives, not at the last frame (PR #177 review)', async () => {
+            const {useLastKeystroke, _resetForTests} = await import('../../src/command/useLastKeystroke');
+            _resetForTests();
+            const envelope = {
+                x: 0,
+                top: 665.5,
+                w: W,
+                h: 234.5,
+                W,
+                H: 900,
+                barTop: 628,
+                dividerTop: 676,
+                railY: 679,
+                tornTop: 692,
+                benchTop: 700,
+                benchBottom: 900,
+                benchLeft: 0,
+                textBottom: 662.5,
+                ceiling: 665.5,
+                xspan: [0, 679.5],
+                tier3: [],
+            };
+            const sillCanvas = {width: 0, height: 0, getContext: () => null};
+            // typed after the last frame, before the board: no grip
+            const typed = await floorScene();
+            typed.scene.setSill({canvas: sillCanvas, envelope, plumbX: null});
+            useLastKeystroke().note();
+            typed.scene.setErrands(errandBoard([minion('a')]), 'running');
+            step(60);
+            expect(typed.canvas.dataset.errandsInTransit).toBe('0');
+            typed.scene.destroy();
+            // typed on the last frame before a long absence: a quiet arrival after it grips
+            _resetForTests();
+            const away = await floorScene();
+            away.scene.setSill({canvas: sillCanvas, envelope, plumbX: null});
+            useLastKeystroke().note();
+            step();
+            away.scene.pauseRaf();
+            now += 10_000;
+            away.scene.resumeRaf();
+            away.scene.setErrands(errandBoard([minion('b')]), 'running');
+            step(60);
+            expect(away.canvas.dataset.errandsInTransit).toBe('1');
+            away.scene.destroy();
+        });
+
+        it("should wake a paused page at the floor's next deadline: a held wait still speaks without a loop (PR #177 review)", async () => {
+            vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']});
+            const onErrandEvent = vi.fn<(ev: unknown) => void>();
+            const {scene, canvas} = await floorScene({onErrandEvent});
+            scene.setErrands(errandBoard([minion('w')]), 'running');
+            step(60);
+            scene.pauseRaf();
+            scene.setErrands(
+                errandBoard([minion('w', {state: 'waiting', detail: 'Asking permission: Bash'})]),
+                'running',
+            );
+            onErrandEvent.mockClear();
+            now += 1600;
+            vi.advanceTimersByTime(1600);
+            expect(onErrandEvent).toHaveBeenCalledWith({
+                kind: 'permission',
+                name: 'the Surgeon',
+                detail: 'Asking permission: Bash',
+            });
+            // the climb into the sill lands at once on a paused page: nothing frozen mid-arc, nothing to replay
+            expect(canvas.dataset.errandsInTransit).toBe('0');
+            // and it sleeps again once nothing is pending
+            expect(vi.getTimerCount()).toBe(0);
+            scene.destroy();
+            vi.useRealTimers();
         });
 
         it('should keep the ledger off the compact crop, where the bench front is cut away', async () => {
