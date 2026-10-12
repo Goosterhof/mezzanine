@@ -19,6 +19,9 @@ export function isWebReference(url: string): boolean {
 }
 
 const markdown = new MarkdownIt({html: false, linkify: true, breaks: false});
+// Coding replies name files such as mod.rs and README.md. Keep them as prose,
+// independent of library defaults; auto-link only explicit web references.
+markdown.linkify.set({fuzzyLink: false});
 markdown.validateLink = isWebReference;
 markdown.renderer.rules.image = (tokens, index) =>
     `<span class="graphite-image-note">[Image: ${markdown.utils.escapeHtml(tokens[index]?.content ?? 'attachment')}]</span>`;

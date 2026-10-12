@@ -141,3 +141,19 @@ He rechecked the fix at `5f09689` and closed the runtime finding, including the
 replacement-bench race. His remaining test nit is addressed: the held-lock test
 uses a helper thread and a two-second receive deadline, so a synchronous-lock
 regression fails instead of hanging CI. This last correction changes tests only.
+
+## Review follow-up — 13 October 2026
+
+The war-room review's unconfirmed filename-link finding was tested against the
+unchanged renderer at `6beb24b`: `mod.rs`, `README.md`, `build.sh` and `app.py`
+already remain plain prose. The pinned markdown-it 15.0.2 / linkify-it 6.1.0
+combination defaults `fuzzyLink` to false. We now set it explicitly so this product
+choice does not depend on library defaults. The new render regression verifies
+those filenames and a relative source path produce no anchor, while explicit
+HTTP(S) URLs and labelled Markdown web references still work.
+
+All 16 focused Markdown, reader and terminal-link tests pass, along with
+TypeScript and formatting checks. The carried reader-lock nit does not require a
+new runtime change: recall/window retirement runs on a worker since `5f09689`.
+Serialized I/O deliberately preserves a single reader, with bounded response
+waits and the retired-UUID guard documented above.
