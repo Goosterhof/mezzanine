@@ -12,6 +12,8 @@ interface TubeConnection {
     identity: Colleague;
     delivery: 'connecting' | 'channel' | 'queue' | 'closed' | 'disconnected' | 'error';
     error: string | null;
+    /** Exact Codex thread attached by this roster connection, never a latest-session guess. */
+    thread?: string | null;
     /** The newest tube message id addressed to this row's identity, or null
      *  when there is none. Absent on an older tube, which is harmless. */
     last_received_id?: unknown;

@@ -7,6 +7,7 @@
 // in any active scientist's canvas becomes a `write_to_scientist` IPC call.
 
 import {FitAddon} from '@xterm/addon-fit';
+import {WebLinksAddon} from '@xterm/addon-web-links';
 import {Terminal, type IDisposable} from '@xterm/xterm';
 
 import type {ScientistId} from './types';
@@ -14,6 +15,7 @@ import type {ScientistId} from './types';
 import {useLastKeystroke} from '../command/useLastKeystroke';
 import {BRASS} from '../shell/brass';
 import {makeCopyChordHandler} from './copyChord';
+import {createTerminalLinks} from './terminalLinks';
 
 export interface TerminalSlot {
     terminal: Terminal;
@@ -23,6 +25,7 @@ export interface TerminalSlot {
     lastSize: {cols: number; rows: number} | null;
     /** xterm IDisposable for the onData listener. Tests dispose via reset(). */
     dataDisposable: IDisposable;
+    links: ReturnType<typeof createTerminalLinks>;
 }
 
 const MEZZANINE_THEME = {
@@ -57,6 +60,7 @@ let keystrokeWitness: ScientistId | null = null;
 const keystrokes = useLastKeystroke();
 
 function createSlot(id: ScientistId): TerminalSlot {
+    const links = createTerminalLinks();
     const terminal = new Terminal({
         convertEol: true,
         cursorBlink: true,
@@ -66,9 +70,11 @@ function createSlot(id: ScientistId): TerminalSlot {
         lineHeight: 1.2,
         theme: MEZZANINE_THEME,
         allowProposedApi: true,
+        linkHandler: links.handler,
     });
     const fit = new FitAddon();
     terminal.loadAddon(fit);
+    terminal.loadAddon(new WebLinksAddon(links.activate, {hover: links.hover, leave: links.leave}));
     // The copy chord, armed before onData can see a key: Ctrl+C with a
     // selection copies it and never reaches the pty; no selection falls
     // through to onData and interrupts, as before. Laws in copyChord.ts. The
@@ -93,7 +99,7 @@ function createSlot(id: ScientistId): TerminalSlot {
             void dataHandler(id, data);
         }
     });
-    return {terminal, fit, lastSize: null, dataDisposable};
+    return {terminal, fit, lastSize: null, dataDisposable, links};
 }
 
 export function useScientistTerminals() {

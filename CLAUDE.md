@@ -2,13 +2,36 @@
 
 The Mezzanine is the investor's command balcony: **one Mad Scientist
 (Claude) and one Heretic (Codex)**. Both benches open after the first-run
-wizard clears. Their independent xterm terminals remain side by side, Mad
-Scientist on the left and Heretic on the right. Clicking a pane, its nameplate
+wizard clears. Their independent conversations remain side by side, Mad
+Scientist on the left and Heretic on the right. The Heretic’s Graphite reading
+view formats recorded replies above a compact, expandable CLI control dock. Clicking a pane, its nameplate
 or its floor figure selects the command bar's recipient without hiding the
 other terminal. Both panes keep their own scrollback. The Heretic appears as an
 equal-sized ink figure with swept dark hair, an angular jaw, a high-collared
 cutaway coat, one amber eyeglass and a trailing scarf. The two colleagues share
 animation joints, but have distinct head and clothing geometry.
+
+## Graphite conversation (v0.4.0, 2026-10-12)
+
+The investor selected Graphite from the [chat study](studies/heretic-chat/README.md).
+`src/heretic/` renders Markdown, highlighted/copyable code, web references, folded
+work details, earlier replies and conversation-local pins. Raw HTML and remote
+images are disabled. HTTP(S) references open through Tauri; local file links are
+not yet supported. Both terminals also support Ctrl/Command-click web links,
+including named OSC 8 links, with destination and failure notices.
+
+`src-tauri/src/heretic/` owns one read-only `codex app-server --stdio` process,
+launched through the existing Windows→WSL bridge. It initializes and requests
+`thread/turns/list` only. The exact Heretic roster UUID and Speaking Tube thread
+must match. It never guesses a latest thread or starts/resumes a model turn.
+The CLI retains the composer, questions, approvals, cancellation and Tube delivery.
+Snapshots refresh every four seconds while visible; they are not token streams.
+Recorded turn status is not a reliable live-state signal and is not projected.
+Failures retain the last readable replies and expose Retry alongside the CLI.
+Recall/window close retires the PTY and schedules reader cleanup off the UI
+thread; queued reads check session liveness again after acquiring the reader lock.
+
+See [GRAPHITE.md](GRAPHITE.md) for the evidence and installed-Windows boundary.
 
 ## Pages and conversation lifetime (2026-09-21)
 
@@ -283,6 +306,13 @@ regression test in `pty/substrate.rs` is part of the test suite.
   war-tent's seat chord (WR-0912): `src/roster/copyChord.ts` is the pure
   layer, `useScientistTerminals` arms it before `onData`. A refused clipboard
   write on a plain Ctrl+C falls back to the interrupt.
+- **Web references (local work, 2026-10-12):** both terminal panes recognize
+  plain web URLs through `@xterm/addon-web-links` and named OSC 8 hyperlinks.
+  Ctrl/Command + primary click opens HTTP(S) references through Tauri's existing
+  opener. Hover shows the destination; failed opens show a dismissible notice.
+  File links are not implemented. The separate [Heretic chat study](studies/heretic-chat/README.md)
+  explores a richer reading surface with scripted content; it is not a live chat
+  replacement or an installed Windows release.
 - **Async:** `tokio` for the Tauri runtime; the reader thread per
   scientist is a dedicated `std::thread::spawn` (blocking pty read).
 - **Persistence:** `tauri-plugin-store` for first-run wizard config

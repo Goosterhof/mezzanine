@@ -20,13 +20,14 @@ use crate::grind::EconomyManager;
 use crate::roster::scientist::ScientistId;
 use crate::roster::RosterManager;
 use crate::semaphore::SemaphoreWatcher;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use std::path::PathBuf;
 use std::sync::Arc;
 
 pub struct AppState {
+    pub heretic_reader: Arc<Mutex<Option<crate::heretic::ChatReader>>>,
     /// The Mezzanine's dispatched-scientist registry.
-    pub roster_manager: RwLock<RosterManager>,
+    pub roster_manager: Arc<RwLock<RosterManager>>,
     /// The WSL2-side absolute path to the laboratory root — read by the
     /// substrate when composing session specs. Populated at startup from
     /// the persisted wizard state (or env / default fallback) and
@@ -86,7 +87,8 @@ pub struct AppState {
 impl AppState {
     pub fn new(chronicle_base: PathBuf, mezzanine_home: PathBuf) -> Self {
         Self {
-            roster_manager: RwLock::new(RosterManager::new(mezzanine_home.clone())),
+            heretic_reader: Arc::new(Mutex::new(None)),
+            roster_manager: Arc::new(RwLock::new(RosterManager::new(mezzanine_home.clone()))),
             lab_root: RwLock::new(None),
             distro: RwLock::new(None),
             claude_binary: RwLock::new(None),

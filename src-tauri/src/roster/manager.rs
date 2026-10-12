@@ -43,6 +43,9 @@ pub struct RosterManager {
 }
 
 impl RosterManager {
+    pub fn is_live(&self, id: ScientistId) -> bool {
+        self.scientists.get(&id).is_some_and(|live| live.is_alive())
+    }
     /// Construct a fresh manager. Reads `roster.json` from `snapshot_dir`
     /// and seeds the records map — surviving scientists from the previous
     /// run reappear on the Roster (their pty is gone but the record is
