@@ -33,8 +33,13 @@ The reader starts `codex app-server --stdio` through the existing lab bridge
 only `thread/turns/list`. It never starts or resumes a thread or model turn.
 The current roster UUID must be a live Heretic and must match the exact Speaking
 Tube connection’s thread UUID. There is no latest-thread or account-wide lookup.
-The server process is reused and shut down on recall/window close or read failure.
-A queued read rechecks the live roster under the reader lock before spawning.
+The server process is reused. Recall/window close retires the PTY immediately
+and schedules reader cleanup on a background worker, so a slow read cannot hold
+the UI thread on the reader lock. Cleanup may wait for an in-flight read (five
+seconds for binding, ten seconds each for initialization/page response), then
+closes stdin and allows 500 ms before killing its own child. Recall cleanup matches
+the retired UUID and cannot reap a replacement bench. A queued read rechecks the
+live roster under the reader lock before spawning. Read failures also drop the reader.
 
 The Vue reader requests four turns at a time, every four seconds while visible.
 Earlier pages are explicit. Late responses from replaced connections are ignored;
@@ -63,6 +68,13 @@ text, pause polling, and offer Retry. The CLI remains usable throughout.
   CLI’s transcript. Tool details are grouped after the turn’s messages.
 - Pins and spacing choices survive page changes but are local to this app view;
   pins reset with a different thread or reload. They are not a durable notebook.
+- Binding uses the configured lab root’s `gadgets/speaking-tube/var/mailbox.sqlite`,
+  matching the existing Mezzanine launcher. A separately overridden mailbox is
+  not supported by this reading view.
+- “Read-only” describes the protocol calls, not a filesystem sandbox. The reader
+  shares the CLI’s configured Codex home; Codex can maintain its own logs, indexes
+  or databases. The live smoke showed successful concurrent reads, but does not
+  establish absence of internal writes or long-running concurrency behavior.
 - Requires Codex’s `thread/turns/list` with `itemsView: "full"`; verified with
   codex-cli 0.155.1. An unsupported installation gets the reading-view error and
   CLI fallback. Account, model, permissions and existing launch settings are used
@@ -74,13 +86,16 @@ text, pause polling, and offer Retry. The CLI remains usable throughout.
   exact-thread binding, pagination/deduplication, stale responses, hidden polling,
   retry, Markdown injection boundaries, clipboard/opener failures and terminal
   web-link behavior.
-- Full Linux Rust suite: **247 passed**, one explicit live smoke ignored by
+- Full Linux Rust suite: **248 passed**, one explicit live smoke ignored by
   default. Strict Clippy and formatting pass. Binding tests reject mismatched
   identity, roster UUID, thread UUID and closed/disconnected connections. A real
-  fake-process pipe test permits only initialization/list calls and verifies EOF.
+  fake-process pipe test permits only initialization/list calls and verifies EOF. A held-lock regression checks that cleanup returns without
+  waiting on the calling thread.
 - The opt-in Rust smoke read this session’s exact shell-supplied CODEX_THREAD_ID
   twice from the actual Codex installation: **passed**, four recent turns each
-  time, no turn started/resumed. It verifies the Linux native reader, not the
+  time, no turn started/resumed. The real reader also exited successfully on
+  stdin EOF within two seconds. [Receipt](documents/graphite-chat/native-receipt.json).
+  It verifies the Linux native reader, not the
   installed Windows path or the complete Mezzanine lifecycle.
 - Typecheck, lint (existing warnings), formatting, version lockstep and production
   build pass. The existing >500 kB bundle advisory remains.
@@ -113,3 +128,11 @@ optional MEZZANINE_READER_DISTRO to exercise the Windows → WSL bridge.
 browser launching, actual live approval interaction in the small dock, and complete
 Windows → WSL reader/CLI shutdown together. No installer, release, deployed update,
 or investor walkthrough is claimed by these Linux/browser receipts.
+
+## Peer review follow-up
+
+The Mad Scientist read revision `8a9353d` and agreed with the design, with a medium
+finding that synchronous recall/window cleanup could wait on reader I/O. Cleanup
+now runs on a worker and has a held-lock regression. His mailbox-scope and shared
+Codex-home questions are reflected above. His review did not cover the full CSS,
+study, witness scripts, or installed app; it is not an installed-Windows receipt.

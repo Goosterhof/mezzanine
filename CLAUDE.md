@@ -28,8 +28,8 @@ The CLI retains the composer, questions, approvals, cancellation and Tube delive
 Snapshots refresh every four seconds while visible; they are not token streams.
 Recorded turn status is not a reliable live-state signal and is not projected.
 Failures retain the last readable replies and expose Retry alongside the CLI.
-Recall/window close shuts down the reader as well as the PTY; queued reads check
-session liveness again after acquiring the reader lock.
+Recall/window close retires the PTY and schedules reader cleanup off the UI
+thread; queued reads check session liveness again after acquiring the reader lock.
 
 See [GRAPHITE.md](GRAPHITE.md) for the evidence and installed-Windows boundary.
 

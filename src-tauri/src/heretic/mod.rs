@@ -7,8 +7,33 @@ pub use protocol::{ChatPage, ChatReader};
 use crate::error::{MezzanineError, MezzanineResult};
 use crate::roster::scientist::{Colleague, ScientistId};
 use crate::state::AppState;
+use parking_lot::Mutex;
 use serde_json::Value;
+use std::sync::Arc;
 use tauri::State;
+
+/// Never wait for the reader's bounded I/O or child shutdown on the UI thread.
+/// Recall targets one UUID so its delayed cleanup cannot retire a new bench.
+pub fn retire_reader(
+    reader: Arc<Mutex<Option<ChatReader>>>,
+    scientist: Option<ScientistId>,
+) -> tauri::async_runtime::JoinHandle<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let retired = {
+            let mut slot = reader.lock();
+            if scientist.is_none()
+                || slot
+                    .as_ref()
+                    .is_some_and(|r| scientist.is_some_and(|id| r.belongs_to(id)))
+            {
+                slot.take()
+            } else {
+                None
+            }
+        };
+        drop(retired);
+    })
+}
 
 fn verify_binding(rows: &Value, scientist: ScientistId, thread: &str) -> MezzanineResult<()> {
     uuid::Uuid::parse_str(thread)
@@ -110,6 +135,17 @@ pub async fn read_heretic_chat(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn retirement_returns_while_a_read_holds_the_lock() {
+        let slot = Arc::new(Mutex::new(None));
+        let held = slot.lock();
+        // This call must return before `held` is released. Waiting for the
+        // worker below also verifies that retirement eventually completes.
+        let cleanup = retire_reader(slot.clone(), None);
+        drop(held);
+        tauri::async_runtime::block_on(cleanup).unwrap();
+    }
 
     #[test]
     fn binding_requires_exact_scientist_identity_and_thread() {

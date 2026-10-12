@@ -148,7 +148,10 @@ pub fn run() {
                     .roster_manager
                     .write()
                     .shutdown();
-                *window.state::<state::AppState>().heretic_reader.lock() = None;
+                let _cleanup = heretic::retire_reader(
+                    window.state::<state::AppState>().heretic_reader.clone(),
+                    None,
+                );
             }
         })
         .invoke_handler(tauri::generate_handler![

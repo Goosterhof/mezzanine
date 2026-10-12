@@ -215,6 +215,10 @@ impl ChatReader {
         self.scientist == scientist && self.thread == thread
     }
 
+    pub fn belongs_to(&self, scientist: ScientistId) -> bool {
+        self.scientist == scientist
+    }
+
     fn send(&mut self, value: Value) -> MezzanineResult<()> {
         let stdin = self
             .stdin
@@ -308,6 +312,16 @@ mod tests {
             "Read {} recent turns twice from the exact thread; no turn started or resumed.",
             second.turns.len()
         );
+        reader.stdin.take();
+        for _ in 0..40 {
+            if let Some(status) = reader.child.try_wait().unwrap() {
+                assert!(status.success());
+                println!("The real reader exited successfully on stdin EOF within two seconds.");
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        panic!("The real reader did not exit promptly on stdin EOF");
     }
 
     #[test]

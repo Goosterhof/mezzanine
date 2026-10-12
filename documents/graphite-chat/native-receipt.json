@@ -1,0 +1,12 @@
+{
+  "date": "2026-10-12",
+  "test": "heretic::protocol::tests::live_exact_thread_read",
+  "host": "Linux/WSL",
+  "threadSource": "exact CODEX_THREAD_ID from the active shell",
+  "reads": 2,
+  "recentTurnsPerRead": 4,
+  "startedOrResumedTurn": false,
+  "readerExitedSuccessfullyOnStdinEofWithinSeconds": 2,
+  "passed": true,
+  "boundary": "Actual Codex app-server and Rust bridge. Not an installed Windows/WebView lifecycle test or a filesystem write audit."
+}
