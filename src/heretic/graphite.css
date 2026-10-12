@@ -1,0 +1,379 @@
+.graphite {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    background: #151719;
+    color: #d4d6d8;
+    --graphite-brass: #ddb16b;
+    --graphite-muted: #9c9e9e;
+    --graphite-edge: #333536;
+}
+.graphite button {
+    cursor: pointer;
+    color: var(--graphite-brass);
+    background: transparent;
+    border: 0;
+    font: inherit;
+}
+.graphite button:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+.graphite :is(button, a, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--graphite-brass);
+    outline-offset: 3px;
+}
+.graphite-toolbar,
+.graphite-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-shrink: 0;
+    padding: 9px 20px;
+    border-bottom: 1px solid var(--graphite-edge);
+}
+.graphite-toolbar > div {
+    display: flex;
+    gap: 14px;
+    font-size: 10px;
+}
+.graphite-handwriting {
+    font:
+        23px Caveat,
+        cursive;
+    color: var(--graphite-brass);
+}
+.graphite-reader {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding: 24px clamp(20px, 3vw, 44px) 32px;
+}
+.graphite-eyebrow {
+    font:
+        9px 'JetBrains Mono',
+        monospace;
+    letter-spacing: 1.3px;
+    color: var(--graphite-brass);
+}
+.graphite-message-label {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.graphite-message-label button {
+    font-size: 10px;
+    color: var(--graphite-muted);
+}
+.graphite-message-label button[aria-pressed='true'] {
+    color: var(--graphite-brass);
+}
+.graphite-turn {
+    padding-bottom: 25px;
+    margin-bottom: 25px;
+    border-bottom: 1px solid var(--graphite-edge);
+}
+.graphite-message {
+    margin-bottom: 26px;
+}
+.graphite-user {
+    border-left: 2px solid #4e493e;
+    padding-left: 16px;
+}
+.graphite-progress {
+    color: #a6a8a8;
+}
+.graphite-progress .graphite-markdown {
+    font-size: 12px;
+}
+.graphite-markdown {
+    font:
+        13px/1.85 'Space Grotesk',
+        sans-serif;
+    overflow-wrap: anywhere;
+}
+.graphite-markdown p {
+    margin: 0 0 16px;
+}
+.graphite-markdown :is(h1, h2, h3, h4) {
+    color: #f2eee6;
+    margin: 22px 0 12px;
+    line-height: 1.3;
+}
+.graphite-markdown h1 {
+    font:
+        normal 30px/1.2 Georgia,
+        serif;
+    letter-spacing: -0.6px;
+}
+.graphite-markdown h2 {
+    font-size: 18px;
+}
+.graphite-markdown h3 {
+    font-size: 15px;
+}
+.graphite-markdown :is(ul, ol) {
+    padding-left: 22px;
+    margin: 15px 0;
+}
+.graphite-markdown li {
+    padding-left: 3px;
+    margin: 5px 0;
+}
+.graphite-markdown strong {
+    font-weight: 600;
+    color: #f2eee6;
+}
+.graphite-markdown a {
+    color: #e0b574;
+    text-decoration: underline;
+    text-decoration-color: #c6a87566;
+    text-underline-offset: 3px;
+}
+.graphite-markdown a:hover {
+    text-decoration-color: currentColor;
+}
+.graphite-markdown blockquote {
+    border-left: 2px solid var(--graphite-brass);
+    padding: 12px 18px;
+    margin: 20px 0;
+    background: #d4a24c0b;
+}
+.graphite-markdown blockquote p:last-child {
+    margin: 0;
+}
+.graphite-markdown :not(pre) > code {
+    font:
+        11px 'JetBrains Mono',
+        monospace;
+    color: #e5c899;
+    background: #ffffff08;
+    padding: 2px 4px;
+}
+.graphite-markdown hr {
+    border: 0;
+    border-top: 1px solid var(--graphite-edge);
+    margin: 20px 0;
+}
+.graphite-markdown table {
+    display: block;
+    max-width: 100%;
+    overflow: auto;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.graphite-markdown :is(th, td) {
+    border: 1px solid var(--graphite-edge);
+    text-align: left;
+    padding: 8px 10px;
+}
+.graphite-code {
+    border: 1px solid var(--graphite-edge);
+    border-radius: 5px;
+    overflow: hidden;
+    background: #0c1013;
+    color: #d8e0e5;
+    margin: 17px 0;
+}
+.graphite-code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid #ffffff15;
+    font:
+        10px 'JetBrains Mono',
+        monospace;
+    color: #a4adb6;
+}
+.graphite-code-header button {
+    font-size: 10px;
+    color: #d9b784;
+}
+.graphite-code pre,
+.graphite-markdown > div > pre {
+    font:
+        11px/1.8 'JetBrains Mono',
+        monospace;
+    white-space: pre;
+    margin: 0;
+    padding: 14px;
+    overflow: auto;
+    tab-size: 2;
+}
+.graphite-code code {
+    font: inherit;
+}
+.graphite-code .hljs-keyword,
+.graphite-code .hljs-built_in {
+    color: #cfb0df;
+}
+.graphite-code .hljs-string,
+.graphite-code .hljs-attr {
+    color: #b6c794;
+}
+.graphite-code .hljs-comment {
+    color: #8b969f;
+}
+.graphite-code .hljs-number,
+.graphite-code .hljs-literal {
+    color: #e5b27b;
+}
+.graphite-code .hljs-title {
+    color: #8fc7d4;
+}
+.graphite-work {
+    border: 1px solid var(--graphite-edge);
+    border-radius: 4px;
+    font-size: 11px;
+}
+.graphite-work > button {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    padding: 12px;
+    color: #b5b9bc;
+    text-align: left;
+}
+.graphite-work details {
+    border-top: 1px solid var(--graphite-edge);
+    padding: 10px 12px;
+}
+.graphite-work summary {
+    cursor: pointer;
+    overflow-wrap: anywhere;
+    font:
+        10px/1.7 'JetBrains Mono',
+        monospace;
+}
+.graphite-work pre {
+    font:
+        10px/1.65 'JetBrains Mono',
+        monospace;
+    max-height: 220px;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    background: #0c1013;
+    padding: 12px;
+    color: #b9c2ca;
+}
+.graphite-status {
+    border-top: 1px solid var(--graphite-edge);
+    border-bottom: 0;
+    font-size: 9px;
+    color: var(--graphite-muted);
+    padding: 8px 18px;
+}
+.graphite-status button {
+    white-space: nowrap;
+    font-size: 10px;
+}
+.graphite-empty {
+    padding: 20px 0;
+}
+.graphite-empty h2 {
+    font:
+        normal 30px/1.2 Georgia,
+        serif;
+    color: #f2eee6;
+    margin: 18px 0;
+}
+.graphite-empty p {
+    font-size: 12px;
+    line-height: 1.8;
+    margin: 12px 0;
+}
+.graphite-subtle,
+.graphite-feedback {
+    font:
+        10px/1.7 'Space Grotesk',
+        sans-serif;
+    color: var(--graphite-muted);
+}
+.graphite-feedback {
+    color: var(--graphite-brass);
+}
+.graphite-notice {
+    border: 1px solid #79613c;
+    padding: 14px;
+    font-size: 11px;
+    line-height: 1.7;
+    margin-bottom: 20px;
+}
+.graphite-notice p {
+    margin: 0 0 8px;
+}
+.graphite-notice details {
+    overflow-wrap: anywhere;
+}
+.graphite-notice button {
+    margin-top: 10px;
+}
+.graphite-older {
+    display: block;
+    margin: 0 auto 22px;
+    font-size: 11px !important;
+}
+.graphite-margin {
+    position: absolute;
+    z-index: 3;
+    top: 46px;
+    right: 12px;
+    background: #1c1e20;
+    border: 1px solid #8f7040;
+    box-shadow: 0 10px 35px #0005;
+    width: min(310px, 90%);
+    padding: 17px;
+}
+.graphite-margin > .graphite-eyebrow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.graphite-margin > button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    color: #d4d6d8;
+    font-size: 12px;
+    line-height: 1.7;
+    border-bottom: 1px solid var(--graphite-edge);
+    padding: 12px 0;
+    overflow-wrap: anywhere;
+}
+.graphite-margin p {
+    font-size: 12px;
+    color: var(--graphite-muted);
+    line-height: 1.7;
+}
+.graphite-pinned-reply > .graphite-eyebrow {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+.graphite-compact .graphite-reader {
+    padding-top: 16px;
+}
+.graphite-compact .graphite-markdown {
+    line-height: 1.65;
+}
+.graphite-compact .graphite-message {
+    margin-bottom: 18px;
+}
+.graphite-compact .graphite-markdown h1 {
+    font-size: 26px;
+}
+.graphite-compact .graphite-turn {
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+}

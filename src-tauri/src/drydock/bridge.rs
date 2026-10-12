@@ -34,6 +34,16 @@ pub fn run_in_lab(
     extract_stdout(output, bin)
 }
 
+/// A piped, long-lived command through the same Windows/WSL boundary.
+pub(crate) fn command_in_lab(
+    working_dir: &Path,
+    bin: &str,
+    args: &[&str],
+    distro: Option<&str>,
+) -> Command {
+    bridged_command(&inner_shell_command(working_dir, bin, args), distro)
+}
+
 /// Same as `run_in_lab` but pipes `stdin_payload` to the subprocess's
 /// stdin before reading stdout. Used by `gh pr review --body -` style
 /// invocations where the body might be long enough to embarrass an

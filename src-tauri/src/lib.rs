@@ -27,6 +27,7 @@ mod crier;
 mod drydock;
 mod error;
 mod grind;
+mod heretic;
 mod holotable;
 mod host_paths;
 mod lab;
@@ -147,12 +148,14 @@ pub fn run() {
                     .roster_manager
                     .write()
                     .shutdown();
+                *window.state::<state::AppState>().heretic_reader.lock() = None;
             }
         })
         .invoke_handler(tauri::generate_handler![
             // The Mezzanine's roster surface — dispatch / recall / list /
             // write / resize / transition for dispatched scientists.
             commands::roster::open_colleague,
+            heretic::read_heretic_chat,
             commands::roster::read_tube_connections,
             commands::roster::recall_scientist,
             commands::roster::list_roster,

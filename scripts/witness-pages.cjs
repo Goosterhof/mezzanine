@@ -3,9 +3,9 @@
 const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const artifact = (name) => path.resolve(__dirname, '../documents', name);
+const artifact = (name) => path.resolve(process.env.CHAT_ARTIFACTS || path.resolve(__dirname, '../documents'), name);
 (async () => {
-    const browser = await chromium.launch({headless: true});
+    const browser = await chromium.launch({headless: true, executablePath: process.env.CHAT_CHROME});
     const page = await browser.newPage({viewport: {width: 1440, height: 900}});
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));

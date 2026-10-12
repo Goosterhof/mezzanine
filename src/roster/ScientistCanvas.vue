@@ -3,6 +3,7 @@ import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 
 import type {ScientistId} from './types';
 
+import HereticChat from '../heretic/HereticChat.vue';
 import {bookmarkViewport, restoreViewport} from './terminalViewport';
 import {COLLEAGUES, colleagueLabel} from './types';
 import {useRoster} from './useRoster';
@@ -14,6 +15,7 @@ const roster = useRoster();
 const terminals = useScientistTerminals();
 const backend = useRosterBackend();
 const canvasRef = ref<HTMLElement | null>(null);
+const hereticTerminalExpanded = ref(false);
 const panes = computed(() =>
     COLLEAGUES.map((identity) => ({
         identity,
@@ -77,8 +79,10 @@ function remeasureOpenTerminals(): void {
 }
 
 function setWrapperRef(id: ScientistId, el: Element | null): void {
-    if (el) wrapperRefs.set(id, el as HTMLDivElement);
-    else wrapperRefs.delete(id);
+    if (el) {
+        wrapperRefs.set(id, el as HTMLDivElement);
+        canvasObserver?.observe(el);
+    } else wrapperRefs.delete(id);
 }
 
 function hasVisibleBox(id: ScientistId): boolean {
@@ -167,10 +171,16 @@ watch(
 watch(
     () => roster.selected.value,
     (id) => {
-        if (active && id && wrapperRefs.has(id)) terminals.get(id).terminal.focus();
+        const isReader =
+            panes.value.some((pane) => pane.identity === 'heretic' && pane.scientist?.id === id) &&
+            !hereticTerminalExpanded.value;
+        if (active && id && wrapperRefs.has(id) && !isReader) terminals.get(id).terminal.focus();
     },
     {flush: 'post'},
 );
+watch(hereticTerminalExpanded, () => {
+    void nextTick(fitBoth);
+});
 
 watch(
     () => active,
@@ -192,6 +202,7 @@ onMounted(() => {
     void mountTerminals();
     canvasObserver = new ResizeObserver(fitBoth);
     if (canvasRef.value) canvasObserver.observe(canvasRef.value);
+    for (const wrapper of wrapperRefs.values()) canvasObserver.observe(wrapper);
 });
 onBeforeUnmount(() => {
     unmounted = true;
@@ -233,7 +244,36 @@ onBeforeUnmount(() => {
                     scientist && roster.selected.value === scientist.id ? 'Typing here' : 'Click to type'
                 }}</span>
             </button>
-            <div class="relative flex-1 min-h-0 overflow-hidden">
+            <HereticChat
+                v-if="identity === 'heretic' && scientist"
+                v-show="!hereticTerminalExpanded"
+                :key="scientist.id"
+                :scientist-id="scientist.id"
+                :active="active && !hereticTerminalExpanded"
+            />
+            <div
+                v-if="identity === 'heretic' && scientist"
+                class="flex-shrink-0 flex items-center justify-between px-3 py-1 border-t border-mz-edge text-[10px] text-mz-text-mute bg-mz-rail"
+            >
+                <span>CLI controls · questions &amp; permissions</span>
+                <button
+                    type="button"
+                    class="text-mz-brass bg-transparent border-0 cursor-pointer hover:underline"
+                    :aria-expanded="hereticTerminalExpanded"
+                    @click="hereticTerminalExpanded = !hereticTerminalExpanded"
+                >
+                    {{ hereticTerminalExpanded ? 'Return to Graphite' : 'Expand CLI' }}
+                </button>
+            </div>
+            <div
+                class="relative min-h-0 overflow-hidden"
+                :class="identity === 'heretic' && scientist && !hereticTerminalExpanded ? 'flex-shrink-0' : 'flex-1'"
+                :style="
+                    identity === 'heretic' && scientist && !hereticTerminalExpanded
+                        ? {height: 'clamp(96px, 15vh, 140px)'}
+                        : undefined
+                "
+            >
                 <div
                     v-if="scientist"
                     :key="scientist.id"
@@ -243,6 +283,25 @@ onBeforeUnmount(() => {
                 ></div>
                 <div v-else class="h-full flex items-center justify-center px-4 text-center text-mz-text-mute text-sm">
                     This bench opens after setup. Use its nameplate above to retry.
+                </div>
+                <div
+                    v-if="scientist && terminals.get(scientist.id).links.notice.value"
+                    class="absolute bottom-0 left-0 right-0 z-10 bg-mz-rail border-t border-mz-edge px-3 py-2 text-xs flex items-center gap-2"
+                    :class="{'pointer-events-none': !terminals.get(scientist.id).links.notice.value?.error}"
+                    data-link-notice
+                    :role="terminals.get(scientist.id).links.notice.value?.error ? 'alert' : undefined"
+                >
+                    <span class="truncate flex-1" :title="terminals.get(scientist.id).links.notice.value?.text">
+                        {{ terminals.get(scientist.id).links.notice.value?.text }}
+                    </span>
+                    <button
+                        v-if="terminals.get(scientist.id).links.notice.value?.error"
+                        type="button"
+                        aria-label="Dismiss link error"
+                        @click="terminals.get(scientist.id).links.notice.value = null"
+                    >
+                        ×
+                    </button>
                 </div>
             </div>
         </section>

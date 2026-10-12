@@ -155,3 +155,13 @@ published GitHub release or replacement installer.
 
 The same installation was then updated with the investor's requested permanent
 side-by-side layout; the original 0.2.6 backup remains available.
+
+## Graphite follow-up — 2026-10-12
+
+The Heretic now has a Graphite reading view above its still-mounted CLI controls.
+The same roster UUID, PTY, fresh-conversation policy and Speaking Tube attachment
+remain in use. A separate read-only app-server reader projects recorded messages
+from that exact Tube-bound thread; no model turn is started or resumed by it.
+See [GRAPHITE.md](GRAPHITE.md) for implementation boundaries and current receipts.
+The installed Windows evidence above belongs to earlier revisions; it does not
+certify the new Graphite reader or WebView clipboard behavior.

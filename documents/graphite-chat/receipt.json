@@ -1,0 +1,11 @@
+{
+  "checks": [
+    "Rendered Markdown, highlighted code copied verbatim, web link opens through Tauri, pin/revisit and work details",
+    "Older pagination and a new recorded update preserve the reading line",
+    "Expanded CLI and Graphite share the same still-mounted terminal",
+    "Composer reaches existing PTY; page changes retain draft and sessions and suspend reader polling",
+    "1080×720 layout and failed-read fallback retain visible CLI controls"
+  ],
+  "errors": [],
+  "boundary": "Real Vue/xterm in Chromium; simulated Tauri IPC and conversation page data. Native reader has separate live-read evidence."
+}

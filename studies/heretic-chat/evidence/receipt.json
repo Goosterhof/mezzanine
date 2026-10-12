@@ -1,0 +1,33 @@
+{
+  "checks": [
+    "Pin and revisit a reply",
+    "Code copied to the browser clipboard",
+    "References have real HTTPS destinations and separate-window links",
+    "Working and question states, local choice feedback",
+    "Latest returns to the bottom of the reading pane",
+    "Both colleagues visible at 1080×720; no document overflow or running animations under reduced motion",
+    "Real xterm plain, named OSC 8, and wrapped URLs reach the Tauri opener; plain click does not open"
+  ],
+  "errors": [],
+  "opened": [
+    {
+      "command": "plugin:opener|open_url",
+      "args": {
+        "url": "https://example.com/plain"
+      }
+    },
+    {
+      "command": "plugin:opener|open_url",
+      "args": {
+        "url": "https://example.com/explicit"
+      }
+    },
+    {
+      "command": "plugin:opener|open_url",
+      "args": {
+        "url": "https://example.com/a/very/long/reference/that/wraps?part=two"
+      }
+    }
+  ],
+  "boundary": "Chromium, simulated Tauri opener; no native Windows validation or live Codex session"
+}

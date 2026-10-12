@@ -78,6 +78,7 @@ pub fn recall_scientist<R: Runtime>(
     };
 
     state.roster_manager.write().recall(id)?;
+    *state.heretic_reader.lock() = None;
 
     // Emit a grind-rp-grant for the recall — clean recalls grant
     // RECALL_CLEAN_RP, crashed recalls grant zero (the on_recall body

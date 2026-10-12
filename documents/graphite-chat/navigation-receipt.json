@@ -1,0 +1,39 @@
+{
+  "initial": [
+    {
+      "cols": 87,
+      "rows": 23,
+      "viewport": 20,
+      "first": "SIMULATED OUTPUT — navigation witness"
+    },
+    {
+      "cols": 87,
+      "rows": 5,
+      "viewport": 20,
+      "first": "SIMULATED OUTPUT — navigation witness"
+    }
+  ],
+  "sameElements": true,
+  "draft": "Keep this unsent thought for the Heretic.",
+  "terminals": [
+    {
+      "cols": 64,
+      "rows": 21,
+      "viewport": 20,
+      "first": "SIMULATED OUTPUT — navigation witness",
+      "received": true
+    },
+    {
+      "cols": 64,
+      "rows": 4,
+      "viewport": 20,
+      "first": "SIMULATED OUTPUT — navigation witness",
+      "received": true
+    }
+  ],
+  "opened": 2,
+  "recalls": 0,
+  "overflow": false,
+  "terminalHeight": 443,
+  "errors": []
+}

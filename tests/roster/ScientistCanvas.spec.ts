@@ -87,6 +87,24 @@ describe('ScientistCanvas — both colleagues visible', () => {
         expect(useRoster().selected.value).toBe('codex');
         expect(wrapper.get('[data-terminal-pane="heretic"] button').text()).toContain('Typing here');
     });
+    it('shows link destinations on their own bench and lets a failed-open notice be dismissed', async () => {
+        both();
+        open();
+        await settle();
+        const links = useScientistTerminals().get('codex').links;
+        links.hover(new MouseEvent('mousemove'), 'https://example.com/reference');
+        await nextTick();
+        expect(wrapper.get('[data-terminal-pane="heretic"] [data-link-notice]').text()).toContain(
+            'https://example.com/reference',
+        );
+        expect(wrapper.find('[data-terminal-pane="mad-scientist"] [data-link-notice]').exists()).toBe(false);
+        expect(wrapper.get('[data-link-notice]').classes()).toContain('pointer-events-none');
+        links.notice.value = {text: 'Could not open the reference.', error: true};
+        await nextTick();
+        expect(wrapper.get('[role="alert"]').text()).toContain('Could not open');
+        await wrapper.get('[aria-label="Dismiss link error"]').trigger('click');
+        expect(wrapper.find('[data-link-notice]').exists()).toBe(false);
+    });
     it('selects a terminal reached through keyboard focus', async () => {
         both();
         open();
