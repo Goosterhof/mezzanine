@@ -136,3 +136,8 @@ finding that synchronous recall/window cleanup could wait on reader I/O. Cleanup
 now runs on a worker and has a held-lock regression. His mailbox-scope and shared
 Codex-home questions are reflected above. His review did not cover the full CSS,
 study, witness scripts, or installed app; it is not an installed-Windows receipt.
+
+He rechecked the fix at `5f09689` and closed the runtime finding, including the
+replacement-bench race. His remaining test nit is addressed: the held-lock test
+uses a helper thread and a two-second receive deadline, so a synchronous-lock
+regression fails instead of hanging CI. This last correction changes tests only.

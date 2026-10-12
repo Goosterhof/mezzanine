@@ -140,11 +140,17 @@ mod tests {
     fn retirement_returns_while_a_read_holds_the_lock() {
         let slot = Arc::new(Mutex::new(None));
         let held = slot.lock();
-        // This call must return before `held` is released. Waiting for the
-        // worker below also verifies that retirement eventually completes.
-        let cleanup = retire_reader(slot.clone(), None);
+        let reader = slot.clone();
+        let (returned, result) = std::sync::mpsc::channel();
+        let caller = std::thread::spawn(move || {
+            let _ = returned.send(retire_reader(reader, None));
+        });
+        // A synchronous-lock regression must fail within a deadline, not
+        // deadlock the suite. Release the lock even when the deadline expires.
+        let cleanup = result.recv_timeout(std::time::Duration::from_secs(2));
         drop(held);
-        tauri::async_runtime::block_on(cleanup).unwrap();
+        caller.join().unwrap();
+        tauri::async_runtime::block_on(cleanup.expect("retirement blocked its caller")).unwrap();
     }
 
     #[test]
