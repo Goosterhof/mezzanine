@@ -44,12 +44,12 @@ describe('Graphite Markdown', () => {
         const prose = 'See mod.rs, README.md, build.sh and app.py, plus src/heretic/markdown.ts.';
         const element = rendered(prose);
         expect(element.querySelector('a')).toBeNull();
-        expect(element.textContent?.trim()).toBe(prose);
+        expect(element.textContent.trim()).toBe(prose);
 
         const references = rendered(
             'https://example.com/README.md http://example.com/mod.rs [Source](https://example.com/build.sh)',
         );
-        expect(Array.from(references.querySelectorAll('a'), (link) => link.getAttribute('href'))).toEqual([
+        expect(Array.from(references.querySelectorAll('a'), (link) => link.getAttribute('href'))).toStrictEqual([
             'https://example.com/README.md',
             'http://example.com/mod.rs',
             'https://example.com/build.sh',
