@@ -68,6 +68,7 @@ async function merge(): Promise<void> {
     }
 }
 function prepare(): void {
+    error.value = null;
     try {
         useCommandDraft().prepare(
             'mad-scientist',

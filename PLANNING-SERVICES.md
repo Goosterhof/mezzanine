@@ -2,7 +2,8 @@
 
 The investor chose Mission Control for planning, Holotable for laboratory app
 health, and Drydock for dependency updates. Grind and Briefs are retired.
-This is a local implementation on `feat/planning-services-drydock`, based on
+This implementation is proposed in Mezzanine PR #180 on
+`feat/planning-services-drydock`, based on
 `92a64c7274e184ad57383a094b4556b74c17df29`; it is not a signed release or an
 installed-Windows acceptance receipt.
 
@@ -164,3 +165,34 @@ The peer suggested optional guidance for human-authored GitHub branch updates.
 That copy change is deferred: the current hold correctly routes such commits to
 ordinary review, and any recovery instructions should first be verified to preserve
 human changes. No source behavior changed for this receipt.
+
+
+## Coverage threshold closed — 2026-10-14
+
+At the investor’s request, twelve behavioral tests now cover Graphite’s reading
+controls (pin snapshots/thread changes, folded work, retry and scroll preservation),
+Mission Control’s priority ordering, source failures and prepared briefs, and
+Drydock’s stale evidence, queued outcomes, check links and held-update drafts.
+The native boundary and reader data are simulated; viewport geometry in component
+tests is controlled, not a new native/browser acceptance claim.
+
+The draft test first failed because a successful preparation retained a prior
+“colleague unavailable” alert. `MergeActions.prepare` now clears the previous
+action error before retrying. This one-line correction is the only production
+behavior change in the coverage follow-up.
+
+`npm run test:coverage` passes all 706 tests (68 files):
+
+| Metric | Coverage | Existing threshold |
+| --- | --- | --- |
+| Statements | 97.11% | 90% |
+| Branches | 90.85% | 90% |
+| Functions | 96.46% | 90% |
+| Lines | 98.03% | 90% |
+
+No coverage exclusions, source instrumentation or thresholds changed. Sentinel’s
+frontend job now runs `npm run test:coverage`, enforcing the existing gates in CI.
+The typechecked production build, lint and formatting pass; existing unrelated
+lint warnings remain. Rust is unchanged from the 243-test receipt. The coverage
+gap above is closed locally; installed-Windows acceptance and the scope limits of
+the prior peer review remain. The new commit requires its own CI/peer result.

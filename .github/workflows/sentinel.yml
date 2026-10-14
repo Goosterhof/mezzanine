@@ -56,8 +56,8 @@ jobs:
       - name: Format check
         run: npm run format:check
 
-      - name: Test
-        run: npm run test
+      - name: Test with coverage thresholds
+        run: npm run test:coverage
 
   rust-substrate:
     name: Rust — Fmt + Clippy + Build + Test
