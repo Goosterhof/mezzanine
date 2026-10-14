@@ -12,6 +12,7 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 import type {DashboardState} from '../../src/holotable/types';
 
 import {classifyError, useHolotable} from '../../src/holotable/useHolotable';
+import {useServiceMonitor} from '../../src/holotable/useServiceMonitor';
 
 const mockedInvoke = vi.mocked(invoke);
 
@@ -78,6 +79,7 @@ const SAMPLE: DashboardState = {
 describe('useHolotable', () => {
     beforeEach(() => {
         useHolotable().reset();
+        useServiceMonitor().reset();
         mockedInvoke.mockReset();
     });
 
@@ -121,6 +123,32 @@ describe('useHolotable', () => {
     });
 
     describe('legacyState adapter', () => {
+        it('uses current endpoint evidence and makes stale evidence unknown in the map', async () => {
+            const ht = useHolotable();
+            ht.dashboardState.value = SAMPLE;
+            const node = () => ht.legacyState.value.structures.find((s) => s.id === 'experiment-gatekeeper')!;
+            expect(node().health).toBe('unknown');
+            mockedInvoke.mockResolvedValue({
+                experiments: [
+                    {
+                        slug: 'gatekeeper',
+                        label: 'The Gatekeeper',
+                        url: 'https://example.test/up',
+                        healthy: true,
+                        statusCode: 200,
+                        responseTimeMs: 87,
+                        error: '',
+                    },
+                ],
+            });
+            const monitor = useServiceMonitor();
+            await monitor.refresh();
+            expect(node().health).toBe('green');
+            expect(node().meta.responseTime).toBe(87);
+            monitor.now.value += 151000;
+            expect(node().health).toBe('unknown');
+            expect(node().detail).toContain('unknown');
+        });
         it('flattens the typed payload into the legacy structure-array shape', async () => {
             mockedInvoke.mockResolvedValueOnce(SAMPLE);
             const ht = useHolotable();

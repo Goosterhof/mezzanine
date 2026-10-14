@@ -1,10 +1,11 @@
 import {invoke} from '@tauri-apps/api/core';
-import {mount} from '@vue/test-utils';
+import {flushPromises, mount} from '@vue/test-utils';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import type {Scientist} from '../../src/roster/types';
 
 import CommandBar from '../../src/command/CommandBar.vue';
+import {useCommandDraft} from '../../src/command/useCommandDraft';
 import {_resetForTests, useLastKeystroke} from '../../src/command/useLastKeystroke';
 import {useRoster} from '../../src/roster/useRoster';
 import {useRosterBackend} from '../../src/roster/useRosterBackend';
@@ -26,6 +27,7 @@ function makeScientist(id: string): Scientist {
 describe('CommandBar — Phase 2A', () => {
     beforeEach(() => {
         useRoster().reset();
+        useCommandDraft().draft.value = '';
         useScientistTerminals().reset();
         useRosterBackend()._resetSubscriptionForTests();
         mockedInvoke.mockReset();
@@ -67,6 +69,42 @@ describe('CommandBar — Phase 2A', () => {
         await input.trigger('keydown.enter');
         await Promise.resolve();
         expect((input.element as HTMLInputElement).value).toBe('');
+    });
+
+    it('sends a multiline prepared brief as one bracketed paste and leaves Shift+Enter for editing', async () => {
+        useRoster().upsert(makeScientist('a'));
+        useRoster().select('a');
+        const wrapper = mount(CommandBar);
+        const input = wrapper.get('[data-command-input]');
+        await input.setValue('Inspect this task.\nSource: backlog');
+        await input.trigger('keydown.enter', {shiftKey: true});
+        expect(mockedInvoke).not.toHaveBeenCalledWith('write_to_scientist', expect.anything());
+        await input.trigger('keydown.enter');
+        await flushPromises();
+        expect(mockedInvoke).toHaveBeenCalledWith('write_to_scientist', {
+            id: 'a',
+            input: '\x1b[200~Inspect this task.\nSource: backlog\x1b[201~\r',
+        });
+    });
+
+    it('retains the failed brief and new typing when the terminal write rejects', async () => {
+        useRoster().upsert(makeScientist('a'));
+        useRoster().select('a');
+        let rejectWrite!: (error: Error) => void;
+        mockedInvoke.mockReturnValue(
+            new Promise((_resolve, reject) => {
+                rejectWrite = reject;
+            }),
+        );
+        const wrapper = mount(CommandBar);
+        const input = wrapper.get('[data-command-input]');
+        await input.setValue('Original brief');
+        await input.trigger('keydown.enter');
+        await input.setValue('New thought');
+        rejectWrite(new Error('Terminal unavailable'));
+        await flushPromises();
+        expect(useCommandDraft().draft.value).toBe('Original brief\n\nNew thought');
+        expect(wrapper.get('[role="alert"]').text()).toContain('Terminal unavailable');
     });
 
     it('Enter is a no-op when the input is empty', async () => {

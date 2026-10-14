@@ -7,8 +7,8 @@
 //   * `gh_auth_status()` — `gh auth status`; the panel renders an empty
 //     state when the investor isn't authenticated.
 //   * `list_open_prs()` — enumerates open PRs across every repo in
-//     `drydock::repo_registry`. Sequential per-repo calls; fast enough
-//     on WSL2 (~80 ms each, 12 repos, under a second total).
+//     `drydock::repo_registry`. Sequential per-repo calls; partial failures
+//     and enumeration limits are returned as visible warnings.
 //   * `pull_request_files()` — `gh pr view <n> --repo X --json files`
 //     for the per-file diff list the panel renders when a PR is expanded.
 //   * `approve_pr` / `comment_pr` / `request_changes_pr` — `gh pr review`
@@ -40,6 +40,7 @@ pub struct PullRequest {
     pub title: String,
     pub author: String,
     pub head_ref: String,
+    pub head_oid: String,
     pub is_draft: bool,
     pub additions: u64,
     pub deletions: u64,
@@ -68,6 +69,7 @@ struct RawPullRequest {
     title: String,
     author: RawAuthor,
     head_ref_name: String,
+    head_ref_oid: String,
     #[serde(default)]
     is_draft: bool,
     #[serde(default)]
@@ -95,7 +97,7 @@ struct RawPrFile {
 }
 
 const PR_LIST_FIELDS: &str =
-    "number,title,author,headRefName,isDraft,additions,deletions,changedFiles,url";
+    "number,title,author,headRefName,headRefOid,isDraft,additions,deletions,changedFiles,url";
 
 #[tauri::command]
 pub async fn gh_auth_status(state: State<'_, AppState>) -> MezzanineResult<GhAuthStatus> {
@@ -123,8 +125,14 @@ pub async fn gh_auth_status(state: State<'_, AppState>) -> MezzanineResult<GhAut
     }
 }
 
+#[derive(Serialize)]
+pub struct PrListing {
+    pub prs: Vec<PullRequest>,
+    pub warnings: Vec<String>,
+}
+
 #[tauri::command]
-pub async fn list_open_prs(state: State<'_, AppState>) -> MezzanineResult<Vec<PullRequest>> {
+pub async fn list_open_prs(state: State<'_, AppState>) -> MezzanineResult<PrListing> {
     let (lab_root, distro) = read_lab_state(&state)?;
     let repos = repo_registry::lab_repos();
     let lab_root = std::sync::Arc::new(lab_root);
@@ -149,7 +157,7 @@ pub async fn list_open_prs(state: State<'_, AppState>) -> MezzanineResult<Vec<Pu
                     "--state",
                     "open",
                     "--limit",
-                    "30",
+                    "100",
                     "--json",
                     PR_LIST_FIELDS,
                 ],
@@ -161,11 +169,12 @@ pub async fn list_open_prs(state: State<'_, AppState>) -> MezzanineResult<Vec<Pu
     }
 
     let mut out = Vec::new();
+    let mut warnings = Vec::new();
     for handle in handles {
         let (repo, stdout_result) = match handle.await {
             Ok(pair) => pair,
             Err(e) => {
-                log::warn!("Drydock: gh pr list task join failed: {e}");
+                warnings.push(format!("Repository read failed: {e}"));
                 continue;
             }
         };
@@ -175,23 +184,23 @@ pub async fn list_open_prs(state: State<'_, AppState>) -> MezzanineResult<Vec<Pu
         let stdout = match stdout_result {
             Ok(s) => s,
             Err(e) => {
-                log::warn!(
-                    "Drydock: gh pr list failed for {}: {e}",
-                    repo.repo_full_name
-                );
+                warnings.push(format!("{}: {e}", repo.repo_full_name));
                 continue;
             }
         };
         let raws: Vec<RawPullRequest> = match serde_json::from_str(stdout.trim()) {
             Ok(v) => v,
             Err(e) => {
-                log::warn!(
-                    "Drydock: gh pr list JSON parse failed for {}: {e}",
-                    repo.repo_full_name
-                );
+                warnings.push(format!("{}: unreadable response: {e}", repo.repo_full_name));
                 continue;
             }
         };
+        if raws.len() == 100 {
+            warnings.push(format!(
+                "{}: showing the first 100 open PRs; open GitHub for the full list.",
+                repo.repo_full_name
+            ));
+        }
         for raw in raws {
             out.push(PullRequest {
                 repo_full_name: repo.repo_full_name.clone(),
@@ -202,6 +211,7 @@ pub async fn list_open_prs(state: State<'_, AppState>) -> MezzanineResult<Vec<Pu
                 title: raw.title,
                 author: raw.author.login,
                 head_ref: raw.head_ref_name,
+                head_oid: raw.head_ref_oid,
                 is_draft: raw.is_draft,
                 additions: raw.additions,
                 deletions: raw.deletions,
@@ -210,7 +220,7 @@ pub async fn list_open_prs(state: State<'_, AppState>) -> MezzanineResult<Vec<Pu
             });
         }
     }
-    Ok(out)
+    Ok(PrListing { prs: out, warnings })
 }
 
 #[tauri::command]

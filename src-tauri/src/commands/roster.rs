@@ -13,7 +13,6 @@
 // stop signal is dropped (panel closed in race, IPC reorder).
 
 use crate::error::{MezzanineError, MezzanineResult};
-use crate::grind::economy::{emit_grant, GrindSource, RpGrant};
 use crate::roster::recall_strip::RecalledScientist;
 use crate::roster::scientist::{Colleague, MissionState, Scientist, ScientistId};
 use crate::state::AppState;
@@ -39,66 +38,19 @@ pub fn open_colleague<R: Runtime>(
         state.chronicle_base.clone(),
         app.clone(),
     )?;
-    let amount = state.economy.on_dispatch(scientist.id);
-    if amount > 0.0 {
-        emit_grant(
-            &app,
-            &RpGrant {
-                source: GrindSource::Dispatch,
-                scientist_id: Some(scientist.id),
-                amount,
-            },
-        );
-    }
     Ok(scientist)
 }
 
 #[tauri::command]
-pub fn recall_scientist<R: Runtime>(
-    state: State<'_, AppState>,
-    app: AppHandle<R>,
-    id: ScientistId,
-) -> MezzanineResult<()> {
+pub fn recall_scientist(state: State<'_, AppState>, id: ScientistId) -> MezzanineResult<()> {
     // Belt-and-suspenders: stop the chronicle tail before the manager
     // tears down the live pty. The frontend's recall flow also calls
     // `stop_watching_scientist` directly — both paths are idempotent.
     state.chronicle_reader.stop_watching(id);
     state.semaphore.stop(id);
 
-    // Read the scientist's final state BEFORE the recall mutation moves
-    // the record into the recall strip — the Grind needs the pre-recall
-    // MissionState to decide whether this was a clean or crashed recall.
-    let crashed = {
-        let mgr = state.roster_manager.read();
-        mgr.list()
-            .into_iter()
-            .find(|s| s.id == id)
-            .map(|s| s.state == MissionState::Crashed)
-            .unwrap_or(false)
-    };
-
     state.roster_manager.write().recall(id)?;
     let _cleanup = crate::heretic::retire_reader(state.heretic_reader.clone(), Some(id));
-
-    // Emit a grind-rp-grant for the recall — clean recalls grant
-    // RECALL_CLEAN_RP, crashed recalls grant zero (the on_recall body
-    // returns 0.0 for crashed). The Grind earns on clean recalls only,
-    // which aligns incentives toward careful, reviewable work.
-    let amount = state.economy.on_recall(id, crashed);
-    if amount > 0.0 {
-        emit_grant(
-            &app,
-            &RpGrant {
-                source: GrindSource::Recall,
-                scientist_id: Some(id),
-                amount,
-            },
-        );
-    }
-
-    // Drop the per-scientist rate-limiter bucket so the EconomyManager's
-    // chronicle_buckets map does not grow unboundedly across long sessions.
-    state.economy.forget_scientist(id);
 
     Ok(())
 }

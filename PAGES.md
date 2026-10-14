@@ -3,14 +3,17 @@
 The investor requested pages instead of overlay tabs, using the War Tent as
 inspiration, and explicitly chose: “Keep running; restore on return.”
 
-| Page | Contents | Previous location |
-| --- | --- | --- |
-| Conversation | Both colleagues, Speaking Tube status, independent terminals, shared command bar and expandable ink floor | Main frame |
-| Mission Control | Last Chaos, Idea Ledger, vital signs, minions due and wounds | Right overlay; signs were in the global header |
-| Drydock | Open PRs, diffs and review actions | Right overlay |
-| Holotable | Interactive laboratory map | Overlay across the conversation |
-| Grind | Laboratory economy, buildings, upgrades and theorems | Overlay across the conversation |
-| Briefs | Minion briefs sent to the Mad Scientist's existing session | Dropdown sheet covering the conversation |
+| Page | Current purpose |
+| --- | --- |
+| Conversation | Both colleagues, Speaking Tube status, independent terminals, shared command bar and ink floor |
+| Mission Control | Canonical laboratory backlog, ordered priorities and prepared conversation drafts |
+| Drydock | PRs grouped by repository, Dependabot evidence and investor-triggered exact-revision merges |
+| Holotable | Laboratory app health, sustained failure/recovery notices and interactive map |
+
+Grind and Briefs were retired on 2026-10-14. The economy runtime and commands
+were removed; old save files and the reusable brief library remain untouched.
+See [PLANNING-SERVICES.md](PLANNING-SERVICES.md) for current implementation,
+validation and outstanding native checks.
 
 Navigation selects a page; selecting it again leaves it open. Pages fill the
 content area and have no overlay close button or global Escape dismissal.
@@ -19,7 +22,7 @@ Wizard and updater prompts keep their existing task-specific behavior.
 ## Conversation lifetime
 
 `App.vue` owns native event subscriptions, colleague startup, observer updates
-and the Grind economy. `ConversationPage.vue` owns the entire conversation
+and the service monitor. `ConversationPage.vue` owns the entire conversation
 composition and is hidden with `v-show`, never unmounted on a page change.
 The terminals keep receiving output; their DOM elements, history, command-bar
 draft and recipient remain in place. Navigation never opens or recalls a colleague.
@@ -39,7 +42,8 @@ synchronizes the scrollbar through public APIs, then returns to the bookmarked
 line. A marker trimmed out of the bounded history is not restored.
 
 Canvas visibility is independent of session lifetime: leaving Conversation pauses
-the ink floor; Holotable and Grind initialize on first visit and pause when hidden.
+the ink floor; Holotable initializes on first visit and pauses when hidden. Its health polling
+continues independently of the renderer.
 The floor keeps its existing reduced-motion handling. The composition audition
 (wireframe #00041) ruled Direction C, the Long Bench. It shipped in v0.3.2:
 `compactFloor` now defaults to the expanded 200px bench, and the `⌃` control
@@ -48,7 +52,7 @@ the scene and survives a page change. A colleague caught mid-crossing is still
 mid-crossing on return. A letter that arrived while another page was showing is
 already in the receiver's hand at the bell, and is never replayed.
 
-## Browser receipts and installation boundary
+## Historical page-lifetime receipts (2026-09-21)
 
 All 564 frontend tests pass. Coverage clears the four 90% gates: 95.56%
 statements, 90.67% branches, 93.11% functions and 96.38% lines. Lint has no

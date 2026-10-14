@@ -33,17 +33,21 @@ thread; queued reads check session liveness again after acquiring the reader loc
 
 See [GRAPHITE.md](GRAPHITE.md) for the evidence and installed-Windows boundary.
 
-## Pages and conversation lifetime (2026-09-21)
+## Pages and conversation lifetime (updated 2026-10-14)
 
-Six named pages replace the overlay navigation: Conversation, Mission Control,
-Drydock, Holotable, Grind, and Briefs. `src/shell/useShell.ts` owns the selected
+Four pages remain: Conversation, Mission Control, Drydock and Holotable.
+Grind and Briefs were retired at the investor’s request. `src/shell/useShell.ts` owns the selected
 page. `ConversationPage.vue` keeps the entire talking-page stack together and
 stays mounted under `v-show`, preserving both xterm instances, independent
 scrollback, the selected recipient and the unsent command-bar draft. Backend
 subscriptions remain app-owned and continue while another page is visible.
 
 The conversation gets a compact 44px navigation rail and tighter nameplates;
-Last Chaos and Idea Ledger now live in Mission Control.
+Mission Control now reads the canonical laboratory backlog and saves the investor’s
+ordered priorities separately. Holotable checks the six deployed laboratory apps
+while the app runs. Drydock groups Dependabot work and offers an exact-revision
+merge for eligible updates. See [PLANNING-SERVICES.md](PLANNING-SERVICES.md) for
+contracts, evidence and the installed-Windows boundary.
 
 **The Long Bench (v0.3.2, wireframe #00041 Direction C, ruled 2026-09-22).**
 The page under the railing is an elevation, not a floor plan: one 200px bench
@@ -91,7 +95,7 @@ click-through). `--only perf --headed` is the Windows host's frame gate (AC-13).
 
 Never fit a hidden or zero-size terminal. Preserve the reading line with xterm
 markers across visible fits, and restore after the scrollbar layout settles.
-Hidden canvases pause; the Holotable and Grind initialize on their first visit
+Hidden canvases pause; the Holotable initializes on its first visit
 and retain their renderer state thereafter. Setup and update prompts remain
 task-specific dialogs, not navigation destinations.
 
@@ -111,8 +115,9 @@ ordinary colleague restarts do not produce extra archives.
   nameplates, independent launch errors, retry and Speaking Tube status.
 - `App.vue` starts both only after wizard completion and terminal event
   subscription. Closing the window explicitly kills the live terminals.
-- `Brief ▾` sends the chosen minion brief to the existing Mad Scientist.
-  It never creates a third scientist. The separate Claude Town-Crier
+- Mission Control prepares a draft for either existing colleague; Drydock
+  prepares dependency work for the Mad Scientist. The investor sends it from
+  the shared composer. The separate Claude Town-Crier
   patrol and its controls are retired from the live app; Town-Crier
   remains an independent laboratory service, not our private mailbox.
   The retired frontend crier slice and its tests have been removed.
@@ -290,7 +295,7 @@ regression test in `pty/substrate.rs` is part of the test suite.
 
 - **Core:** Tauri v2 (Rust 2021 edition, rust-version 1.77+)
 - **UI:** Vue 3.5 + TypeScript 5.6 + Vite 6 + UnoCSS 0.65 (attributify)
-- **State:** module-singleton composables — `useRoster`, `useDispatch`,
+- **State:** module-singleton composables — `useRoster`, `usePlanning`,
   `useIdleWarning`, `useShell` — plain Vue refs scoped at module level,
   no Pinia. `parking_lot::RwLock` handles the Rust side.
 - **Pty:** the `portable-pty` Rust crate. Each dispatched scientist
@@ -413,8 +418,8 @@ mezzanine/
 │   │   ├── RailingDivider.vue  Brass-post SVG balustrade between the storeys — hosts the PENCIL plumb-line + sketched nail mark (#00059 J-4; 300ms stroke-dashoffset draw-on, reduced-motion instant; imports PENCIL from ../observer/pen — constants cross the slice boundary, logic does not)
 │   │   ├── TornPaperEdge.vue . The seam between the storeys (#00059 J-4) — static SVG zigzag, fill = PAPER from ../observer/pen, aria-hidden; the plumb-line (z-10) hangs OVER it (z-[5])
 │   │   ├── ConversationPage.vue .. persistent two-colleague page, floor and plumb-line geometry; measures the Rail's envelope and hosts the pointer-less sill canvas (#00067 P2)
-│   │   ├── brass.ts .......... The balcony's brass in one home (#00067 AC-9): BRASS / BRASS_DIM, read by the rail, the terminals' cursor, the Holotable, the Grind and the sill's re-stroke
-│   │   └── useShell.ts ....... page + navigate singleton; six destinations, no overlay toggles
+│   │   ├── brass.ts .......... The balcony's brass in one home (#00067 AC-9): BRASS / BRASS_DIM, read by the rail, the terminals' cursor, the Holotable and the sill's re-stroke
+│   │   └── useShell.ts ....... page + navigate singleton; four destinations, no overlay toggles
 │   ├── roster/                The dispatched-scientist domain
 │   │   ├── types.ts .......... Scientist / Target / MissionState / TARGET_OPTIONS / targetLabel / targetKey
 │   │   ├── useRoster.ts ...... Singleton roster + recalled-strip + selection state
@@ -427,13 +432,11 @@ mezzanine/
 │   │   └── ScientistCanvas.vue Upper-storey xterm.js stack — one wrapper per scientist, only selected visible; plays the 280ms wrapper-only rise on selection (xterm text never transformed; FitAddon re-fit on transitionend)
 │   ├── balcony/               Dispatch surface + rail signs (Phase 2B)
 │   │   ├── types.ts .......... BalconySigns / BriefingTemplate mirrors of the Rust serde shapes
-│   │   ├── useDispatch.ts .... Singleton dispatch-sheet state (open / target / template / brief / submit)
 │   │   ├── useBalconySigns.ts Last Chaos + Idea Ledger sign loader (refresh on demand)
 │   │   ├── useBriefingLibrary.ts Cached fetch of the four seed templates
 │   │   ├── TargetPicker.vue .. Grouped target list (Experiments / Gadgets / Packages / The Lab)
 │   │   ├── BalconySign.vue ... One stamped tile on the rail (label + value + optional refresh)
 │   │   ├── BriefingLibrary.vue Selectable template cards inside the dispatch sheet
-│   │   └── Dispatch.vue ...... Slide-down dispatch sheet over the Roster (Target + Library + Brief)
 │   ├── holotable/             Arc 1 — the lab floor below the balcony (#00051)
 │   │   ├── types.ts .......... DashboardState / HealthState / HolotableError TS mirrors
 │   │   ├── useHolotable.ts ... Singleton state + IPC + legacy-shape adapter for the scene
@@ -459,7 +462,6 @@ mezzanine/
 │   │   ├── monkey.ts ......... The Chaos Monkey: hangs by his fuse-tail from the brass above the flask, swings while he works, goes home with a POP
 │   │   ├── sill.ts ........... The Rail's envelope from measured page rects (ceiling = text bottom + 3; null is a legitimate state) + `tier3Hits`, the alarm's pure core
 │   │   ├── sillPainter.ts .... Paints the sill: paper die-cut, brass re-stroked over a body behind the balustrade, fingers over it; DEV-only tier-3 alarm + `sillReadout` (breach count, Kilroy eye rows) for the witness. Coverage-excluded (jsdom has no Canvas 2D)
-│   ├── grind/                 Arc 3 (#00053) — the lab economy: gameCore.ts + useGrind + GrindRenderer + GrindHud + GrindPanel (GR glyph)
 │   ├── command/               Always-on input tray
 │   │   ├── CommandBar.vue .... Always-focused bottom input → write_to_scientist(selected, text + "\n")
 │   │   └── useLastKeystroke.ts When the investor last typed (the command bar, and the Mad Scientist's xterm keydown, never `onData`): the 1.5 s grip gate

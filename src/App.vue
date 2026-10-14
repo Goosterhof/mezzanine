@@ -1,15 +1,12 @@
 <script setup lang="ts">
-import {onMounted, ref, watch} from 'vue';
+import {onBeforeUnmount, onMounted, ref, watch} from 'vue';
 
 import AscentPrompt from './ascent/AscentPrompt.vue';
 import {useAscent} from './ascent/useAscent';
-import Dispatch from './balcony/Dispatch.vue';
 import {useBalconySigns} from './balcony/useBalconySigns';
-import {useBriefingLibrary} from './balcony/useBriefingLibrary';
 import DrydockPanel from './drydock/DrydockPanel.vue';
-import GrindPanel from './grind/GrindPanel.vue';
-import {useGrind} from './grind/useGrind';
 import HolotablePanel from './holotable/HolotablePanel.vue';
+import {useServiceMonitor} from './holotable/useServiceMonitor';
 import MissionControl from './mission/MissionControl.vue';
 import {useObserver} from './observer/useObserver';
 import {useColleagues} from './roster/useColleagues';
@@ -34,18 +31,12 @@ onMounted(() => {
     void useWizard().loadStatus();
     // Balcony state — load the rail's signs and the briefing library on boot.
     void useBalconySigns().refresh();
-    void useBriefingLibrary().load();
     // Arc 2 (#00052) — subscribe to the chronicle-event channel. The
     // subscription is push-always: events fan into the Observer's
     // per-scientist activity map even while the Observer panel is
     // collapsed, so the sprites reflect the right state the moment the
     // floor opens.
     void observer.subscribe();
-    // Arc 3 (#00053) — start the Grind's economy loop. Push-always: the
-    // lab earns from every chronicle line, dispatch, and clean recall
-    // regardless of whether the panel is open. The renderer's RAF
-    // pauses when the panel closes; the economy never does.
-    void useGrind().start();
 });
 
 // The Ascent boot check — gated on wizard completion. `needsWalkthrough` is
@@ -61,6 +52,7 @@ watch(
         }
         if (cleared && !colleaguesOpened) {
             colleaguesOpened = true;
+            useServiceMonitor().start();
             void rosterReady
                 .then(() => useColleagues().openOnEntry())
                 .catch((error: unknown) => {
@@ -70,6 +62,7 @@ watch(
     },
     {immediate: true},
 );
+onBeforeUnmount(() => useServiceMonitor().stop());
 </script>
 <template>
     <div class="relative flex flex-col h-full bg-mz-surface text-mz-text font-body">
@@ -83,8 +76,6 @@ watch(
             <MissionControl />
             <DrydockPanel />
             <HolotablePanel />
-            <GrindPanel />
-            <Dispatch />
         </main>
         <FirstRunWizard />
         <AscentPrompt />

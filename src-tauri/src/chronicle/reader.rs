@@ -95,6 +95,7 @@ impl ChronicleReader {
     /// Grind's EconomyManager to drive RP grants without going through
     /// the Tauri bridge. The returned receiver is independent — multiple
     /// subscribers all see every event.
+    #[cfg(test)]
     pub fn subscribe(&self) -> broadcast::Receiver<ChronicleEvent> {
         self.broadcast_tx.subscribe()
     }

@@ -128,6 +128,7 @@ export function initScene(opts) {
 
     function resize() {
         var rect = container.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
         width = rect.width;
         height = rect.height;
         canvas.width = width * dpr;
@@ -139,6 +140,14 @@ export function initScene(opts) {
 
     resize();
     addWindowListener('resize', resize);
+    var resizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(function () {
+        resize();
+        if (reducedMotion && !paused && rafHandle === null) {
+            drawOnce = true;
+            rafHandle = requestAnimationFrame(render);
+        }
+    }) : null;
+    if (resizeObserver) resizeObserver.observe(container);
 
     // =========================================================================
     // Shader Programs
@@ -965,7 +974,7 @@ export function initScene(opts) {
         };
     }
 
-    function rebuildScene(stateStructures) {
+    function rebuildScene(stateStructures, animate = true) {
         structures = [];
         structureMap = {};
         beams = [];
@@ -984,7 +993,7 @@ export function initScene(opts) {
             var sibIdx = siblingCounters[s.type] || 0;
             siblingCounters[s.type] = sibIdx + 1;
             built.summonDelay = Core.summonDelay ? Core.summonDelay(s.type, sibIdx) : 0;
-            built.summonT = 0; // 0 = submerged, 1 = fully materialized
+            built.summonT = animate ? 0 : 1; // 0 = submerged, 1 = fully materialized
 
             structures.push(built);
             structureMap[s.id] = built;
@@ -998,7 +1007,7 @@ export function initScene(opts) {
                     beams.push({
                         from: tower,
                         to: structures[bi],
-                        beamT: 0, // 0 = invisible, 1 = fully connected
+                        beamT: animate ? 0 : 1, // 0 = invisible, 1 = fully connected
                         beamDelay: SUMMON_BEAM_DELAY + bi * SUMMON_BEAM_STAGGER,
                     });
                 }
@@ -1006,7 +1015,7 @@ export function initScene(opts) {
         }
 
         // Trigger summoning ceremony
-        summoningActive = true;
+        summoningActive = animate;
         summonStartTime = time;
     }
 
@@ -1897,6 +1906,7 @@ export function initScene(opts) {
     // External API — what the Vue host can do to the running scene
     // =========================================================================
 
+    var receivedLiveState = false;
     function applyState(payload) {
         dashboardState = payload;
         branchDisplay.textContent = dashboardState.branch || '--';
@@ -1907,7 +1917,8 @@ export function initScene(opts) {
                 (Core.formatRelativeTime ? Core.formatRelativeTime(dashboardState.timestamp) : 'just now');
         }
         if (dashboardState.structures && dashboardState.structures.length > 0) {
-            rebuildScene(dashboardState.structures);
+            rebuildScene(dashboardState.structures, !receivedLiveState);
+            receivedLiveState = true;
             if (selectedStructure) {
                 var updated = structureMap[selectedStructure.id];
                 if (updated) {
@@ -1943,6 +1954,7 @@ export function initScene(opts) {
          * issues a fresh RAF; if it is already running this is a no-op.
          */
         resumeRaf: function () {
+            resize();
             if (!paused) return;
             paused = false;
             // Under reduced motion, paint a single static frame and stay frozen.
@@ -1963,6 +1975,7 @@ export function initScene(opts) {
          * Called by the Vue host on unmount.
          */
         destroy: function () {
+            if (resizeObserver) resizeObserver.disconnect();
             paused = true;
             if (rafHandle !== null) {
                 cancelAnimationFrame(rafHandle);

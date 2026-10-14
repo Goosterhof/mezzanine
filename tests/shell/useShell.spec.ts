@@ -10,9 +10,9 @@ describe('page navigation', () => {
         expect(useShell().page.value).toBe(id);
     });
     it('shares navigation state and returns home on reset', () => {
-        useShell().navigate('grind');
+        useShell().navigate('holotable');
         const other = useShell();
-        expect(other.page.value).toBe('grind');
+        expect(other.page.value).toBe('holotable');
         other.reset();
         expect(useShell().page.value).toBe('conversation');
     });
