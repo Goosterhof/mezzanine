@@ -100,7 +100,7 @@ async function openSource(): Promise<void> {
                 <section>
                     <div class="flex items-center justify-between mb-3">
                         <h3 class="mz-stamp-label">Current priorities</h3>
-                        <span class="text-xs text-mz-text-mute">Your order · shared with the laboratory</span>
+                        <span class="text-xs text-mz-text-mute">Your order · saved</span>
                     </div>
                     <p
                         v-if="!ids.length"

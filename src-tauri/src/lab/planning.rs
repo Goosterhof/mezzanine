@@ -139,9 +139,14 @@ pub fn save(
         .create_new(true)
         .open(&lock_path)
         .map_err(|e| {
-            failure(format!(
-                "Priorities are locked or unavailable; refresh before retrying ({e})."
-            ))
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
+                failure(format!(
+                    "Priority lock exists at {}. Wait for any active save to finish. If it remains after a crash, confirm no Mezzanine instance is saving, remove this stale lock, then refresh. See PLANNING-SERVICES.md.",
+                    lock_path.display()
+                ))
+            } else {
+                failure(format!("Cannot create priority lock at {}: {e}", lock_path.display()))
+            }
         })?;
     struct Lock(std::path::PathBuf, Option<fs::File>);
     impl Drop for Lock {
@@ -250,7 +255,10 @@ mod tests {
         let fresh = read(&dir).unwrap();
         let lock = dir.join(".mezzanine-priorities.lock");
         fs::write(&lock, "other writer").unwrap();
-        assert!(save(&dir, &fresh.revision, &[]).is_err());
+        let error = save(&dir, &fresh.revision, &[]).err().unwrap().to_string();
+        assert!(error.contains(lock.to_str().unwrap()));
+        assert!(error.contains("confirm no Mezzanine instance is saving"));
+        assert!(error.contains("remove this stale lock"));
         assert_eq!(fs::read_to_string(&lock).unwrap(), "other writer");
         assert_eq!(
             fs::read_to_string(dir.join("lab-backlog.md")).unwrap(),

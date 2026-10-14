@@ -31,7 +31,10 @@ editor does not honor this lock and must not write during an app save. Malformed
 tables/files surface errors, retaining the visible plan. A process crash can leave
 `documents/.mezzanine-priorities.lock`; after confirming no app instance is saving,
 remove that stale lock and refresh. This is deliberately not an automatically
-stolen lease. Priority snapshots are shared checkout data, not agent ownership.
+stolen lease. Priority snapshots are checkout-local state, shared by sessions using that checkout.
+The parent repository ignores the JSON, lock and temporary files. Priorities are
+not committed or synchronized between machines; the canonical backlog remains
+versioned laboratory knowledge. These snapshots do not establish agent ownership.
 
 ## Service watch
 
@@ -61,7 +64,14 @@ read up to 100 PRs; failures and a reached limit are visible completeness warnin
 Opening a PR reads its current head, check/review states, release-note body and
 repository merge settings. GitHub's actual files view remains one click away.
 
-Quick merge requires verified REST author `dependabot[bot]` of type `Bot`, an
+Quick merge requires verified REST PR author `dependabot[bot]` of type `Bot`, plus
+a complete nonempty commit list matching the PR commit count and inspected head.
+Every commit must have that bot author and a valid verified signature. Human edits,
+unknown authors, unsigned commits, incomplete evidence and more than 100 commits
+are held for ordinary review. GitHub’s `web-flow` committer is allowed because it
+signs real Dependabot commits; author and committer are distinct fields. These
+checks run whenever an otherwise-eligible candidate is read, including immediately
+before the merge. Quick merge also requires an
 open non-draft PR, recognizable nonbreaking single-package versions, successful
 check evidence, completed required review and GitHub's CLEAN merge state. Major,
 pre-1.0 minor, grouped, prerelease/unclassified and Tauri paired updates are held
@@ -70,7 +80,9 @@ claim that a dependency's code is safe. It can hold benign updates.
 
 The investor presses Merge. The native command re-reads eligibility and matches
 the displayed head, then calls `gh pr merge --match-head-commit`. Gadget repos
-use merge commits; packages use rebase. No admin bypass is used. An accepted
+use merge commits; packages use rebase. Method selection reads repository settings;
+there is no rule-by-rule branch-protection preflight. GitHub enforces branch rules
+when the command runs, so conflicting linear-history rules can still reject it. No admin bypass is used. An accepted
 request is reported as merged only after a separate read says MERGED; queued and
 unconfirmed outcomes are distinct. A changed or newly blocked head is refused.
 Checks and branch rules can change after the final read; GitHub enforces its rules
@@ -78,7 +90,8 @@ at mutation time. The inherited `gh` subprocess bridge has no application-level
 timeout, so a stalled bridge can leave a read/action waiting.
 
 Billing/spending failures are recognized from explicit provider check diagnostics
-and annotations, never from short run duration. On 2026-10-14 a read-only check of
+and annotations of failed/startup-failed runs, never from successful check
+summaries or short run duration. On 2026-10-14 a read-only check of
 Parlour PR #165 at `837646cf2a5b2bd9a696613004f3b8033cd75dc4` confirmed
 `app/dependabot` in the list response, an `in /frontend` title suffix, and billing
 text in check annotations while summary/title were empty. No live PR was merged.
@@ -115,3 +128,24 @@ opening across the WSL path, live service polling after focus/sleep, a prepared
 multiline brief accepted by both CLIs, and GitHub reads/actions through the Windows
 bridge. No running investor session was restarted or replaced. The previous
 `GRAPHITE.md` and `TWO-COLLEAGUES.md` edits were preserved separately.
+
+
+## Peer review follow-up — 2026-10-14
+
+The Mad Scientist reviewed native merge/persistence code at `6790fbb` (Tube #170),
+not the full frontend or service monitor. The follow-up adds complete, signed bot
+commit provenance to the mutation gate, ignores successful-run billing prose,
+clarifies server-side branch-rule enforcement, makes priority state explicitly
+checkout-local and ignored, and names the stale-lock path and cautious recovery
+steps in the displayed error. Regression tests cover human commits beneath a bot
+head, unsigned/unknown authorship, incomplete/changing commit lists and false
+billing labels. This does not close the previously documented coverage or Windows
+acceptance gaps.
+
+Follow-up validation: 243 Rust tests pass (one existing ignored), six affected
+frontend tests pass, Clippy with denied warnings and formatting pass. Parent
+`git check-ignore` confirms the priority JSON/lock/temp paths are ignored. A
+read-only check of Parlour #165 confirms a real bot-authored, web-flow-committed
+head has `verification.verified=true` and `reason=valid`. No live merge was used
+for this validation. The three preview captures predate the small saved-state
+label correction; their action scenarios are unchanged.

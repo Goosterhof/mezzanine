@@ -191,6 +191,47 @@ fn billing_diagnostic(value: &str) -> bool {
         || value.contains("spending limit")
         || value.contains("payments have failed")
 }
+
+fn failed_check(run: &Value) -> bool {
+    matches!(text(run, "conclusion"), "failure" | "startup_failure")
+}
+
+fn billing_summary(run: &Value) -> bool {
+    failed_check(run)
+        && billing_diagnostic(&format!(
+            "{} {}",
+            text(&run["output"], "title"),
+            text(&run["output"], "summary")
+        ))
+}
+
+fn commit_hold(metadata: &Value, commits: &Value, head: &str) -> Option<&'static str> {
+    let incomplete =
+        "Commit provenance is incomplete or changed. Refresh, or review this as a normal PR.";
+    let Some(commits) = commits.as_array() else {
+        return Some(incomplete);
+    };
+    // Bound the quick path. A truncated page must never certify unseen commits.
+    if commits.is_empty()
+        || commits.len() > 100
+        || metadata["commits"].as_u64() != Some(commits.len() as u64)
+        || commits.last().and_then(|c| c["sha"].as_str()) != Some(head)
+    {
+        return Some(incomplete);
+    }
+    if commits.iter().any(|commit| {
+        commit["author"]["login"] != "dependabot[bot]" || commit["author"]["type"] != "Bot"
+    }) {
+        return Some("Edited by someone other than Dependabot: review it as a normal PR.");
+    }
+    if commits.iter().any(|commit| {
+        commit["commit"]["verification"]["verified"] != true
+            || commit["commit"]["verification"]["reason"] != "valid"
+    }) {
+        return Some("A commit's signature is not verified. Review this as a normal PR.");
+    }
+    None
+}
 fn candidate(
     root: &Path,
     distro: Option<&str>,
@@ -241,18 +282,12 @@ fn candidate(
             ],
         ) {
             for run in runs["check_runs"].as_array().into_iter().flatten() {
-                let diagnostic = format!(
-                    "{} {}",
-                    text(&run["output"], "title"),
-                    text(&run["output"], "summary")
-                )
-                .to_lowercase();
-                if billing_diagnostic(&diagnostic) {
+                if !failed_check(run) {
+                    continue;
+                }
+                if billing_summary(run) {
                     billing = true;
                     break;
-                }
-                if text(run, "conclusion") != "failure" {
-                    continue;
                 }
                 if let Some(id) = run["id"].as_u64() {
                     if let Ok(annotations) = json(
@@ -275,7 +310,22 @@ fn candidate(
             }
         }
     }
-    classify(&pr, &author, &settings, repo, billing)
+    let mut result = classify(&pr, &author, &settings, repo, billing)?;
+    if result.ready {
+        let commits = json(
+            root,
+            distro,
+            &[
+                "api",
+                &format!("repos/{repo}/pulls/{number}/commits?per_page=100"),
+            ],
+        )?;
+        if let Some(reason) = commit_hold(&author, &commits, &result.head_oid) {
+            result.ready = false;
+            result.reason = reason.into();
+        }
+    }
+    Ok(result)
 }
 #[tauri::command]
 pub async fn read_merge_candidate(
@@ -344,6 +394,82 @@ mod tests {
     }
     fn settings() -> Value {
         serde_json::json!({"allow_merge_commit":true,"allow_rebase_merge":true})
+    }
+    fn bot_commit(sha: &str) -> Value {
+        // GitHub signs Dependabot commits as web-flow, not as their author.
+        serde_json::json!({"sha":sha,"author":{"login":"dependabot[bot]","type":"Bot"},"committer":{"login":"web-flow"},"commit":{"verification":{"verified":true,"reason":"valid"}}})
+    }
+
+    #[test]
+    fn requires_complete_commit_evidence_for_the_inspected_head() {
+        let head = "a".repeat(40);
+        let metadata = serde_json::json!({"commits":1});
+        let commits = serde_json::json!([bot_commit(&head)]);
+        assert!(commit_hold(&metadata, &commits, &head).is_none());
+        for evidence in [Value::Null, serde_json::json!([])] {
+            assert!(commit_hold(&metadata, &evidence, &head).is_some());
+        }
+        assert!(commit_hold(&Value::Null, &commits, &head).is_some());
+        assert!(commit_hold(&serde_json::json!({"commits":2}), &commits, &head).is_some());
+        assert!(commit_hold(&metadata, &commits, &"b".repeat(40)).is_some());
+        let page = serde_json::json!(vec![bot_commit(&head); 100]);
+        assert!(commit_hold(&serde_json::json!({"commits":101}), &page, &head).is_some());
+    }
+
+    #[test]
+    fn holds_human_edits_even_when_a_verified_bot_commit_is_the_head() {
+        let head = "a".repeat(40);
+        let mut human = bot_commit(&"b".repeat(40));
+        human["author"] = serde_json::json!({"login":"Goosterhof","type":"User"});
+        let commits = serde_json::json!([human, bot_commit(&head)]);
+        assert!(
+            commit_hold(&serde_json::json!({"commits":2}), &commits, &head)
+                .unwrap()
+                .contains("someone other than Dependabot")
+        );
+        let mut unknown = bot_commit(&head);
+        unknown["author"] = Value::Null;
+        assert!(commit_hold(
+            &serde_json::json!({"commits":1}),
+            &serde_json::json!([unknown]),
+            &head
+        )
+        .is_some());
+    }
+
+    #[test]
+    fn requires_a_valid_signature_even_for_bot_authorship() {
+        let head = "a".repeat(40);
+        for verification in [
+            Value::Null,
+            serde_json::json!({"verified":false,"reason":"unsigned"}),
+            serde_json::json!({"verified":true,"reason":"unknown_key"}),
+        ] {
+            let mut commit = bot_commit(&head);
+            commit["commit"]["verification"] = verification;
+            assert!(commit_hold(
+                &serde_json::json!({"commits":1}),
+                &serde_json::json!([commit]),
+                &head
+            )
+            .unwrap()
+            .contains("signature"));
+        }
+    }
+
+    #[test]
+    fn billing_summaries_only_count_for_failed_runs() {
+        let mut run =
+            serde_json::json!({"conclusion":"success","output":{"summary":"Billing tests passed"}});
+        assert!(!billing_summary(&run));
+        run["conclusion"] = "failure".into();
+        run["output"]["summary"] =
+            "The job was not started because recent account payments have failed.".into();
+        assert!(billing_summary(&run));
+        run["conclusion"] = "startup_failure".into();
+        assert!(billing_summary(&run));
+        run["conclusion"] = Value::Null;
+        assert!(!billing_summary(&run));
     }
     #[test]
     fn accepts_a_directory_suffix_and_requires_a_billing_diagnostic() {
