@@ -4,7 +4,8 @@
 //
 //   * Six experiments — each its own `Goosterhof/zmuuzn-<name>` repo.
 //   * The shared nav package — `Goosterhof/zmuuzn-packages`.
-//   * Two stand-alone-repo gadgets — `horadric-cube` and `mezzanine`.
+//   * Five gadget submodules: horadric-cube, mezzanine, puppeteers-workshop,
+//     chalkboard and smugglers-ledger.
 //   * The Laboratory umbrella — `Goosterhof/zmuuzn`, the parent repo
 //     that hosts `gadgets/pixel-lab`, `gadgets/lab-monitor-3d`, and
 //     `gadgets/idle-lab` as in-tree folders (not submodules). PRs that
@@ -104,6 +105,24 @@ pub fn lab_repos() -> Vec<LabRepo> {
             experiment_scope: Some("mezzanine".to_string()),
         },
         LabRepo {
+            label: "The Puppeteer’s Workshop".to_string(),
+            repo_full_name: "Goosterhof/puppeteers-workshop".to_string(),
+            local_path: "gadgets/puppeteers-workshop".to_string(),
+            experiment_scope: Some("workshop".to_string()),
+        },
+        LabRepo {
+            label: "The Chalkboard".to_string(),
+            repo_full_name: "Goosterhof/chalkboard".to_string(),
+            local_path: "gadgets/chalkboard".to_string(),
+            experiment_scope: Some("chalkboard".to_string()),
+        },
+        LabRepo {
+            label: "The Smuggler’s Ledger".to_string(),
+            repo_full_name: "Goosterhof/smugglers-ledger".to_string(),
+            local_path: "gadgets/smugglers-ledger".to_string(),
+            experiment_scope: Some("ledger".to_string()),
+        },
+        LabRepo {
             label: "The Laboratory".to_string(),
             repo_full_name: "Goosterhof/zmuuzn".to_string(),
             local_path: ".".to_string(),
@@ -117,12 +136,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registry_lists_ten_repos() {
+    fn registry_lists_thirteen_repos() {
         // Six experiments + shared package + two stand-alone-repo gadgets
         // + the laboratory umbrella. The three in-tree gadgets (pixel-lab,
         // lab-monitor-3d, idle-lab) are NOT separate repos — their PRs
         // surface under the umbrella.
-        assert_eq!(lab_repos().len(), 10);
+        assert_eq!(lab_repos().len(), 13);
     }
 
     #[test]
@@ -138,8 +157,8 @@ mod tests {
         assert_eq!(repos[7].local_path, "gadgets/horadric-cube");
         assert_eq!(repos[8].local_path, "gadgets/mezzanine");
         // Position 10 is the laboratory umbrella.
-        assert_eq!(repos[9].local_path, ".");
-        assert_eq!(repos[9].repo_full_name, "Goosterhof/zmuuzn");
+        assert_eq!(repos[12].local_path, ".");
+        assert_eq!(repos[12].repo_full_name, "Goosterhof/zmuuzn");
     }
 
     #[test]

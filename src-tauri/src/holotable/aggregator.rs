@@ -186,17 +186,7 @@ fn build_experiments(git: &LabGitState, health: &LabHealth) -> Vec<ExperimentNod
         .iter()
         .map(|ping| {
             let sub = find_experiment_submodule(&git.submodules, &ping.slug);
-            let mut state = health_check::classify(ping);
-            // A dirty submodule lifts a clean green to amber; the original
-            // aggregator did this so the floor surfaced uncommitted work
-            // even when the deployed surface was healthy.
-            if let Some(sub) = sub {
-                if !sub.initialized {
-                    state = HealthState::Red;
-                } else if sub.dirty && state == HealthState::Green {
-                    state = HealthState::Amber;
-                }
-            }
+            let state = health_check::classify(ping);
             let git_status = match sub {
                 None => "unknown".to_string(),
                 Some(s) if !s.initialized => "uninitialized".to_string(),
@@ -293,8 +283,8 @@ fn build_database() -> InfraNode {
         id: "database".to_string(),
         label: "PostgreSQL".to_string(),
         kind: NodeKind::Database,
-        health: HealthState::Green,
-        detail: "The shared bloodstream — all experiments draw from this crystal".to_string(),
+        health: HealthState::Unknown,
+        detail: "Database health is not independently measured".to_string(),
     }
 }
 
@@ -303,8 +293,8 @@ fn build_pipeline() -> InfraNode {
         id: "pipeline".to_string(),
         label: "Railway".to_string(),
         kind: NodeKind::Pipeline,
-        health: HealthState::Green,
-        detail: "Launch platform ready — europe-west4 sector".to_string(),
+        health: HealthState::Unknown,
+        detail: "Deployment platform health is not independently measured".to_string(),
     }
 }
 
@@ -376,6 +366,8 @@ mod tests {
         assert_eq!(state.experiments[0].git_status, "clean");
         assert_eq!(state.gadgets.len(), 5);
         assert_eq!(state.database.label, "PostgreSQL");
+        assert_eq!(state.database.health, HealthState::Unknown);
+        assert_eq!(state.pipeline.health, HealthState::Unknown);
         assert_eq!(state.pipeline.label, "Railway");
     }
 
@@ -412,7 +404,7 @@ mod tests {
     }
 
     #[test]
-    fn dirty_submodule_lifts_green_experiment_to_amber() {
+    fn dirty_submodule_does_not_change_deployed_health() {
         let git = LabGitState {
             branch: "main".to_string(),
             submodules: vec![SubmoduleState {
@@ -429,12 +421,12 @@ mod tests {
                 experiments: vec![ok_ping("gatekeeper", "The Gatekeeper")],
             },
         );
-        assert_eq!(state.experiments[0].health, HealthState::Amber);
+        assert_eq!(state.experiments[0].health, HealthState::Green);
         assert_eq!(state.experiments[0].git_status, "dirty");
     }
 
     #[test]
-    fn uninitialized_submodule_paints_experiment_red() {
+    fn uninitialized_submodule_does_not_change_deployed_health() {
         let git = LabGitState {
             branch: "main".to_string(),
             submodules: vec![SubmoduleState {
@@ -451,7 +443,7 @@ mod tests {
                 experiments: vec![ok_ping("gatekeeper", "The Gatekeeper")],
             },
         );
-        assert_eq!(state.experiments[0].health, HealthState::Red);
+        assert_eq!(state.experiments[0].health, HealthState::Green);
         assert_eq!(state.experiments[0].git_status, "uninitialized");
         assert!(state.experiments[0].detail.contains("cryosleep"));
     }

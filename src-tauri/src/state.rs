@@ -16,7 +16,6 @@
 // recall so a missed frontend stop never leaks a tail task.
 
 use crate::chronicle::{ChronicleReader, ChronicleWriter};
-use crate::grind::EconomyManager;
 use crate::roster::scientist::ScientistId;
 use crate::roster::RosterManager;
 use crate::semaphore::SemaphoreWatcher;
@@ -62,12 +61,6 @@ pub struct AppState {
     /// The Semaphore's watcher: the real activity and minions the Mad
     /// Scientist's mod reports, started and stopped beside the chronicle tail.
     pub semaphore: Arc<SemaphoreWatcher>,
-    /// Arc 3 (#00053) — The Grind's RP grant engine. Holds the per-scientist
-    /// chronicle rate limiters and lifecycle dedup sets. Lifecycle events
-    /// (dispatch / recall) are reported to this singleton by the
-    /// commands::roster command wrappers; chronicle-line events arrive via
-    /// the in-process broadcast that `ChronicleReader::subscribe()` returns.
-    pub economy: Arc<EconomyManager>,
     /// The Crier's Watch (#00060) — the town-crier lab token, read once at
     /// `setup()` from `~/.config/zmuuzn/town-crier-token`. `None` when the
     /// file is missing, unreadable, or empty after trimming; the patrol is
@@ -97,7 +90,6 @@ impl AppState {
             chronicle: Arc::new(ChronicleWriter::new(chronicle_base.clone())),
             chronicle_reader: Arc::new(ChronicleReader::new(chronicle_base)),
             semaphore: Arc::new(SemaphoreWatcher::new()),
-            economy: Arc::new(EconomyManager::new()),
             crier_token: RwLock::new(None),
             crier_scientist_id: RwLock::new(None),
         }

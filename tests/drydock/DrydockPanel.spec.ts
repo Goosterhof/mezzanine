@@ -35,7 +35,7 @@ function stubInvoke(opts: {auth?: GhAuthStatus; prs?: DrydockPullRequest[]} = {}
             case 'gh_auth_status':
                 return Promise.resolve(opts.auth ?? AUTH_OK);
             case 'list_open_prs':
-                return Promise.resolve(opts.prs ?? [PR]);
+                return Promise.resolve({prs: opts.prs ?? [PR], warnings: []});
             default:
                 return Promise.resolve(undefined);
         }
@@ -65,6 +65,7 @@ describe('DrydockPanel', () => {
         const cmds = mockedInvoke.mock.calls.map(([cmd]) => cmd);
         expect(cmds).toContain('gh_auth_status');
         expect(cmds).toContain('list_open_prs');
+        await wrapper.get('[data-all-prs]').trigger('click');
         expect(wrapper.text()).toContain('Tighten the forge');
         expect(wrapper.text()).toContain('The Crucible');
         wrapper.unmount();

@@ -97,15 +97,23 @@ fn subdomain_from_repo_path(path: &str) -> Option<String> {
 /// `HealthPing` — even on failure, so the floor sees one row per experiment.
 pub async fn ping_all() -> LabHealth {
     let endpoints = endpoints();
-    let mut set = tokio::task::JoinSet::new();
+    let mut tasks = Vec::new();
     for endpoint in endpoints {
-        set.spawn(ping_one(endpoint));
+        tasks.push((endpoint.clone(), tokio::spawn(ping_one(endpoint))));
     }
     let mut experiments = Vec::new();
-    while let Some(joined) = set.join_next().await {
-        match joined {
+    for (endpoint, task) in tasks {
+        match task.await {
             Ok(ping) => experiments.push(ping),
-            Err(err) => log::warn!("Holotable: ping task panicked: {err}"),
+            Err(err) => experiments.push(HealthPing {
+                slug: endpoint.slug,
+                label: endpoint.label,
+                url: endpoint.url,
+                healthy: false,
+                status_code: None,
+                response_time_ms: 0,
+                error: format!("Health probe failed: {err}"),
+            }),
         }
     }
     // Sort by slug so the floor renders a deterministic ring order
@@ -115,7 +123,11 @@ pub async fn ping_all() -> LabHealth {
 }
 
 async fn ping_one(endpoint: ExperimentEndpoint) -> HealthPing {
-    let client = match reqwest::Client::builder().timeout(PING_TIMEOUT).build() {
+    let client = match reqwest::Client::builder()
+        .timeout(PING_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+    {
         Ok(c) => c,
         Err(err) => {
             return HealthPing {

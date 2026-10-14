@@ -30,3 +30,5 @@ pub mod bridge;
 pub mod chaos_detonations;
 pub mod minion_touch;
 pub mod repo_registry;
+
+pub mod merge;

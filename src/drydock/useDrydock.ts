@@ -28,6 +28,7 @@ import type {
     FileEnrichment,
     GhAuthStatus,
     MinionTouch,
+    PrListing,
     ReviewVerdict,
 } from './types';
 
@@ -43,11 +44,13 @@ interface PrFilesEntry {
 const auth = ref<GhAuthStatus | null>(null);
 const prs = ref<DrydockPullRequest[]>([]);
 const loading = ref(false);
+const warnings = ref<string[]>([]);
 const lastError = ref<string | null>(null);
 const lastRefreshedAt = ref<string | null>(null);
 const expanded = ref<string | null>(null);
 const fileCache = reactive<Record<string, PrFilesEntry>>({});
 const submitting = ref(false);
+const mergeOutcome = ref<string | null>(null);
 
 function cacheKey(repoFullName: string, number: number): string {
     return `${repoFullName}#${number}`;
@@ -65,13 +68,19 @@ function verdictCommand(verdict: ReviewVerdict): string {
 }
 
 async function refreshState(): Promise<void> {
+    if (loading.value) return;
     loading.value = true;
     lastError.value = null;
     try {
         const status = await invoke<GhAuthStatus>('gh_auth_status');
         auth.value = status;
         if (status.authenticated) {
-            prs.value = await invoke<DrydockPullRequest[]>('list_open_prs');
+            const listing = await invoke<PrListing>('list_open_prs');
+            // A refresh retires all file evidence; in-flight old loads only touch detached entries.
+            for (const key of Object.keys(fileCache)) delete fileCache[key];
+            expanded.value = null;
+            prs.value = listing.prs;
+            warnings.value = listing.warnings;
         } else {
             prs.value = [];
         }
@@ -123,6 +132,8 @@ async function loadEnrichment(pr: DrydockPullRequest, file: DrydockPrFile, entry
 export function useDrydock() {
     return {
         auth,
+        mergeOutcome,
+        warnings,
         prs,
         loading,
         lastError,
@@ -167,6 +178,8 @@ export function useDrydock() {
 
         reset(): void {
             auth.value = null;
+            mergeOutcome.value = null;
+            warnings.value = [];
             prs.value = [];
             loading.value = false;
             lastError.value = null;

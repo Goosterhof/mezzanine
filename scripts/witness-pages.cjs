@@ -27,6 +27,16 @@ const artifact = (name) => path.resolve(process.env.CHAT_ARTIFACTS || path.resol
             lastChaos: {reportNumber: 118, label: 'The Holding', score: '7/10', raw: null},
             ideaLedger: {candidateCount: 4, shelvedCount: 12, mostRecentDelivered: '2026-09-16'},
         };
+        const backlog = [
+            {id: 'service', filed: '2026-10-10', source: '[Service handoff](documents/services.md)', item: '**Review the laboratory service watch** — inspect failure and recovery notices before the Windows walkthrough.', handler: 'investor'},
+            {id: 'dependencies', filed: '2026-10-12', source: '[Dependency notes](documents/dependencies.md)', item: '**Prepare the Mezzanine dependency updates** — consolidate overlapping lockfile changes and run the local gates.', handler: 'mezzanine-scope'},
+            {id: 'golem', filed: '2026-10-11', source: '[Parlour study](documents/golem.md)', item: '**Fit the chosen furnace worker into the Parlour** — preserve the room lighting and verify its seat.', handler: 'parlour-scope'},
+        ];
+        let planning = {items: backlog, priorities: backlog.slice(0, 2), revision: 'v1', backlogPath: '/laboratory/documents/lab-backlog.md'};
+        const apps = ['Gatekeeper', 'War Table', 'Crucible', 'Parlour', 'Smokestacks', 'Horadrim'];
+        const slugs = ['gatekeeper', 'war-table', 'crucible', 'parlour', 'smokestacks', 'horadrim'];
+        const pings = () => apps.map((name, index) => ({slug: slugs[index], label: `The ${name}`, url: `https://${slugs[index]}.example.test/up`, healthy: !(window.fixtureFailure && index === 3), statusCode: window.fixtureFailure && index === 3 ? 503 : 200, responseTimeMs: 30 + index * 17, error: window.fixtureFailure && index === 3 ? 'HTTP 503' : ''}));
+        const dependency = {repoFullName: 'Goosterhof/mezzanine', repoLabel: 'The Mezzanine', repoLocalPath: 'gadgets/mezzanine', experimentScope: 'mezzanine', number: 9001, title: 'Bump vue from 3.5.42 to 3.5.43', author: 'app/dependabot', headRef: 'dependabot/npm/vue', headOid: 'a'.repeat(40), isDraft: false, additions: 12, deletions: 12, changedFiles: 2, url: 'https://example.test/pull/9001'};
         window.emitTest = (event, payload) => {
             for (const id of listeners.get(event) || []) callbacks.get(id)({event, payload, id});
         };
@@ -58,6 +68,14 @@ const artifact = (name) => path.resolve(process.env.CHAT_ARTIFACTS || path.resol
                         error: null,
                     }));
                 if (cmd === 'read_balcony_signs') return signs;
+                if (cmd === 'read_planning') return planning;
+                if (cmd === 'save_priorities') { if (args.expectedRevision !== planning.revision) throw new Error('Priorities changed. Refresh.'); planning = {...planning, priorities: args.ids.map(id => backlog.find(item => item.id === id)), revision: planning.revision + 'x'}; return planning; }
+                if (cmd === 'read_service_health') return {experiments: pings()};
+                if (cmd === 'list_open_prs') return {prs: [dependency], warnings: ['Synthetic unavailable repository — partial-view demonstration']};
+                if (cmd === 'pull_request_files') return [{path: 'package.json', additions: 1, deletions: 1}];
+                if (cmd === 'find_chaos_detonations') return [];
+                if (cmd === 'read_merge_candidate') return {headOid: dependency.headOid, title: dependency.title, body: 'Updates Vue from 3.5.42 to 3.5.43.\n\nSYNTHETIC PR — no live merge is possible in this witness.', method: 'merge', ready: true, reason: 'Ready to merge this revision.', checks: [{name: 'ci-passed', state: 'SUCCESS', url: 'https://example.test/check'}]};
+                if (cmd === 'merge_dependabot_pr') throw new Error('The PR changed. Refresh and inspect the new revision before merging.');
                 if (cmd === 'read_vital_signs')
                     return {
                         experimentsActive: 6,
@@ -79,7 +97,7 @@ const artifact = (name) => path.resolve(process.env.CHAT_ARTIFACTS || path.resol
                 if (cmd === 'gh_auth_status') return {authenticated: true, message: ''};
                 if (cmd === 'read_holotable_state') {
                     const {EMPTY_DASHBOARD} = await import('/src/holotable/types.ts');
-                    return EMPTY_DASHBOARD;
+                    return {...EMPTY_DASHBOARD, branch: 'main', experiments: pings().map(ping => ({...ping, id: `experiment-${ping.slug}`, kind: 'experiment', health: 'green', gitStatus: 'clean', detail: 'Synthetic app endpoint'}))};
                 }
                 return null;
             },
@@ -113,7 +131,7 @@ const artifact = (name) => path.resolve(process.env.CHAT_ARTIFACTS || path.resol
         })),
     );
     await page.screenshot({path: artifact('mezzanine-conversation-page.png')});
-    const routes = ['mission-control', 'drydock', 'holotable', 'grind', 'briefs'];
+    const routes = ['mission-control', 'drydock', 'holotable'];
     for (const route of routes) {
         await page.locator(`[data-page-link="${route}"]`).click();
         await page.waitForTimeout(150);
@@ -173,6 +191,45 @@ const artifact = (name) => path.resolve(process.env.CHAT_ARTIFACTS || path.resol
         assert.ok(t.rows > 1);
     });
     await page.screenshot({path: artifact('mezzanine-conversation-compact.png')});
+    // Exercise the new actions against synthetic IPC, never real services or PRs.
+    assert.equal(await page.locator('[data-page-link]').count(), 4);
+    await page.setViewportSize({width: 1440, height: 900});
+    await page.locator('[data-command-input]').fill('');
+    await page.locator('[data-page-link="mission-control"]').click();
+    await page.getByRole('button', {name: /Fit the chosen furnace worker/}).click();
+    await page.getByRole('button', {name: 'Make a priority', exact: true}).click();
+    await page.waitForFunction(() => document.querySelectorAll('.priority-row').length === 3);
+    await page.screenshot({path: artifact('mezzanine-planning.png')});
+    await page.getByRole('button', {name: 'Heretic', exact: true}).click();
+    assert.match(await page.locator('[data-command-input]').inputValue(), /furnace worker/);
+    assert.equal(await page.evaluate(() => window.calls.filter(c => c.cmd === 'write_to_scientist').length), 0);
+    await page.locator('[data-command-input]').fill('');
+    await page.evaluate(async () => {
+        window.fixtureFailure = true;
+        const {useServiceMonitor} = await import('/src/holotable/useServiceMonitor.ts');
+        await useServiceMonitor().refresh(); await useServiceMonitor().refresh();
+    });
+    assert.match(await page.locator('[role="status"]').innerText(), /Parlour needs attention/);
+    await page.locator('[data-page-link="holotable"]').click();
+    await page.getByRole('button', {name: /The Parlour Unhealthy/}).click();
+    await page.waitForTimeout(3000);
+    assert.equal(await page.locator('[data-page="holotable"] canvas').evaluate(c => c.width > 0 && c.height > 0), true);
+    await page.screenshot({path: artifact('mezzanine-services.png')});
+    await page.locator('[data-page-link="drydock"]').click();
+    await page.locator('[data-pr]').first().getByRole('button').first().click();
+    await page.waitForSelector('[data-merge-dependency]');
+    await page.screenshot({path: artifact('mezzanine-drydock.png')});
+    await page.locator('[data-merge-dependency]').click();
+    await page.waitForFunction(() => document.body.textContent.includes('The PR changed.'));
+    assert.equal(await page.locator('[data-merge-dependency]').count(), 0);
+    for (const size of [{width: 1080, height: 720}, {width: 1440, height: 900}]) {
+        await page.setViewportSize(size);
+        for (const route of routes) {
+            await page.locator(`[data-page-link="${route}"]`).click();
+            assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+        }
+    }
+    result.tabActions = 'priority save, prepared unsent brief, sustained service notice, refused changed-head merge, four-page layout';
     assert.deepEqual(errors, []);
     console.log(JSON.stringify({initial, ...result, errors}, null, 2));
     await browser.close();

@@ -81,3 +81,9 @@ fn read_lab_state(state: &State<'_, AppState>) -> MezzanineResult<(PathBuf, Opti
     let distro = state.distro.read().clone();
     Ok((lab_root, distro))
 }
+
+/// Service monitoring deliberately does not scan local Git state.
+#[tauri::command]
+pub async fn read_service_health() -> MezzanineResult<health_check::LabHealth> {
+    Ok(health_check::ping_all().await)
+}

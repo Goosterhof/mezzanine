@@ -16,6 +16,7 @@ export interface DrydockPullRequest {
     title: string;
     author: string;
     headRef: string;
+    headOid?: string;
     isDraft: boolean;
     additions: number;
     deletions: number;
@@ -70,3 +71,20 @@ export const EMPTY_FILE_ENRICHMENT: FileEnrichment = {
 };
 
 export type ReviewVerdict = 'approve' | 'comment' | 'request-changes';
+
+export interface PrListing {
+    prs: DrydockPullRequest[];
+    warnings: string[];
+}
+export interface MergeCandidate {
+    headOid: string;
+    title: string;
+    body: string;
+    method: string;
+    ready: boolean;
+    reason: string;
+    checks: {name: string; state: string; url: string}[];
+}
+export function isDependabot(pr: DrydockPullRequest): boolean {
+    return ['dependabot[bot]', 'app/dependabot'].includes(pr.author);
+}

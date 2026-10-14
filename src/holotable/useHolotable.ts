@@ -2,8 +2,8 @@
 //
 // The Vue side is read-on-open: every visit to the Holotable page
 // fires `refresh()`, and the chrome's refresh button fires it on demand.
-// No polling, no file watcher. The dispatched-model voice carries: the
-// investor pulls intelligence, the floor does not push it.
+// Repository metadata remains read-on-open; service measurements come
+// from the independent app-owned polling monitor below.
 //
 // The composable also exposes `legacyState`, an adapter that flattens the
 // typed Rust `DashboardState` into the `{structures, branch, timestamp}`
@@ -25,6 +25,7 @@ import type {
 } from './types';
 
 import {EMPTY_DASHBOARD} from './types';
+import {useServiceMonitor} from './useServiceMonitor';
 
 interface LegacyStructure {
     id: string;
@@ -47,7 +48,22 @@ const isLoading = ref(false);
 const lastError = ref<HolotableError>(null);
 const lastRefreshedAt = ref<string | null>(null);
 
-const legacyState = computed<LegacyState>(() => buildLegacyState(dashboardState.value));
+const legacyState = computed<LegacyState>(() => {
+    const monitor = useServiceMonitor();
+    const state = buildLegacyState(dashboardState.value);
+    for (const node of state.structures) {
+        if (node.type !== 'experiment') continue;
+        const service = monitor.services.value.find((s) => node.id === `experiment-${s.slug}`);
+        node.health = service ? monitor.health(service) : 'unknown';
+        if (service) {
+            node.detail = service.healthy ? 'Application endpoint healthy' : service.error;
+            if (node.health === 'unknown')
+                node.detail = 'Current service health is unknown; consult the service watch.';
+            node.meta.responseTime = service.responseTimeMs;
+        }
+    }
+    return state;
+});
 
 export function useHolotable() {
     return {

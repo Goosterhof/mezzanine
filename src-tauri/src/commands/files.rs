@@ -71,3 +71,44 @@ fn lab_path(state: &State<'_, AppState>, relative: &str) -> MezzanineResult<Path
         relative,
     ))
 }
+
+#[tauri::command]
+pub async fn read_planning(
+    state: State<'_, AppState>,
+) -> MezzanineResult<crate::lab::planning::PlanningSnapshot> {
+    let documents = lab_path(&state, "documents")?;
+    tokio::task::spawn_blocking(move || crate::lab::planning::read(&documents))
+        .await
+        .map_err(|e| MezzanineError::LabFileRead(e.to_string()))?
+}
+
+#[tauri::command]
+pub async fn save_priorities(
+    state: State<'_, AppState>,
+    expected_revision: String,
+    ids: Vec<String>,
+) -> MezzanineResult<crate::lab::planning::PlanningSnapshot> {
+    let documents = lab_path(&state, "documents")?;
+    tokio::task::spawn_blocking(move || {
+        crate::lab::planning::save(&documents, &expected_revision, &ids)
+    })
+    .await
+    .map_err(|e| MezzanineError::LabFileRead(e.to_string()))?
+}
+
+/// Fixed source path: opening the backlog does not grant the webview arbitrary file-open access.
+#[tauri::command]
+pub async fn open_backlog_source<R: tauri::Runtime>(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle<R>,
+) -> MezzanineResult<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let path = lab_path(&state, "documents/lab-backlog.md")?;
+    tokio::task::spawn_blocking(move || {
+        app.opener()
+            .open_path(path.to_string_lossy(), None::<&str>)
+            .map_err(|e| MezzanineError::LabFileRead(e.to_string()))
+    })
+    .await
+    .map_err(|e| MezzanineError::LabFileRead(e.to_string()))?
+}

@@ -26,7 +26,6 @@ mod commands;
 mod crier;
 mod drydock;
 mod error;
-mod grind;
 mod heretic;
 mod holotable;
 mod host_paths;
@@ -125,19 +124,6 @@ pub fn run() {
             if commands::chronicle::disclosure_status_value(&app_state.chronicle).is_some() {
                 app_state.chronicle.set_paused(false);
             }
-            // Arc 3 of the absorption (#00053). The Grind's economy
-            // subscribes to the chronicle broadcast for chronicle-line
-            // grants. The subscriber task runs for the gadget's lifetime
-            // and exits when the reader's broadcast Sender drops at
-            // shutdown.
-            let economy_arc = app_state.economy.clone();
-            let chronicle_subscriber = app_state.chronicle_reader.subscribe();
-            crate::grind::economy::spawn_chronicle_subscriber(
-                economy_arc,
-                chronicle_subscriber,
-                app.handle().clone(),
-            );
-
             app.manage(app_state);
             Ok(())
         })
@@ -167,6 +153,9 @@ pub fn run() {
             commands::roster::resize_scientist,
             commands::roster::transition_scientist,
             // Mission Control file commands.
+            commands::files::open_backlog_source,
+            commands::files::read_planning,
+            commands::files::save_priorities,
             commands::files::read_vital_signs,
             commands::files::read_inheritance_signals,
             commands::files::read_wounds_at_threshold,
@@ -176,6 +165,7 @@ pub fn run() {
             // Holotable — Arc 1 of the absorption trilogy (experiment log
             // #00051). The floor reads on open and on manual refresh.
             commands::holotable::read_holotable_state,
+            commands::holotable::read_service_health,
             // The Crier's Watch (#00060) — arm / recall the town-crier
             // relay and read its live watch state (local status + bus
             // queue).
@@ -194,6 +184,8 @@ pub fn run() {
             commands::wizard::read_wizard_detected,
             commands::wizard::complete_wizard,
             // Drydock commands.
+            drydock::merge::read_merge_candidate,
+            drydock::merge::merge_dependabot_pr,
             commands::github::gh_auth_status,
             commands::github::list_open_prs,
             commands::github::pull_request_files,
@@ -203,11 +195,6 @@ pub fn run() {
             commands::artifacts::find_minion_touch,
             commands::artifacts::find_chaos_detonations,
             commands::artifacts::find_active_experiment_log,
-            // The Grind — Arc 3 of the absorption (#00053). Game-state
-            // load/save round-trip; the economy's grind-rp-grant events
-            // arrive on the Tauri bridge without a command.
-            commands::grind::load_grind_state,
-            commands::grind::save_grind_state,
         ])
         .run(tauri::generate_context!())
         .expect("the Mezzanine refused to open")

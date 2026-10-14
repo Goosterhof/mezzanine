@@ -3,97 +3,65 @@ import {mount, flushPromises} from '@vue/test-utils';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import MissionControl from '../../src/mission/MissionControl.vue';
-import {useMissionControl} from '../../src/mission/useMissionControl';
+import {usePlanning} from '../../src/mission/usePlanning';
 import {useShell} from '../../src/shell/useShell';
 
+const item = {
+    id: 'one',
+    filed: '2026-10-01',
+    source: '[Evidence](source.md)',
+    item: '**Inspect the service**',
+    handler: 'investor',
+};
+const snapshot = {items: [item], priorities: [], revision: 'r1', backlogPath: '/lab/documents/lab-backlog.md'};
 const mockedInvoke = vi.mocked(invoke);
-
-function stubInvoke(): void {
-    mockedInvoke.mockImplementation((cmd: string) => {
-        switch (cmd) {
-            case 'read_vital_signs':
-                return Promise.resolve({
-                    experimentsActive: 6,
-                    experimentsSummary: '6 active',
-                    gadgetsCalibrated: 5,
-                    gadgetsSummary: '5',
-                    packagesPublished: 1,
-                    packagesSummary: '1',
-                    minionsOperational: 18,
-                    minionsSummary: '18',
-                    sentinelsWatching: 4,
-                    sentinelsSummary: '4',
-                    lastChaos: '#00068',
-                    chaosFiled: '68',
-                    enhanceFiled: '5',
-                });
-            case 'read_inheritance_signals':
-                return Promise.resolve([]);
-            case 'read_wounds_at_threshold':
-                return Promise.resolve([]);
-            default:
-                return Promise.resolve(undefined);
-        }
-    });
-}
-
-describe('MissionControl', () => {
+describe('Mission Control planning', () => {
     beforeEach(() => {
-        useMissionControl().reset();
+        usePlanning().reset();
         useShell().reset();
         mockedInvoke.mockReset();
-        stubInvoke();
+        mockedInvoke.mockResolvedValue(snapshot);
     });
-
-    it('is hidden on the conversation page', () => {
+    it('reads the canonical backlog on entry and filters tasks', async () => {
+        useShell().navigate('mission-control');
         const wrapper = mount(MissionControl);
-        const panel = wrapper.get('[data-page]');
-        expect(panel.attributes('style') ?? '').toContain('display: none');
-    });
-
-    it('refreshes once on the open transition and renders all three sections', async () => {
-        useShell().navigate('mission-control');
-        const wrapper = mount(MissionControl, {attachTo: document.body});
         await flushPromises();
-
-        const cmds = mockedInvoke.mock.calls.map(([cmd]) => cmd);
-        expect(cmds).toContain('read_vital_signs');
-        expect(cmds).toContain('read_inheritance_signals');
-        expect(cmds).toContain('read_wounds_at_threshold');
-
-        expect(wrapper.text()).toContain('Mission Control');
-        expect(wrapper.text()).toContain('Vital Signs');
-        expect(wrapper.text()).toContain('Minions Due for Invocation');
-        expect(wrapper.text()).toContain('Wounds at Threshold');
-        // Empty states fire when their lists are empty.
-        expect(wrapper.text()).toContain('All minions recently active.');
-        expect(wrapper.text()).toContain('No wounds at threshold.');
+        expect(mockedInvoke).toHaveBeenCalledWith('read_planning');
+        expect(wrapper.text()).toContain('Current priorities');
+        expect(wrapper.findAll('.backlog-row')).toHaveLength(1);
+        await wrapper.get('[aria-label="Search backlog"]').setValue('missing');
+        expect(wrapper.findAll('.backlog-row')).toHaveLength(0);
         wrapper.unmount();
     });
-
-    it('refreshes when the Refresh button is clicked', async () => {
+    it('saves a priority against the revision read, and retains the plan on conflicts', async () => {
         useShell().navigate('mission-control');
-        const wrapper = mount(MissionControl, {attachTo: document.body});
+        const wrapper = mount(MissionControl);
         await flushPromises();
-        const callsBefore = mockedInvoke.mock.calls.length;
-
-        await wrapper.get('[data-mc-refresh]').trigger('click');
+        await wrapper.get('.backlog-row').trigger('click');
+        mockedInvoke.mockRejectedValueOnce(new Error('Priorities changed at another bench. Refresh before editing.'));
+        await wrapper
+            .findAll('button')
+            .find((b) => b.text() === 'Make a priority')!
+            .trigger('click');
         await flushPromises();
-
-        expect(mockedInvoke.mock.calls.length).toBeGreaterThan(callsBefore);
+        expect(mockedInvoke).toHaveBeenCalledWith('save_priorities', {expectedRevision: 'r1', ids: ['one']});
+        expect(wrapper.text()).toContain('Priorities changed at another bench');
+        expect(usePlanning().snapshot.value.revision).toBe('r1');
         wrapper.unmount();
     });
-
-    it('does not dismiss a page when Escape is pressed', async () => {
+    it('shows removed priorities and prevents preparing a stale task', async () => {
+        mockedInvoke.mockResolvedValue({...snapshot, items: [], priorities: [item]});
         useShell().navigate('mission-control');
-        const wrapper = mount(MissionControl, {attachTo: document.body});
+        const wrapper = mount(MissionControl);
         await flushPromises();
-        expect(useShell().page.value).toBe('mission-control');
-
-        window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}));
-        await flushPromises();
-
-        expect(useShell().page.value).toBe('mission-control');
+        expect(wrapper.text()).toContain('Changed or removed from backlog');
+        await wrapper.get('.priority-row .text-left').trigger('click');
+        expect(
+            wrapper
+                .findAll('button')
+                .find((b) => b.text() === 'Heretic')!
+                .attributes('disabled'),
+        ).toBeDefined();
         wrapper.unmount();
     });
 });

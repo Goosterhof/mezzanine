@@ -22,7 +22,6 @@ pub mod chronicle;
 pub mod crier;
 pub mod files;
 pub mod github;
-pub mod grind;
 pub mod holotable;
 pub mod observer;
 pub mod roster;

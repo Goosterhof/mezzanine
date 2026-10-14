@@ -96,9 +96,10 @@ function buildScene() {
     };
     const statusDisplay = mkEl();
     const branchDisplay = mkEl();
+    const container = mkEl();
     const controller = initScene({
         canvas,
-        container: mkEl(),
+        container,
         tooltip: mkEl(),
         infoPanel: mkEl(),
         branchDisplay,
@@ -107,7 +108,7 @@ function buildScene() {
         lastUpdateDisplay: mkEl(),
         onInteraction: () => {},
     });
-    return {controller, statusDisplay, branchDisplay};
+    return {controller, statusDisplay, branchDisplay, canvas, container};
 }
 
 const SAMPLE_STATE = {
@@ -124,6 +125,18 @@ const SAMPLE_STATE = {
 };
 
 describe('holotable scene engine', () => {
+    it('updates a measured service without repeating the summon ceremony', () => {
+        const {controller, statusDisplay} = buildScene();
+        controller.setState(SAMPLE_STATE);
+        for (let i = 0; i < 60; i++) rafController.pump(100);
+        controller.setState({
+            ...SAMPLE_STATE,
+            structures: SAMPLE_STATE.structures.map((s) => ({...s, health: 'amber'})),
+        });
+        rafController.pump(100);
+        expect(statusDisplay.textContent).toBe('Online');
+        controller.destroy();
+    });
     it('initializes into a controller honouring the host contract', () => {
         const {controller} = buildScene();
         expect(controller).toBeTruthy();
@@ -131,6 +144,19 @@ describe('holotable scene engine', () => {
         expect(typeof controller.pauseRaf).toBe('function');
         expect(typeof controller.resumeRaf).toBe('function');
         expect(typeof controller.destroy).toBe('function');
+    });
+
+    it('preserves a usable viewport while hidden and resizes on return', () => {
+        const {controller, canvas, container} = buildScene();
+        controller.pauseRaf();
+        container.getBoundingClientRect = () => ({width: 0, height: 0, left: 0, top: 0});
+        window.dispatchEvent(new Event('resize'));
+        expect(canvas.width).toBe(800);
+        container.getBoundingClientRect = () => ({width: 600, height: 400, left: 0, top: 0});
+        controller.resumeRaf();
+        expect(canvas.width).toBe(600);
+        expect(canvas.height).toBe(400);
+        controller.destroy();
     });
 
     it('runs the summon ceremony to completion without throwing (regression: drawBeams summonElapsed)', () => {

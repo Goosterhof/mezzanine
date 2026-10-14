@@ -7,7 +7,6 @@ import type {Scientist} from '../../src/roster/types';
 
 import App from '../../src/App.vue';
 import {EMPTY_BALCONY_SIGNS} from '../../src/balcony/types';
-import {useGrind} from '../../src/grind/useGrind';
 import {useObserver} from '../../src/observer/useObserver';
 import {useRoster} from '../../src/roster/useRoster';
 import {useRosterBackend} from '../../src/roster/useRosterBackend';
@@ -54,7 +53,6 @@ describe('navigation preserves both live conversations', () => {
     });
     afterEach(() => {
         wrapper.unmount();
-        useGrind().reset();
         useObserver().reset();
         useScientistTerminals().reset();
         useRosterBackend()._resetSubscriptionForTests();
@@ -72,8 +70,6 @@ describe('navigation preserves both live conversations', () => {
                     MissionControl: true,
                     DrydockPanel: true,
                     HolotablePanel: true,
-                    GrindPanel: true,
-                    Dispatch: true,
                 },
             },
         });

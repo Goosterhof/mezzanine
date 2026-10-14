@@ -76,6 +76,14 @@ export default defineConfig({
         {
             getCSS: () => `
         :root { color-scheme: dark; }
+        button { background: transparent; color: inherit; font: inherit; border: 0 solid transparent; cursor: pointer; }
+        button:disabled { cursor: default; opacity: .5; }
+        button:focus-visible { outline: 2px solid ${BRASS}; outline-offset: 3px; }
+        :where([data-page="mission-control"], [data-page="holotable"], [data-page="drydock"]) :where(*, *::before, *::after) { box-sizing: border-box; border-style: solid; border-width: 0; }
+        :where([data-page="mission-control"], [data-page="holotable"], [data-page="drydock"]) :where(h2, h3, h4, p, dl, dd, ol, ul) { margin: 0; padding: 0; }
+        :where([data-page="mission-control"], [data-page="holotable"], [data-page="drydock"]) :where(ol, ul) { list-style: none; }
+        button[aria-pressed="true"] { color: ${BRASS}; border-color: ${BRASS}; }
+
         html, body, #app { height: 100%; margin: 0; }
         body {
           background: #0F1114;

@@ -79,7 +79,7 @@ function stubInvoke(
             case 'gh_auth_status':
                 return Promise.resolve(overrides.ghAuth ?? AUTH_OK);
             case 'list_open_prs':
-                return Promise.resolve(overrides.prs ?? [PR_CRUCIBLE]);
+                return Promise.resolve({prs: overrides.prs ?? [PR_CRUCIBLE], warnings: []});
             case 'pull_request_files':
                 return Promise.resolve(overrides.files ?? FILES);
             case 'find_minion_touch':

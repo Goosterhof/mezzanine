@@ -4,7 +4,9 @@ import {computed} from 'vue';
 import type {DrydockPullRequest} from './types';
 
 import FileDiff from './FileDiff.vue';
+import MergeActions from './MergeActions.vue';
 import ReviewActions from './ReviewActions.vue';
+import {isDependabot} from './types';
 import {useDrydock} from './useDrydock';
 
 const {pr} = defineProps<{pr: DrydockPullRequest}>();
@@ -47,6 +49,7 @@ const entry = computed(() => drydock.fileCache[key.value] ?? null);
         </button>
 
         <section v-if="expanded" class="border-t border-mz-edge bg-mz-panel">
+            <MergeActions v-if="isDependabot(pr)" :pr="pr" />
             <p v-if="entry?.loading" class="px-5 py-3 text-mz-text-faint font-mono text-[11px] italic">
                 Reading the diff and lab memory…
             </p>

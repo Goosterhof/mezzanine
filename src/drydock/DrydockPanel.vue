@@ -1,12 +1,39 @@
 <script setup lang="ts">
-import {computed, watch} from 'vue';
+import {computed, ref, watch} from 'vue';
 
+import {useCommandDraft} from '../command/useCommandDraft';
 import {useShell} from '../shell/useShell';
 import PrCard from './PrCard.vue';
+import {isDependabot} from './types';
 import {useDrydock} from './useDrydock';
 
 const shell = useShell();
 const drydock = useDrydock();
+const filter = ref<'dependencies' | 'all'>('dependencies');
+const query = ref('');
+const actionError = ref<string | null>(null);
+const groups = computed(() => {
+    const rows = drydock.prs.value.filter(
+        (pr) =>
+            (filter.value === 'all' || isDependabot(pr)) &&
+            `${pr.repoLabel} ${pr.title}`.toLowerCase().includes(query.value.toLowerCase()),
+    );
+    return [...new Set(rows.map((pr) => pr.repoFullName))].map((repo) => ({
+        repo,
+        prs: rows.filter((pr) => pr.repoFullName === repo),
+    }));
+});
+function prepare(repo: string): void {
+    actionError.value = null;
+    try {
+        useCommandDraft().prepare(
+            'mad-scientist',
+            `Prepare the Dependabot updates for ${repo}. Read Pattern 031 and .claude/workflows/drain.js, inspect exact PR-diff versions, consolidate overlapping changes, run the local gates and hold breaking updates. Present a tested result for my merge decision. Do not push, merge, deploy or close PRs from this preparation request.`,
+        );
+    } catch (e) {
+        actionError.value = String(e);
+    }
+}
 
 const open = computed(() => shell.page.value === 'drydock');
 
@@ -68,6 +95,28 @@ watch(
             {{ drydock.lastError.value }}
         </p>
 
+        <div class="px-5 py-3 flex gap-2 border-b border-mz-edge">
+            <button class="mz-button" :aria-pressed="filter === 'dependencies'" @click="filter = 'dependencies'">
+                Dependabot
+            </button>
+            <button class="mz-button" :aria-pressed="filter === 'all'" data-all-prs @click="filter = 'all'">
+                All PRs
+            </button>
+            <input
+                v-model="query"
+                class="mz-input flex-1 min-w-0"
+                placeholder="Find a repository or update…"
+                aria-label="Search pull requests"
+            />
+        </div>
+        <p v-if="drydock.mergeOutcome.value" role="status" class="px-5 py-3 text-mz-brass">
+            {{ drydock.mergeOutcome.value }}
+        </p>
+        <p v-if="actionError" role="alert" class="px-5 py-2 text-mz-pulse-crashed">{{ actionError }}</p>
+        <div v-if="drydock.warnings.value.length" class="px-5 py-3 text-mz-signal text-xs" role="alert">
+            <strong>Partial view — some repositories could not be fully read.</strong>
+            <p v-for="warning in drydock.warnings.value" :key="warning">{{ warning }}</p>
+        </div>
         <div class="flex-1 overflow-y-auto relative">
             <div
                 v-if="drydock.auth.value && !drydock.auth.value.authenticated"
@@ -86,10 +135,33 @@ watch(
                 data-test="drydock-empty"
             >
                 <p class="text-mz-text-faint font-mono text-[12px] italic">
-                    No open PRs across the laboratory. Clean slate.
+                    {{
+                        drydock.warnings.value.length
+                            ? 'No PRs returned from the available repositories.'
+                            : 'No open PRs across the laboratory. Clean slate.'
+                    }}
                 </p>
             </div>
-            <PrCard v-for="pr in drydock.prs.value" :key="`${pr.repoFullName}#${pr.number}`" :pr="pr" />
+            <p
+                v-if="!drydock.loading.value && drydock.prs.value.length && !groups.length"
+                class="p-5 text-sm text-mz-text-mute"
+            >
+                No matching PRs. Try All PRs or another search.
+            </p>
+            <section v-for="group in groups" :key="group.repo" class="mb-5">
+                <header class="px-5 py-3 flex items-center justify-between bg-mz-canvas">
+                    <div>
+                        <h3 class="mz-stamp-label">{{ group.prs[0]?.repoLabel }}</h3>
+                        <p class="text-xs text-mz-text-mute mt-1">
+                            {{ group.prs.length }} open {{ group.prs.length === 1 ? 'PR' : 'PRs' }}
+                        </p>
+                    </div>
+                    <button v-if="group.prs.some(isDependabot)" class="mz-button" @click="prepare(group.repo)">
+                        Prepare updates
+                    </button>
+                </header>
+                <PrCard v-for="pr in group.prs" :key="`${pr.repoFullName}#${pr.number}`" :pr="pr" />
+            </section>
         </div>
     </section>
 </template>

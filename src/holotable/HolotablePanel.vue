@@ -3,6 +3,7 @@ import {computed, onBeforeUnmount, ref, watch} from 'vue';
 
 import {useShell} from '../shell/useShell';
 import HolotableScene from './HolotableScene.vue';
+import ServiceList from './ServiceList.vue';
 import {useHolotable} from './useHolotable';
 
 const shell = useShell();
@@ -70,9 +71,10 @@ onBeforeUnmount(() => {
                 </button>
             </div>
         </header>
-        <div class="relative flex-1 min-h-0">
+        <div class="holotable-layout relative flex flex-1 min-h-0">
+            <ServiceList />
             <!-- Preserve the WebGL context between visits; active gates its RAF. -->
-            <HolotableScene v-if="visited" :active="open" />
+            <div class="map-pane flex-1 min-w-0 relative"><HolotableScene v-if="visited" :active="open" /></div>
             <div
                 v-if="errorCopy"
                 class="absolute inset-x-6 top-6 z-30 bg-mz-canvas/95 border border-mz-pulse-crashed/40 px-5 py-4 text-mz-text shadow-balcony"
@@ -90,3 +92,15 @@ onBeforeUnmount(() => {
         </div>
     </section>
 </template>
+
+<style scoped>
+@media (max-width: 800px) {
+    .holotable-layout {
+        overflow-y: auto;
+        flex-direction: column;
+    }
+    .map-pane {
+        min-height: 360px;
+    }
+}
+</style>
