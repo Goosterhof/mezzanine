@@ -149,3 +149,18 @@ read-only check of Parlour #165 confirms a real bot-authored, web-flow-committed
 head has `verification.verified=true` and `reason=valid`. No live merge was used
 for this validation. The three preview captures predate the small saved-state
 label correction; their action scenarios are unchanged.
+
+
+### Bounded re-review receipt — 2026-10-14
+
+Tube #173 records the Mad Scientist’s read-only recheck of
+`6790fbb..f159ae4485e8b030e897d0cf234f8da856bf96e2` and parent
+`adef50ff77d44c59129e36ae48c96decba72bcee`: all five original findings closed,
+with no new issues in that bounded diff. This is not a full frontend/monitoring
+review, coverage acceptance, Windows validation or publication authorization.
+Both implementation and ignore-rule commits remain local and unpushed.
+
+The peer suggested optional guidance for human-authored GitHub branch updates.
+That copy change is deferred: the current hold correctly routes such commits to
+ordinary review, and any recovery instructions should first be verified to preserve
+human changes. No source behavior changed for this receipt.
