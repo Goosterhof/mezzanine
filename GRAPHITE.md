@@ -58,8 +58,8 @@ text, pause polling, and offer Retry. The CLI remains usable throughout.
   highlighting covers Bash, JavaScript, JSON, Rust and TypeScript; other languages
   remain readable plain code. Raw HTML is escaped. Remote images are placeholders
   and never fetched. Reasoning and unknown protocol items are omitted.
-- HTTP(S) references open through the native opener. Local-file references and
-  other URL schemes are not enabled. Both terminals also support Ctrl/Command +
+- HTTP(S) references open through the native opener. Explicit absolute laboratory
+  file references open the local viewer; other URL schemes remain disabled. Both terminals also support Ctrl/Command +
   primary-click plain and OSC 8 web links, show their actual destination on hover,
   and expose opener failures.
 - The reader bounds each protocol line to 32 MiB, each turn to its last 200
@@ -157,3 +157,10 @@ TypeScript and formatting checks. The carried reader-lock nit does not require a
 new runtime change: recall/window retirement runs on a worker since `5f09689`.
 Serialized I/O deliberately preserves a single reader, with bounded response
 waits and the retired-UUID guard documented above.
+
+
+## Local image links — 22 October 2026
+
+Explicit laboratory file links and Markdown image references now open a click-driven
+preview with fit/actual-size controls and Show in folder. See [IMAGE-VIEWER.md](IMAGE-VIEWER.md)
+for path boundaries, tests and the installed-Windows acceptance limit.

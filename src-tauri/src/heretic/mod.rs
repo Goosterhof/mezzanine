@@ -1,5 +1,6 @@
 //! Read-only projection of the exact tube-bound Codex thread. The interactive
 //! CLI remains the session owner; this process never starts/resumes a thread.
+pub mod files;
 mod protocol;
 
 pub use protocol::{ChatPage, ChatReader};

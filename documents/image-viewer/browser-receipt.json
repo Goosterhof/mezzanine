@@ -1,0 +1,11 @@
+{
+  "checks": [
+    "No file read before click",
+    "Keyboard open, fit, actual size, reveal and Escape focus restoration",
+    "Missing file is visible and retryable",
+    "Non-image path is reveal-only",
+    "Markdown image syntax opens the same viewer",
+    "No browser errors or remote image requests"
+  ],
+  "boundary": "Chromium renderer and dialog; native IPC simulated, not installed Windows acceptance"
+}

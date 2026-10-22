@@ -2,11 +2,13 @@
 import {openUrl} from '@tauri-apps/plugin-opener';
 import {computed, ref} from 'vue';
 
+import LocalFilePreview from './LocalFilePreview.vue';
 import {isWebReference, renderMarkdown} from './markdown';
 
 const {text} = defineProps<{text: string}>();
 const html = computed(() => renderMarkdown(text));
 const feedback = ref('');
+const localFile = ref<string | null>(null);
 
 async function copyCode(button: Element): Promise<void> {
     const code = button.closest('.graphite-code')?.querySelector('code')?.textContent ?? '';
@@ -29,6 +31,11 @@ async function activate(event: MouseEvent): Promise<void> {
     const link = target.closest('a');
     if (!link) return;
     event.preventDefault();
+    const path = link.getAttribute('data-local-file');
+    if (path) {
+        localFile.value = path;
+        return;
+    }
     const href = link.getAttribute('href') ?? '';
     if (!isWebReference(href)) return;
     try {
@@ -44,5 +51,6 @@ async function activate(event: MouseEvent): Promise<void> {
         <!-- Raw HTML is disabled, URLs are restricted, code is escaped before highlighting. -->
         <div v-html="html"></div>
         <p v-if="feedback" class="graphite-feedback" role="status">{{ feedback }}</p>
+        <LocalFilePreview v-if="localFile" :key="localFile" :path="localFile" @close="localFile = null" />
     </div>
 </template>

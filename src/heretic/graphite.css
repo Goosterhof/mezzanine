@@ -377,3 +377,55 @@
     padding-bottom: 16px;
     margin-bottom: 16px;
 }
+
+.graphite-file-preview {
+    box-sizing: border-box;
+    width: min(1000px, 92vw);
+    max-height: 90vh;
+    padding: 20px;
+    border: 1px solid #555;
+    border-radius: 12px;
+    color: #d4d6d8;
+    background: #151719;
+    overflow: auto;
+    box-shadow: 0 20px 80px #0008;
+}
+.graphite-file-preview::backdrop {
+    background: #000b;
+}
+.graphite-file-preview header,
+.graphite-file-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+.graphite-file-preview header strong {
+    overflow-wrap: anywhere;
+}
+.graphite-file-preview .graphite-file-path {
+    overflow-wrap: anywhere;
+    font-size: 12px;
+    color: #9c9e9e;
+}
+.graphite-file-preview button {
+    color: #ddb16b;
+}
+.graphite-image-stage {
+    overflow: auto;
+    max-height: 65vh;
+    text-align: center;
+}
+.graphite-image-stage img {
+    max-width: 100%;
+    max-height: 64vh;
+    object-fit: contain;
+}
+.graphite-image-actual {
+    text-align: left;
+}
+.graphite-image-actual img {
+    max-width: none;
+    max-height: none;
+}
