@@ -145,6 +145,8 @@ pub fn run() {
             // write / resize / transition for dispatched scientists.
             commands::roster::open_colleague,
             heretic::read_heretic_chat,
+            heretic::files::read_chat_image,
+            heretic::files::reveal_chat_file,
             commands::roster::read_tube_connections,
             commands::roster::recall_scientist,
             commands::roster::list_roster,

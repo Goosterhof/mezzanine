@@ -1,0 +1,9 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Conversation image witness</title>
+<style>body{margin:0;background:#252729;font:16px system-ui}.graphite{min-height:100vh;padding:24px;box-sizing:border-box}</style>
+<div id="witness"></div>
+<script type="module">
+import {createApp,h} from 'vue';
+import MarkdownReply from '../src/heretic/MarkdownReply.vue';
+import '../src/heretic/graphite.css';
+createApp({render:()=>h('section',{class:'graphite'},[h('h1','Artwork in the conversation'),h(MarkdownReply,{text:'[Tavern icon](/laboratory/output/tavern.png) · [Missing image](/laboratory/output/missing.png) · [Source file](/laboratory/README.md)\n\n![Local artwork](/laboratory/output/tavern.png)\n\n![Remote tracking image](https://example.invalid/remote.png)'})])}).mount('#witness');
+</script></html>

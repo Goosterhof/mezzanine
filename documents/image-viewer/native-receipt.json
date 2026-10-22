@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-22",
+  "host": "Windows with WSL Ubuntu",
+  "regular_image": "512x512 Tavern PNG, 450029 bytes",
+  "checks": [
+    "Windows GetFinalPathNameByHandleW output is under canonical WSL laboratory root",
+    "Outside-root PNG is directly readable through Windows UNC (positive control)",
+    "Absolute escaping Linux file symlink: canonicalization refused with OS error 3",
+    "Relative escaping Linux file symlink: canonicalization refused with OS error 3",
+    "Escaping Linux directory symlink: canonicalization refused with OS error 3",
+    "Normalized UNC: ILCreateFromPathW succeeded for parent and file",
+    "SHOpenFolderAndSelectItems returned HRESULT 0"
+  ],
+  "scope": "Standalone native probes using extracted production handle helper and pinned opener shell API sequence; not a full Tauri IPC or installed WebView walkthrough",
+  "sources": [
+    "windows-handle-probe.rs",
+    "windows-reveal-probe.rs"
+  ]
+}

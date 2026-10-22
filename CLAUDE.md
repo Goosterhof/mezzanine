@@ -16,8 +16,8 @@ animation joints, but have distinct head and clothing geometry.
 The investor selected Graphite from the [chat study](studies/heretic-chat/README.md).
 `src/heretic/` renders Markdown, highlighted/copyable code, web references, folded
 work details, earlier replies and conversation-local pins. Raw HTML and remote
-images are disabled. HTTP(S) references open through Tauri; local file links are
-not yet supported. Both terminals also support Ctrl/Command-click web links,
+images are disabled. HTTP(S) references open through Tauri. Explicit laboratory
+file links open a local image preview or Show in folder; see [IMAGE-VIEWER.md](IMAGE-VIEWER.md). Both terminals also support Ctrl/Command-click web links,
 including named OSC 8 links, with destination and failure notices.
 
 `src-tauri/src/heretic/` owns one read-only `codex app-server --stdio` process,
