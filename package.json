@@ -39,7 +39,7 @@
     "devDependencies": {
         "@tauri-apps/cli": "^2.12.2",
         "@types/markdown-it": "^14.2.0",
-        "@unocss/preset-attributify": "^66.10.2",
+        "@unocss/preset-attributify": "^66.11.0",
         "@unocss/preset-icons": "^66.11.0",
         "@vitejs/plugin-vue": "^6.0.10",
         "@vitest/coverage-v8": "^5.0.5",
