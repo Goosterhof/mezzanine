@@ -515,11 +515,11 @@ in `beforeEach` to isolate from other tests. The singleton state
 survives across `useX()` calls within a single mount, which is the
 property the Roster and ScientistCanvas both depend on.
 
-**Test coverage** runs at v8 with 90% line/branch/function/statement
-thresholds when invoked via `npm run test:coverage`. The frontend
-cutover landed with the bench-era specs retired and the new
-roster / balcony surfaces shipping ahead of dedicated specs; backfill
-sweep is a Phase 2C task.
+**Test coverage** uses v8 with 90% line/branch/function/statement thresholds.
+Sentinel runs `npm run test:coverage`, enforcing all four gates in CI. Test-only
+success does not establish coverage acceptance. The v0.5.0 behavioral backfill
+closes the previous gap; [PLANNING-SERVICES.md](PLANNING-SERVICES.md#coverage-threshold-closed--2026-10-14)
+owns measured results, review scope and outstanding installed-Windows checks.
 
 ## Phase Roadmap
 

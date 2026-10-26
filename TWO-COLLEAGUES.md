@@ -163,5 +163,7 @@ The same roster UUID, PTY, fresh-conversation policy and Speaking Tube attachmen
 remain in use. A separate read-only app-server reader projects recorded messages
 from that exact Tube-bound thread; no model turn is started or resumed by it.
 See [GRAPHITE.md](GRAPHITE.md) for implementation boundaries and current receipts.
+Graphite is published in v0.4.0; its [release receipt](GRAPHITE.md#release-receipt--13-october-2026)
+records the signed installer verification separately from installed acceptance.
 The installed Windows evidence above belongs to earlier revisions; it does not
 certify the new Graphite reader or WebView clipboard behavior.

@@ -61,8 +61,35 @@ reading. Shell ID conversion and SHOpenFolderAndSelectItems return success
 (HRESULT 0) for the PNG using the path normalization already present in pinned
 tauri-plugin-opener 2.7.2. These are targeted native API probes, not the full app.
 
-Installed Windows/WebView acceptance remains a release-time check. Browser mocks do not establish those outcomes. No release
-or installed binary change is part of this source revision.
+Installed Windows/WebView acceptance remains open. Browser mocks and standalone
+native probes do not establish those outcomes. The original feature revision did
+not release or install a binary; the later publication is recorded below.
+
+## Release receipt — 22 October 2026
+
+[PR #214](https://github.com/Goosterhof/mezzanine/pull/214) merged as `e14030e`.
+Version-only [PR #215](https://github.com/Goosterhof/mezzanine/pull/215) merged as
+`d5f3599ec6576f66074d9f166c3171f21fd47d0b`; annotated tag
+[v0.5.1](https://github.com/Goosterhof/mezzanine/releases/tag/v0.5.1) points to it.
+All PR checks passed, followed by successful Windows Ascent run `39773766571`.
+
+Downloaded installer, signature and `latest.json` sizes/SHA-256 digests match the
+published metadata. Both Windows updater entries reference the same NSIS asset
+and signature. Independent Minisign verification succeeds against the configured
+public key and rejects a one-byte alteration. The updater key/endpoint are unchanged
+from v0.5.0. Local release artifacts and reproducible verifier live under the parent
+laboratory's `output/mezzanine-v0.5.1/`; the saved receipt includes exact hashes.
+
+Release discipline reinforced here: refresh the application's entry in Cargo.lock
+after `npm run version:bump`, inspect the version-only diff, and run Rust formatting
+and strict Clippy as well as the frontend build/version checks. The bump script
+updates four manifests; it does not itself refresh Cargo.lock.
+
+Publication is verified; no installed-app update or restart was performed. Resume
+through the existing parent `documents/lab-backlog.md` Windows walkthrough: open
+the real PNG from a Heretic reply, fit/actual-size, Enter/Escape/focus return,
+Show in folder and missing-file handling through actual Tauri IPC and WebView.
+This dated follow-up is a local documentation edit after the release tag.
 
 ## Follow-up outside this change
 

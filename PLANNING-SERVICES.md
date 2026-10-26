@@ -2,10 +2,11 @@
 
 The investor chose Mission Control for planning, Holotable for laboratory app
 health, and Drydock for dependency updates. Grind and Briefs are retired.
-This implementation is proposed in Mezzanine PR #180 on
-`feat/planning-services-drydock`, based on
-`92a64c7274e184ad57383a094b4556b74c17df29`; it is not a signed release or an
-installed-Windows acceptance receipt.
+[Mezzanine PR #180](https://github.com/Goosterhof/mezzanine/pull/180) is merged
+and [v0.5.0 is published](https://github.com/Goosterhof/mezzanine/releases/tag/v0.5.0).
+All four frontend coverage metrics exceed 90%, enforced in CI. The publication
+receipt below records installer verification; installed-Windows acceptance remains
+outstanding. Historical review entries retain the evidence available at each stage.
 
 ## Planning
 
@@ -196,3 +197,36 @@ The typechecked production build, lint and formatting pass; existing unrelated
 lint warnings remain. Rust is unchanged from the 243-test receipt. The coverage
 gap above is closed locally; installed-Windows acceptance and the scope limits of
 the prior peer review remain. The new commit requires its own CI/peer result.
+
+## Published v0.5.0 — 2026-10-14
+
+The investor merged [feature PR #180](https://github.com/Goosterhof/mezzanine/pull/180)
+at `dc5873017284448c12219c14b334f137f6dbcbc3`. Its final head `ad31f6f`
+passed frontend coverage, Rust, label and lockstep checks. The Mad Scientist's
+bounded follow-up (Tube #181) found no issues in the coverage/error-reset diff.
+
+At the investor's release request, version-only
+[PR #181](https://github.com/Goosterhof/mezzanine/pull/181) changed five files
+from 0.4.0 to 0.5.0, passed all checks, received peer agreement, and merged at
+`95b5b916027c7bb3a7997329fc28851384748bcb`. Annotated tag `v0.5.0` points to
+that merge. The [Windows release workflow](https://github.com/Goosterhof/mezzanine/actions/runs/38534295366)
+succeeded and [v0.5.0 is published](https://github.com/Goosterhof/mezzanine/releases/tag/v0.5.0).
+
+Downloaded artifact verification:
+
+- `The.Mezzanine_0.5.0_x64-setup.exe`: 5,496,680 bytes; SHA-256
+  `223f4c5b84d12b6b2f12d232299a315f76fd80125be1d97beaf197a6dff25325`,
+  matching GitHub's asset digest.
+- Both `windows-x86_64` and `windows-x86_64-nsis` manifest entries reference
+  that asset and match its published signature.
+- The installer signature independently verifies with `minisign-verify 0.2.5`
+  against the updater public key in the tagged application configuration.
+
+This closes publication, not installed-Windows acceptance. The walkthrough above
+remains outstanding; no running investor app or session was restarted.
+[Parent ignore-rule PR #137](https://github.com/Goosterhof/zmuuzn/pull/137)
+was still open at publication. The 14 October distillation rechecked GitHub and
+confirmed it merged at `9b2e8f34fb6e093b9d30ffd5d0f270e658b69a07`; no merge was
+performed by the extraction. The parent gitlink has not been advanced by this
+session. Verification artifacts are retained
+locally in `/tmp/mezzanine-v0.5.0/` (temporary, not durable storage).

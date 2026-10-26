@@ -4,8 +4,9 @@ The investor selected Graphite on 12 October 2026 and requested its integration
 and a PR. The Heretic’s right-hand conversation now presents formatted replies,
 clickable web references, highlighted code with Copy, folded work details,
 compact spacing, earlier replies, and a Margin for pinned replies. The Mad
-Scientist remains visible on the left. Version manifests are prepared for 0.4.0;
-this source change is not a release or an installed update.
+Scientist remains visible on the left. [v0.4.0 is published](https://github.com/Goosterhof/mezzanine/releases/tag/v0.4.0);
+the installed Windows Graphite walkthrough remains unverified. See the separate
+release receipt below.
 
 ![Graphite with code and a reference](documents/graphite-chat/graphite-code-and-reference.png)
 
@@ -126,8 +127,9 @@ optional MEZZANINE_READER_DISTRO to exercise the Windows → WSL bridge.
 
 **Still unverified:** installed Windows/WebView behavior, native clipboard and
 browser launching, actual live approval interaction in the small dock, and complete
-Windows → WSL reader/CLI shutdown together. No installer, release, deployed update,
-or investor walkthrough is claimed by these Linux/browser receipts.
+Windows → WSL reader/CLI shutdown together. These Linux/browser receipts alone
+do not certify the Windows installer or an investor walkthrough; the subsequent
+release receipt is recorded separately below.
 
 ## Peer review follow-up
 
@@ -157,6 +159,33 @@ TypeScript and formatting checks. The carried reader-lock nit does not require a
 new runtime change: recall/window retirement runs on a worker since `5f09689`.
 Serialized I/O deliberately preserves a single reader, with bounded response
 waits and the retired-UUID guard documented above.
+
+## Release receipt — 13 October 2026
+
+[PR #179](https://github.com/Goosterhof/mezzanine/pull/179) merged as
+`5a5dc4d9b8c74c59d6ab3b5de537be5d055ec4ec`, with reviewed feature tip
+`92a64c7274e184ad57383a094b4556b74c17df29`. The follow-up parent gitlink
+[PR #136](https://github.com/Goosterhof/zmuuzn/pull/136) is also merged and pins
+that feature tip, which remains an ancestor of the gadget's merge commit.
+
+On the investor's release instruction, tag `v0.4.0` at the merge revision ran
+the successful Windows [Ascent #38316810158](https://github.com/Goosterhof/mezzanine/actions/runs/38316810158).
+The [stable release](https://github.com/Goosterhof/mezzanine/releases/tag/v0.4.0)
+was published at 2026-10-12 22:36:34 UTC (13 October in Amsterdam). It contains
+`latest.json`, `The.Mezzanine_0.4.0_x64-setup.exe` and its `.sig`.
+
+The published installer was downloaded and checked: **5,434,069 bytes**, SHA-256
+`074546a36e2084cd1bfb1303433dd63e20c9c1db3a12d167fd17824a0548460c`.
+Both `windows-x86_64` and `windows-x86_64-nsis` updater entries resolve to that
+asset, and their signature matches the published signature file. The installer
+signature was independently verified with `minisign-verify` 0.2.5 against the
+public key embedded in the Mezzanine updater configuration. No signing secret
+was needed. The updater's GitHub API asset URL is valid; verification matched
+published asset metadata rather than requiring a browser-download hostname.
+
+This establishes a built, signed and published release. It does not establish
+installation or Graphite acceptance on the investor's Windows host. The
+[lab backlog](../../documents/lab-backlog.md) tracks that remaining walkthrough.
 
 
 ## Local image links — 22 October 2026
