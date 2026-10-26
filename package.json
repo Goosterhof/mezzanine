@@ -37,7 +37,7 @@
         "vue": "^3.5.44"
     },
     "devDependencies": {
-        "@tauri-apps/cli": "^2.12.2",
+        "@tauri-apps/cli": "^2.12.4",
         "@types/markdown-it": "^14.2.0",
         "@unocss/preset-attributify": "^66.10.2",
         "@unocss/preset-icons": "^66.11.0",
