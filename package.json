@@ -46,7 +46,7 @@
         "@vue/test-utils": "^2.5.1",
         "jsdom": "^31.0.0",
         "oxfmt": "^0.77.0",
-        "oxlint": "^1.92.0",
+        "oxlint": "^1.93.0",
         "oxlint-tsgolint": "^7.0.2006",
         "typescript": "~6.0.3",
         "unocss": "^66.12.0",
